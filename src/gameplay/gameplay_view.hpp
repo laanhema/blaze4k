@@ -4,10 +4,12 @@
 #include <string>
 #include <vector>
 #include "chart/chart.hpp"
+#include "gameplay/hud_renderer.hpp"
 #include "gameplay/judgment_engine.hpp"
 #include "gameplay/note_field.hpp"
 #include "gameplay/note_field_renderer.hpp"
 #include "gameplay/noteskin.hpp"
+#include "gameplay/score_keeper.hpp"
 #include "gameplay/speed_mod.hpp"
 #include "audio/sound_stream.hpp"
 #include "input/input_event.hpp"
@@ -52,6 +54,10 @@ public:
     [[nodiscard]] const JudgmentEvent* latest_judgment() const { return judge_.latest_event(); }
     [[nodiscard]] bool is_note_hidden(int note_index) const { return judge_.is_note_hidden(note_index); }
 
+    [[nodiscard]] const ScoreState& score_state() const { return score_.state(); }
+    [[nodiscard]] int dance_points() const { return score_.actual_dance_points(); }
+    [[nodiscard]] double score_percent() const { return score_.percent(); }
+
     void shutdown();
 
 private:
@@ -64,6 +70,9 @@ private:
     NoteSkin skin_;
     NoteFieldRenderer field_renderer_;
     JudgmentEngine judge_;
+    ScoreKeeper score_;
+    HudRenderer hud_;
+    std::vector<JudgmentEvent> new_events_;
     std::vector<NoteRenderItem> items_;
     std::vector<NoteRenderItem> visible_items_;
     NoteFieldConfig config_{};

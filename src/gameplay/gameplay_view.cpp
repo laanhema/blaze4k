@@ -1,6 +1,7 @@
 #include "gameplay/gameplay_view.hpp"
 
 #include <array>
+#include <iomanip>
 #include <iostream>
 
 #include "gameplay/judgment_input.hpp"
@@ -33,6 +34,7 @@ bool GameplayView::init(const Chart& chart, const JudgmentConstants& constants,
     }
 
     judge_.reset(&chart_, &constants);
+    score_.reset(&chart_, &constants);
 
     field_.set_chart(&chart_);
     field_.set_speed_mod(options.speed);
@@ -144,6 +146,12 @@ void GameplayView::update(double fixed_dt, const std::array<bool, 4>& held_colum
     // Judgments derive from the music clock only; `fixed_dt` advances the demo
     // stub source and never reaches the engine.
     judge_.update(clock_.time_seconds(), held_columns);
+
+    // Scoring is event-sourced: drain the newly appended judgment events into the
+    // keeper. No independent judgment logic, no frame/wall-clock input.
+    new_events_.clear();
+    judge_.drain_new_events(new_events_);
+    score_.consume(new_events_);
 }
 
 void GameplayView::render(GlQuadRenderer& renderer, int screen_w, int screen_h) {
@@ -179,11 +187,29 @@ void GameplayView::render(GlQuadRenderer& renderer, int screen_w, int screen_h) 
     }
 
     field_renderer_.render(field_, visible_items_, screen_w, screen_h, skin_, renderer);
+
+    // Live HUD. Only reached with a valid GL context (`render()` above early-returns
+    // when the renderer is uninitialized); the score state is computed in update().
+    hud_.render(score_.state(), screen_w, screen_h, renderer);
 }
 
 void GameplayView::shutdown() {
     if (ready_) {
-        std::cout << "[GameplayView] Session judgment events: " << judge_.events().size() << "\n";
+        const ScoreState& score = score_.state();
+        std::cout << "[GameplayView] Score: DP " << score.actual_dp << "/" << score.possible_dp
+                  << " (" << std::fixed << std::setprecision(2) << (score.percent * 100.0)
+                  << "%) grade " << score_.grade().label << " | combo " << score.combo
+                  << " (max " << score.max_combo << ")";
+        std::cout << " | F " << score.tap_counts[static_cast<std::size_t>(TapJudgment::Fantastic)]
+                  << " E " << score.tap_counts[static_cast<std::size_t>(TapJudgment::Excellent)]
+                  << " G " << score.tap_counts[static_cast<std::size_t>(TapJudgment::Great)]
+                  << " D " << score.tap_counts[static_cast<std::size_t>(TapJudgment::Decent)]
+                  << " W " << score.tap_counts[static_cast<std::size_t>(TapJudgment::WayOff)]
+                  << " M " << score.tap_counts[static_cast<std::size_t>(TapJudgment::Miss)]
+                  << " Mine " << score.tap_counts[static_cast<std::size_t>(TapJudgment::HitMine)]
+                  << " OK " << score.hold_counts[static_cast<std::size_t>(HoldJudgment::Ok)]
+                  << " NG " << score.hold_counts[static_cast<std::size_t>(HoldJudgment::Ng)]
+                  << " | events " << judge_.events().size() << "\n";
         audio_.stop();
         audio_.unload();
         skin_.shutdown();

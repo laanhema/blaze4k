@@ -120,3 +120,14 @@ target_link_libraries(judgment_engine_test PRIVATE
 )
 
 add_test(NAME judgment_engine_test COMMAND judgment_engine_test)
+
+
+add_executable(score_keeper_test
+    score_keeper_test.cpp
+)
+
+target_link_libraries(score_keeper_test PRIVATE
+    tundra_core
+)
+
+add_test(NAME score_keeper_test COMMAND score_keeper_test)
