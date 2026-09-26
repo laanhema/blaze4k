@@ -4,6 +4,7 @@
 #include <string_view>
 #include "chart/song_metadata.hpp"
 #include "chart/timing_data.hpp"
+#include "chart/chart.hpp"
 
 namespace td {
 
@@ -18,6 +19,7 @@ public:
 
     [[nodiscard]] const SongMetadata& metadata() const { return metadata_; }
     [[nodiscard]] const TimingData& timing() const { return timing_; }
+    [[nodiscard]] const std::vector<Chart>& charts() const { return charts_; }
     [[nodiscard]] bool is_ssc() const { return is_ssc_; }
 
 private:
@@ -25,6 +27,7 @@ private:
 
     SongMetadata metadata_;
     TimingData timing_;
+    std::vector<Chart> charts_;
     bool is_ssc_ = false;
 };
 
