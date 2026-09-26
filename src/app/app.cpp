@@ -111,6 +111,9 @@ void App::process_events() {
         input_manager_.handle_sdl_event(event);
         on_event(event);
     }
+    // Same nanosecond timebase as InputEvent::timestamp_ns; used only to age
+    // input events against the music clock, never as a gameplay clock.
+    input_reference_ns_ = SDL_GetTicksNS();
 }
 
 void App::on_update(double fixed_dt) {

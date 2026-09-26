@@ -1,6 +1,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <array>
 #include <filesystem>
 #include "app/app.hpp"
 #include "chart/simfile_parser.hpp"
@@ -111,7 +112,7 @@ int main(int argc, char* argv[]) {
         }
         options.scroll = downscroll ? td::ScrollDirection::Down : td::ScrollDirection::Up;
 
-        if (!gameplay.init(parser.charts().front(), audio_path, options)) {
+        if (!gameplay.init(parser.charts().front(), app.judgment_constants(), audio_path, options)) {
             std::cerr << "[main] Failed to initialize gameplay demo\n";
             return 1;
         }
@@ -122,8 +123,16 @@ int main(int argc, char* argv[]) {
             }
         }
 
-        app.set_update_callback([&gameplay](double fixed_dt) {
-            gameplay.update(fixed_dt);
+        app.set_update_callback([&gameplay, &app](double fixed_dt) {
+            auto events = app.input_manager().poll_events();
+            gameplay.handle_input_events(events, app.input_reference_ns());
+            const std::array<bool, 4> held = {
+                app.input_manager().is_action_down(td::GameAction::Left),
+                app.input_manager().is_action_down(td::GameAction::Down),
+                app.input_manager().is_action_down(td::GameAction::Up),
+                app.input_manager().is_action_down(td::GameAction::Right),
+            };
+            gameplay.update(fixed_dt, held);
         });
         app.set_render_callback([&gameplay, &quad_renderer, &app](double /*alpha*/) {
             if (quad_renderer.is_initialized()) {

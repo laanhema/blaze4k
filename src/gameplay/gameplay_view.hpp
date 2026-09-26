@@ -1,13 +1,16 @@
 #pragma once
 
+#include <array>
 #include <string>
 #include <vector>
 #include "chart/chart.hpp"
+#include "gameplay/judgment_engine.hpp"
 #include "gameplay/note_field.hpp"
 #include "gameplay/note_field_renderer.hpp"
 #include "gameplay/noteskin.hpp"
 #include "gameplay/speed_mod.hpp"
 #include "audio/sound_stream.hpp"
+#include "input/input_event.hpp"
 #include "render/gl_quad_renderer.hpp"
 #include "timing/music_clock.hpp"
 
@@ -34,12 +37,20 @@ public:
     GameplayView(const GameplayView&) = delete;
     GameplayView& operator=(const GameplayView&) = delete;
 
-    bool init(const Chart& chart, const std::string& audio_path, const GameplayOptions& options);
-    void update(double fixed_dt);
+    bool init(const Chart& chart, const JudgmentConstants& constants, const std::string& audio_path,
+              const GameplayOptions& options);
+    void handle_input_events(const std::vector<InputEvent>& events, uint64_t reference_ns);
+    void update(double fixed_dt, const std::array<bool, 4>& held_columns);
     void render(GlQuadRenderer& renderer, int screen_w, int screen_h);
 
     [[nodiscard]] double music_time_seconds() const { return clock_.time_seconds(); }
     [[nodiscard]] bool is_ready() const { return ready_; }
+
+    [[nodiscard]] const std::vector<JudgmentEvent>& judgment_events() const {
+        return judge_.events();
+    }
+    [[nodiscard]] const JudgmentEvent* latest_judgment() const { return judge_.latest_event(); }
+    [[nodiscard]] bool is_note_hidden(int note_index) const { return judge_.is_note_hidden(note_index); }
 
     void shutdown();
 
@@ -52,7 +63,9 @@ private:
     NoteField field_;
     NoteSkin skin_;
     NoteFieldRenderer field_renderer_;
+    JudgmentEngine judge_;
     std::vector<NoteRenderItem> items_;
+    std::vector<NoteRenderItem> visible_items_;
     NoteFieldConfig config_{};
 
     double receptor_fraction_ = 0.15;
