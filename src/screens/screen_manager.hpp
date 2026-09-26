@@ -12,6 +12,9 @@ namespace td {
 // Also implements the central idle-attract policy: when the active screen is
 // Title or Select and no input arrives for `idle_timeout_seconds`, it switches
 // to Attract, remembering the origin so a Confirm press returns there.
+//
+// Back-navigation contract: Back from Attract -> its origin, Select -> Title,
+// and Gameplay -> Select (abort). Title/Results do not consume Back.
 class ScreenManager {
 public:
     explicit ScreenManager(double idle_timeout_seconds = 30.0);

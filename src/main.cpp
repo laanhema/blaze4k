@@ -8,6 +8,7 @@
 #include <filesystem>
 #include "app/app.hpp"
 #include "chart/simfile_parser.hpp"
+#include "chart/song_library.hpp"
 #include "data/config.hpp"
 #include "data/config_loader.hpp"
 #include "data/data_paths.hpp"
@@ -15,7 +16,9 @@
 #include "gameplay/gameplay_view.hpp"
 #include "render/gl_quad_renderer.hpp"
 #include "screens/attract_screen.hpp"
-#include "screens/select_placeholder_screen.hpp"
+#include "screens/gameplay_screen.hpp"
+#include "screens/play_request.hpp"
+#include "screens/select_screen.hpp"
 #include "screens/screen_manager.hpp"
 #include "screens/title_screen.hpp"
 
@@ -29,6 +32,8 @@ void print_help() {
               << "  --smoke-test [N]        Run N frames and exit cleanly (default: 10)\n"
               << "  --no-vsync              Disable vertical sync\n"
               << "  --attract-timeout <s>   Idle seconds before Attract (default 30; <=0 disables)\n"
+              << "  --songs <dir>           Songs folder to scan (default: ./songs, ./data/songs)\n"
+              << "  --start-screen <name>   Start on 'title' or 'select' (default: title)\n"
               << "  --data-dir <path>       Override the data directory (config.json/scores.json)\n"
               << "  --xdg                   Use the Linux XDG data directory instead of ./data\n"
               << "                          (also enabled by the TUNDRA_XDG=1 environment variable)\n"
@@ -60,6 +65,8 @@ int main(int argc, char* argv[]) {
     bool attract_timeout_given = false;
     bool xdg_flag = false;
     std::string data_dir_text;
+    std::string songs_dir_text;
+    std::string start_screen_text;
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
@@ -104,6 +111,18 @@ int main(int argc, char* argv[]) {
             fail_off = true;
         } else if (arg == "--xdg") {
             xdg_flag = true;
+        } else if (arg == "--songs") {
+            if (i + 1 < argc) {
+                songs_dir_text = argv[++i];
+            } else {
+                std::cerr << "[main] --songs requires a directory path\n";
+            }
+        } else if (arg == "--start-screen") {
+            if (i + 1 < argc) {
+                start_screen_text = argv[++i];
+            } else {
+                std::cerr << "[main] --start-screen requires 'title' or 'select'\n";
+            }
         } else if (arg == "--data-dir") {
             if (i + 1 < argc) {
                 data_dir_text = argv[++i];
@@ -158,6 +177,37 @@ int main(int argc, char* argv[]) {
             std::cout << scores_message << "\n";
         }
     }
+
+    // C3: resolve and scan the songs directory. Non-fatal: a missing/empty
+    // library is a valid wheel with zero entries.
+    td::SongLibrary library;
+    {
+        fs::path songs_dir;
+        if (!songs_dir_text.empty()) {
+            songs_dir = fs::path(songs_dir_text);
+        } else {
+            const fs::path exe_dir = td::default_executable_dir();
+            const fs::path candidates[] = {fs::path("songs"), fs::path("data") / "songs",
+                                           exe_dir / "songs"};
+            for (const fs::path& candidate : candidates) {
+                std::error_code ec;
+                if (fs::is_directory(candidate, ec)) {
+                    songs_dir = candidate;
+                    break;
+                }
+            }
+        }
+        if (!songs_dir.empty()) {
+            library.scan_directory(songs_dir);
+            std::cout << "[SongLibrary] scanned '" << songs_dir.string() << "': "
+                      << library.total_songs() << " songs, " << library.total_charts()
+                      << " charts\n";
+        } else {
+            std::cout << "[SongLibrary] no songs directory found; wheel will be empty\n";
+        }
+    }
+
+    td::PlayRequest play_request;
 
     td::App app(config);
     if (!app.init()) {
@@ -237,10 +287,27 @@ int main(int argc, char* argv[]) {
         shell = std::make_unique<td::ScreenManager>(attract_timeout);
         shell->add_screen(std::make_unique<td::TitleScreen>());
         shell->add_screen(std::make_unique<td::AttractScreen>());
-        shell->add_screen(std::make_unique<td::SelectPlaceholderScreen>());
-        shell->start(td::ScreenId::Title);
+        shell->add_screen(std::make_unique<td::SelectScreen>());
+        shell->add_screen(std::make_unique<td::GameplayScreen>());
         shell->context().config = &game_config;
         shell->context().scores = &high_scores;
+        shell->context().library = &library;
+        shell->context().constants = &app.judgment_constants();
+        shell->context().play_request = &play_request;
+        shell->context().action_down = [&app](td::GameAction action) {
+            return app.input_manager().is_action_down(action);
+        };
+
+        td::ScreenId start_screen = td::ScreenId::Title;
+        if (!start_screen_text.empty()) {
+            if (start_screen_text == "select") {
+                start_screen = td::ScreenId::Select;
+            } else if (start_screen_text != "title") {
+                std::cerr << "[main] Unknown --start-screen '" << start_screen_text
+                          << "'; using title\n";
+            }
+        }
+        shell->start(start_screen);
 
         if (!app.window().is_headless()) {
             if (!quad_renderer.init()) {
@@ -250,6 +317,7 @@ int main(int argc, char* argv[]) {
 
         app.set_update_callback([&shell, &app](double fixed_dt) {
             auto events = app.input_manager().poll_events();
+            shell->context().input_reference_ns = app.input_reference_ns();
             shell->update(fixed_dt, events);
         });
         app.set_render_callback([&shell, &quad_renderer, &app](double /*alpha*/) {

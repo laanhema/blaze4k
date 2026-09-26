@@ -11,6 +11,7 @@
 #include "gameplay/note_field_renderer.hpp"
 #include "gameplay/noteskin.hpp"
 #include "gameplay/score_keeper.hpp"
+#include "gameplay/gameplay_options.hpp"
 #include "gameplay/speed_mod.hpp"
 #include "audio/sound_stream.hpp"
 #include "input/input_event.hpp"
@@ -18,13 +19,6 @@
 #include "timing/music_clock.hpp"
 
 namespace td {
-
-struct GameplayOptions {
-    SpeedMod speed{};
-    ScrollDirection scroll = ScrollDirection::Up;
-    double global_offset_seconds = 0.0;
-    bool fail_enabled = true; // false = Fail-Off (song continues to the end)
-};
 
 // Where a single song run stands. B6 exposes this so the future screen state
 // machine (C1/C7) can transition out of gameplay. `Cleared` means every row/hold

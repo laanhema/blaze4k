@@ -32,6 +32,7 @@ public:
 
 private:
     void setup_default_mappings();
+    void clear_action_states();
     void on_gamepad_added(SDL_JoystickID joystick_id);
     void on_gamepad_removed(SDL_JoystickID joystick_id);
 

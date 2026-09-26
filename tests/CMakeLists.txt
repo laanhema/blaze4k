@@ -172,3 +172,33 @@ target_link_libraries(config_persistence_test PRIVATE
 )
 
 add_test(NAME config_persistence_test COMMAND config_persistence_test)
+
+add_executable(select_screen_test
+    select_screen_test.cpp
+)
+
+target_link_libraries(select_screen_test PRIVATE
+    tundra_core
+)
+
+add_test(NAME select_screen_test COMMAND select_screen_test)
+
+add_executable(preview_player_test
+    preview_player_test.cpp
+)
+
+target_link_libraries(preview_player_test PRIVATE
+    tundra_core
+)
+
+add_test(NAME preview_player_test COMMAND preview_player_test)
+
+add_executable(texture_test
+    texture_test.cpp
+)
+
+target_link_libraries(texture_test PRIVATE
+    tundra_core
+)
+
+add_test(NAME texture_test COMMAND texture_test)
