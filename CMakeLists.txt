@@ -93,6 +93,7 @@ add_library(tundra_core STATIC
     src/timing/judgment_constants.cpp
     src/render/texture.cpp
     src/render/gl_quad_renderer.cpp
+    src/render/bitmap_font.cpp
     src/gameplay/speed_mod.cpp
     src/gameplay/note_field.cpp
     src/gameplay/judgment_engine.cpp
@@ -103,6 +104,10 @@ add_library(tundra_core STATIC
     src/gameplay/note_field_renderer.cpp
     src/gameplay/gameplay_view.cpp
     src/data/judgment_constants_loader.cpp
+    src/screens/screen_manager.cpp
+    src/screens/title_screen.cpp
+    src/screens/attract_screen.cpp
+    src/screens/select_placeholder_screen.cpp
 )
 
 target_include_directories(tundra_core PUBLIC

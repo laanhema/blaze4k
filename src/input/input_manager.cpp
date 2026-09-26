@@ -179,4 +179,12 @@ bool InputManager::is_action_down(GameAction action) const {
     return false;
 }
 
+GameAction InputManager::action_for_key(SDL_Keycode key) const {
+    auto it = key_map_.find(key);
+    if (it != key_map_.end()) {
+        return it->second;
+    }
+    return GameAction::None;
+}
+
 } // namespace td

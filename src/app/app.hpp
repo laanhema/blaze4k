@@ -33,9 +33,12 @@ public:
 
     using UpdateCallback = std::function<void(double fixed_dt)>;
     using RenderCallback = std::function<void(double alpha)>;
+    // Returns true if the callback consumed the event (e.g. a screen handled Back).
+    using EventCallback = std::function<bool(const SDL_Event&)>;
 
     void set_update_callback(UpdateCallback cb) { update_cb_ = std::move(cb); }
     void set_render_callback(RenderCallback cb) { render_cb_ = std::move(cb); }
+    void set_event_callback(EventCallback cb) { event_cb_ = std::move(cb); }
 
 protected:
     virtual void on_update(double fixed_dt);
@@ -58,6 +61,7 @@ private:
 
     UpdateCallback update_cb_;
     RenderCallback render_cb_;
+    EventCallback event_cb_;
 };
 
 } // namespace td
