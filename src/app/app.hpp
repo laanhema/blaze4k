@@ -29,6 +29,7 @@ public:
     [[nodiscard]] InputManager& input_manager() { return input_manager_; }
     [[nodiscard]] const AppConfig& config() const { return config_; }
     [[nodiscard]] const JudgmentConstants& judgment_constants() const { return judgment_constants_; }
+    [[nodiscard]] uint64_t input_reference_ns() const { return input_reference_ns_; }
 
     using UpdateCallback = std::function<void(double fixed_dt)>;
     using RenderCallback = std::function<void(double alpha)>;
@@ -51,6 +52,7 @@ private:
     bool is_running_ = false;
     uint64_t perf_frequency_ = 0;
     uint64_t last_time_ = 0;
+    uint64_t input_reference_ns_ = 0;
     double accumulator_ = 0.0;
     int frames_rendered_ = 0;
 

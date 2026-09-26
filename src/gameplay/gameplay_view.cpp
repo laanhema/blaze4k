@@ -1,6 +1,9 @@
 #include "gameplay/gameplay_view.hpp"
 
+#include <array>
 #include <iostream>
+
+#include "gameplay/judgment_input.hpp"
 
 namespace td {
 
@@ -21,12 +24,15 @@ GameplayView::~GameplayView() {
     shutdown();
 }
 
-bool GameplayView::init(const Chart& chart, const std::string& audio_path, const GameplayOptions& options) {
+bool GameplayView::init(const Chart& chart, const JudgmentConstants& constants,
+                        const std::string& audio_path, const GameplayOptions& options) {
     chart_ = chart;
     if (chart_.notes.empty()) {
         std::cerr << "[GameplayView] Chart has no notes; nothing to play\n";
         return false;
     }
+
+    judge_.reset(&chart_, &constants);
 
     field_.set_chart(&chart_);
     field_.set_speed_mod(options.speed);
@@ -86,27 +92,58 @@ void GameplayView::bind_clock_source() {
     }
 }
 
-void GameplayView::update(double fixed_dt) {
+void GameplayView::handle_input_events(const std::vector<InputEvent>& events, uint64_t reference_ns) {
     if (!ready_) {
         return;
     }
 
-    if (!use_stub_) {
+    // Sample the music time once, age each SDL-timestamped event against it, and
+    // hand the engine an absolute music time (no frame/wall-clock enters here).
+    const double reference_music = clock_.time_seconds();
+    for (const InputEvent& event : events) {
+        if (!event.pressed) {
+            continue;
+        }
+
+        int column = -1;
+        switch (event.action) {
+            case GameAction::Left: column = 0; break;
+            case GameAction::Down: column = 1; break;
+            case GameAction::Up: column = 2; break;
+            case GameAction::Right: column = 3; break;
+            default: break;
+        }
+        if (column < 0) {
+            continue; // Menu actions and releases are not gameplay steps.
+        }
+
+        judge_.handle_step(column,
+                           music_time_for_event(event.timestamp_ns, reference_ns, reference_music));
+    }
+}
+
+void GameplayView::update(double fixed_dt, const std::array<bool, 4>& held_columns) {
+    if (!ready_) {
         return;
     }
 
-    // Stub fallback: retry starting the stream in case it was only transiently
-    // unavailable at init. If it starts, switch the clock to the real audio
-    // source so gameplay time always follows whichever source drives update.
-    if (!audio_started_ && audio_.is_loaded() && audio_.play()) {
-        audio_started_ = true;
-        use_stub_ = false;
-        bind_clock_source();
-        std::cout << "[GameplayView] Audio started; switched clock source from stub to audio\n";
-        return;
+    if (use_stub_) {
+        // Stub fallback: retry starting the stream in case it was only transiently
+        // unavailable at init. If it starts, switch the clock to the real audio
+        // source so gameplay time always follows whichever source drives update.
+        if (!audio_started_ && audio_.is_loaded() && audio_.play()) {
+            audio_started_ = true;
+            use_stub_ = false;
+            bind_clock_source();
+            std::cout << "[GameplayView] Audio started; switched clock source from stub to audio\n";
+        } else {
+            stub_frames_ += fixed_dt * static_cast<double>(stub_sample_rate_);
+        }
     }
 
-    stub_frames_ += fixed_dt * static_cast<double>(stub_sample_rate_);
+    // Judgments derive from the music clock only; `fixed_dt` advances the demo
+    // stub source and never reaches the engine.
+    judge_.update(clock_.time_seconds(), held_columns);
 }
 
 void GameplayView::render(GlQuadRenderer& renderer, int screen_w, int screen_h) {
@@ -129,16 +166,30 @@ void GameplayView::render(GlQuadRenderer& renderer, int screen_w, int screen_h) 
     }
 
     field_.compute_visible(clock_.time_seconds(), visible_top, visible_bottom, items_);
-    field_renderer_.render(field_, items_, screen_w, screen_h, skin_, renderer);
+
+    // "Visual feedback matches the log": filter the rendered set to exactly the
+    // notes the judgment log has not hidden (OpenITG hide rule, Player.cpp:1284-1302).
+    visible_items_.clear();
+    for (const NoteRenderItem& item : items_) {
+        const int index =
+            item.note == nullptr ? -1 : static_cast<int>(item.note - chart_.notes.data());
+        if (!judge_.is_note_hidden(index)) {
+            visible_items_.push_back(item);
+        }
+    }
+
+    field_renderer_.render(field_, visible_items_, screen_w, screen_h, skin_, renderer);
 }
 
 void GameplayView::shutdown() {
     if (ready_) {
+        std::cout << "[GameplayView] Session judgment events: " << judge_.events().size() << "\n";
         audio_.stop();
         audio_.unload();
         skin_.shutdown();
         clock_.clear_source();
         items_.clear();
+        visible_items_.clear();
         ready_ = false;
     }
 }

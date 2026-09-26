@@ -1,0 +1,71 @@
+#pragma once
+
+#include <array>
+#include <cstddef>
+#include <vector>
+#include "chart/chart.hpp"
+#include "gameplay/judgment.hpp"
+#include "timing/judgment_constants.hpp"
+
+namespace td {
+
+// Deterministic, event-sourced judgment engine.
+//
+// This module is time-parameterized: callers pass an absolute music time (from
+// `MusicClock`) rather than letting the engine read a clock, exactly like
+// `NoteField`. It includes no SDL/GL/audio/chrono headers, so the judgment path
+// can never consult wall-clock or frame timing (AGENTS.md core principle 1).
+//
+// It owns the append-only judgment log and nothing else: no combo, life, DP,
+// percent, or grade state. Those derive from the log (B5/B6).
+class JudgmentEngine {
+public:
+    // `chart` and `constants` must outlive the engine. Builds per-column note
+    // index lists and resets all note/judgment state.
+    void reset(const Chart* chart, const JudgmentConstants* constants);
+
+    // Button-down in `column` at `music_time_seconds`. Mirrors Player::HandleStep:
+    // closest-note tap/mine grading + roll re-hit refresh.
+    void handle_step(int column, double music_time_seconds);
+
+    // Per-frame: miss/avoided-mine expiry, hold/roll life, held-over-mine crossing.
+    // Mirrors Player::Update. Uses only `music_time_seconds` (never frame delta).
+    void update(double music_time_seconds, const std::array<bool, 4>& held_columns);
+
+    [[nodiscard]] const std::vector<JudgmentEvent>& events() const { return events_; }
+    void drain_new_events(std::vector<JudgmentEvent>& out); // appends events since last drain
+
+    [[nodiscard]] bool is_note_judged(int note_index) const;
+    [[nodiscard]] bool is_note_hidden(int note_index) const;
+    [[nodiscard]] const JudgmentEvent* latest_event() const;
+
+private:
+    struct NoteState {
+        TapJudgment tap = TapJudgment::Num;     // Num = ungraded
+        HoldJudgment hold = HoldJudgment::Num;
+        double hold_satisfied_time = 0.0;       // last music time life was full
+        bool hold_head_hit = false;             // bSteppedOnTapNote
+        bool complete = false;                  // no further judgment possible
+    };
+
+    void emit(const JudgmentEvent& event);
+    void handle_step_tap(int note_index, double delta_seconds, double hit_time);
+    void handle_step_mine(int note_index, double delta_seconds, double hit_time);
+    void refresh_active_rolls(int column, double music_time);
+    void expire_notes(double music_time);
+    void update_holds(double music_time, const std::array<bool, 4>& held_columns);
+    void cross_mines(double music_time, const std::array<bool, 4>& held_columns);
+
+    const Chart* chart_ = nullptr;
+    const JudgmentConstants* constants_ = nullptr;
+    std::vector<NoteState> states_;
+    std::vector<std::vector<int>> column_notes_;   // note indices per column (time order)
+    std::vector<std::vector<int>> column_mines_;   // mine indices per column (time order)
+    std::vector<int> active_holds_;                // hold/roll indices not yet complete
+    std::vector<JudgmentEvent> events_;
+    std::size_t new_event_begin_ = 0;
+    bool has_last_update_ = false;
+    double last_update_time_ = 0.0;
+};
+
+} // namespace td

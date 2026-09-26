@@ -109,3 +109,14 @@ target_link_libraries(note_field_test PRIVATE
 )
 
 add_test(NAME note_field_test COMMAND note_field_test)
+
+
+add_executable(judgment_engine_test
+    judgment_engine_test.cpp
+)
+
+target_link_libraries(judgment_engine_test PRIVATE
+    tundra_core
+)
+
+add_test(NAME judgment_engine_test COMMAND judgment_engine_test)
