@@ -16,8 +16,10 @@ InputManager::InputManager(InputManager&& other) noexcept
       gamepad_button_map_(std::move(other.gamepad_button_map_)),
       gamepads_(std::move(other.gamepads_)),
       action_states_(std::move(other.action_states_)),
+      gamepad_back_hold_ns_(std::move(other.gamepad_back_hold_ns_)),
       event_queue_(std::move(other.event_queue_)) {
     other.gamepads_.clear();
+    other.gamepad_back_hold_ns_.clear();
 }
 
 InputManager& InputManager::operator=(InputManager&& other) noexcept {
@@ -27,8 +29,10 @@ InputManager& InputManager::operator=(InputManager&& other) noexcept {
         gamepad_button_map_ = std::move(other.gamepad_button_map_);
         gamepads_ = std::move(other.gamepads_);
         action_states_ = std::move(other.action_states_);
+        gamepad_back_hold_ns_ = std::move(other.gamepad_back_hold_ns_);
         event_queue_ = std::move(other.event_queue_);
         other.gamepads_.clear();
+        other.gamepad_back_hold_ns_.clear();
     }
     return *this;
 }
@@ -53,6 +57,7 @@ void InputManager::setup_default_mappings() {
     key_map_[SDLK_RETURN] = GameAction::Confirm;
     key_map_[SDLK_KP_ENTER] = GameAction::Confirm;
     key_map_[SDLK_ESCAPE] = GameAction::Back;
+    key_map_[SDLK_TAB] = GameAction::Options; // C4: open/close the options overlay
 
     // Gamepad defaults: D-pad
     gamepad_button_map_[SDL_GAMEPAD_BUTTON_DPAD_LEFT] = GameAction::Left;
@@ -69,6 +74,11 @@ void InputManager::setup_default_mappings() {
     // Gamepad defaults: Start / Back
     gamepad_button_map_[SDL_GAMEPAD_BUTTON_START] = GameAction::Confirm;
     gamepad_button_map_[SDL_GAMEPAD_BUTTON_BACK] = GameAction::Back;
+
+    // Gamepad defaults: shoulders open/close the options overlay (C4). All
+    // in-menu navigation reuses the directions/Confirm/Back above.
+    gamepad_button_map_[SDL_GAMEPAD_BUTTON_LEFT_SHOULDER] = GameAction::Options;
+    gamepad_button_map_[SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER] = GameAction::Options;
 }
 
 void InputManager::reset_to_defaults() {
@@ -117,6 +127,41 @@ void InputManager::clear_action_states() {
     for (auto& entry : action_states_) {
         entry.second = false;
     }
+    gamepad_back_hold_ns_.clear();
+}
+
+void InputManager::handle_gamepad_back(int device_id, bool pressed, uint64_t timestamp_ns) {
+    if (pressed) {
+        // Defer: a tap must stay Back, a hold becomes Options. No event is
+        // emitted until release, when the gesture is disambiguated.
+        gamepad_back_hold_ns_[device_id] = timestamp_ns;
+        action_states_[GameAction::Back] = true;
+        return;
+    }
+
+    const auto it = gamepad_back_hold_ns_.find(device_id);
+    const uint64_t down_ns = it != gamepad_back_hold_ns_.end() ? it->second : timestamp_ns;
+    if (it != gamepad_back_hold_ns_.end()) {
+        gamepad_back_hold_ns_.erase(it);
+    }
+    action_states_[GameAction::Back] = false;
+
+    const bool held = timestamp_ns >= down_ns && (timestamp_ns - down_ns) >= kBackHoldOptionsNs;
+    const GameAction action = held ? GameAction::Options : GameAction::Back;
+
+    InputEvent press_event;
+    press_event.action = action;
+    press_event.pressed = true;
+    press_event.timestamp_ns = down_ns;
+    press_event.device = DeviceType::Gamepad;
+    press_event.device_id = device_id;
+    press_event.raw_code = SDL_GAMEPAD_BUTTON_BACK;
+    event_queue_.push_back(press_event);
+
+    InputEvent release_event = press_event;
+    release_event.pressed = false;
+    release_event.timestamp_ns = timestamp_ns;
+    event_queue_.push_back(release_event);
 }
 
 void InputManager::handle_sdl_event(const SDL_Event& event) {
@@ -163,6 +208,14 @@ void InputManager::handle_sdl_event(const SDL_Event& event) {
         if (it != gamepad_button_map_.end()) {
             GameAction action = it->second;
             bool pressed = (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN);
+
+            if (action == GameAction::Back) {
+                // Bare pads have no shoulder buttons; a hold on Back opens the
+                // options overlay (see handle_gamepad_back).
+                handle_gamepad_back(event.gbutton.which, pressed, event.gbutton.timestamp);
+                return;
+            }
+
             action_states_[action] = pressed;
 
             InputEvent ie;

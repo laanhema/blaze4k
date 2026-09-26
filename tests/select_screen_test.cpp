@@ -13,6 +13,7 @@
 #include "chart/song_library.hpp"
 #include "chart/timing_data.hpp"
 #include "data/config.hpp"
+#include "data/config_loader.hpp"
 #include "data/high_scores.hpp"
 #include "gameplay/gameplay_options.hpp"
 #include "render/gl_quad_renderer.hpp"
@@ -20,6 +21,7 @@
 #include "screens/play_request.hpp"
 #include "screens/select_screen.hpp"
 #include "screens/screen_manager.hpp"
+#include "screens/title_screen.hpp"
 
 #define TEST_CHECK(expr) \
     do { \
@@ -320,6 +322,14 @@ void test_empty_library() {
     manager.update(kDt, {press(GameAction::Right)});
     manager.update(kDt, {press(GameAction::Left)});
 
+    // The options overlay is crash-free on an empty library too.
+    manager.update(kDt, {press(GameAction::Options)});
+    TEST_CHECK(select_ptr->options_open());
+    manager.update(kDt, {press(GameAction::Down)});
+    manager.update(kDt, {press(GameAction::Right)});
+    manager.update(kDt, {press(GameAction::Back)});
+    TEST_CHECK(!select_ptr->options_open());
+
     td::GlQuadRenderer renderer; // uninitialized: safe no-op
     manager.render(renderer, 1280, 720);
 
@@ -327,6 +337,87 @@ void test_empty_library() {
     TEST_CHECK(manager.active_id() == ScreenId::Select);
     TEST_CHECK(request.song == nullptr && request.chart == nullptr);
     std::cout << "  - empty library is crash-free and inert ok.\n";
+}
+
+// Drives the C4 overlay through the real ScreenManager + shared GameConfig,
+// verifying open/adjust/close, wheel suspension, gameplay application, and the
+// real C2 save/load persistence path.
+void test_options_overlay(td::ScreenManager& manager, td::SelectScreen* select,
+                          td::GameConfig& config, td::PlayRequest& request) {
+    manager.start(ScreenId::Select);
+    TEST_CHECK(manager.active_id() == ScreenId::Select);
+
+    // 1. Open; the wheel must be suspended while the overlay is up.
+    manager.update(kDt, {press(GameAction::Options)});
+    TEST_CHECK(select->options_open());
+    const int song_before = select->selected_song_index();
+    manager.update(kDt, {press(GameAction::Down)});
+    TEST_CHECK(select->selected_song_index() == song_before);
+
+    // 2. Adjust SpeedType -> CMOD, Speed value 450 -> 400, Scroll -> DOWN, Fail -> OFF.
+    manager.update(kDt, {press(GameAction::Up)});    // row back to SpeedType
+    manager.update(kDt, {press(GameAction::Right)}); // XMOD -> CMOD
+    TEST_CHECK(select->options_menu().speed_type == td::SpeedModType::CMod);
+    manager.update(kDt, {press(GameAction::Down)});  // row: SpeedValue
+    for (int i = 0; i < 5; ++i) {
+        manager.update(kDt, {press(GameAction::Left)}); // 450 -> 400
+    }
+    TEST_CHECK(config.gameplay.speed_mod == "C400");
+
+    manager.update(kDt, {press(GameAction::Down)});  // row: Scroll
+    manager.update(kDt, {press(GameAction::Right)});
+    TEST_CHECK(config.gameplay.scroll == "down");
+
+    manager.update(kDt, {press(GameAction::Down)});  // row: Fail
+    manager.update(kDt, {press(GameAction::Right)});
+    TEST_CHECK(!config.gameplay.fail_enabled);
+
+    // 3. Back closes the overlay without leaving Select; a second Back navigates.
+    manager.update(kDt, {press(GameAction::Back)});
+    TEST_CHECK(!select->options_open());
+    TEST_CHECK(manager.active_id() == ScreenId::Select);
+
+    // 4. Confirm publishes the changed options to gameplay (AC2).
+    manager.update(kDt, {press(GameAction::Confirm)});
+    TEST_CHECK(manager.active_id() == ScreenId::Gameplay);
+    TEST_CHECK(request.options.speed.type == td::SpeedModType::CMod);
+    TEST_CHECK(request.options.speed.value == 400.0);
+    TEST_CHECK(request.options.scroll == td::ScrollDirection::Down);
+    TEST_CHECK(!request.options.fail_enabled);
+
+    manager.update(kDt, {press(GameAction::Back)}); // abort gameplay -> Select
+    TEST_CHECK(manager.active_id() == ScreenId::Select);
+
+    // 5. Persist through the real C2 path and confirm the fields survive.
+    const std::filesystem::path config_path =
+        std::filesystem::temp_directory_path() / "tundra_select_options_config.json";
+    TEST_CHECK(td::save_config(config_path, config));
+    const td::GameConfig reloaded = td::load_config(config_path);
+    TEST_CHECK(reloaded.gameplay.speed_mod == "C400");
+    TEST_CHECK(reloaded.gameplay.scroll == "down");
+    TEST_CHECK(!reloaded.gameplay.fail_enabled);
+    std::filesystem::remove(config_path);
+
+    // 6. With the overlay closed, Back still exits Select -> Title.
+    manager.update(kDt, {press(GameAction::Back)});
+    TEST_CHECK(manager.active_id() == ScreenId::Title);
+    std::cout << "  - options overlay open/adjust/close + gameplay + persistence ok.\n";
+}
+
+// A same-tick [Options, Back] pair must not navigate on the pre-update modal
+// state (the manager must not act on state update() is about to create).
+void test_same_tick_options_back(td::ScreenManager& manager, td::SelectScreen* select) {
+    manager.start(ScreenId::Select);
+    TEST_CHECK(manager.active_id() == ScreenId::Select);
+    TEST_CHECK(!select->options_open());
+
+    manager.update(kDt, {press(GameAction::Options), press(GameAction::Back)});
+    TEST_CHECK(manager.active_id() == ScreenId::Select);
+
+    // A lone Back with the overlay closed still navigates as before.
+    manager.update(kDt, {press(GameAction::Back)});
+    TEST_CHECK(manager.active_id() == ScreenId::Title);
+    std::cout << "  - same-tick Options+Back does not navigate on stale state ok.\n";
 }
 
 } // namespace
@@ -349,6 +440,7 @@ int main() {
     td::GameplayScreen* gameplay_ptr = gameplay.get();
 
     td::ScreenManager manager(0.0); // disable idle-attract for determinism
+    manager.add_screen(std::make_unique<td::TitleScreen>());
     manager.add_screen(std::move(select));
     manager.add_screen(std::move(gameplay));
     manager.context().config = &config;
@@ -367,6 +459,8 @@ int main() {
     test_selection_preserved_on_reenter(manager, select_ptr);
     test_gameplay_held_state(manager, gameplay_ptr);
     test_empty_library();
+    test_options_overlay(manager, select_ptr, config, request);
+    test_same_tick_options_back(manager, select_ptr);
 
     td::GlQuadRenderer renderer; // populated-screen render smoke
     manager.render(renderer, 1280, 720);

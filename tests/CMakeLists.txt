@@ -183,6 +183,16 @@ target_link_libraries(select_screen_test PRIVATE
 
 add_test(NAME select_screen_test COMMAND select_screen_test)
 
+add_executable(options_menu_test
+    options_menu_test.cpp
+)
+
+target_link_libraries(options_menu_test PRIVATE
+    tundra_core
+)
+
+add_test(NAME options_menu_test COMMAND options_menu_test)
+
 add_executable(preview_player_test
     preview_player_test.cpp
 )

@@ -58,6 +58,18 @@ public:
     virtual void render(ScreenContext& /*ctx*/, GlQuadRenderer& /*renderer*/, int /*w*/,
                         int /*h*/) {}
     virtual void exit(ScreenContext& /*ctx*/) {}
+
+    // Consume Back for an in-screen modal/sub-state; return true to suppress the
+    // manager's default back navigation (e.g. the C4 options overlay). The
+    // default preserves C1 behavior for every screen without an in-screen state.
+    virtual bool handle_back(ScreenContext& /*ctx*/) { return false; }
+
+    // Side-effect-free counterpart to handle_back(): true while an in-screen
+    // state (e.g. an open modal) consumes Back. ScreenManager::back_navigates()
+    // ORs this with its default navigation set so a modal screen outside that
+    // set cannot desync App-quit from handle_back(). Keep the two in sync: any
+    // override that makes handle_back() return true must also make this true.
+    [[nodiscard]] virtual bool back_consumed() const { return false; }
 };
 
 } // namespace td

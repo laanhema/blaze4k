@@ -24,6 +24,11 @@ public:
     [[nodiscard]] GameAction action_for_key(SDL_Keycode key) const;
     [[nodiscard]] size_t connected_gamepads_count() const { return gamepads_.size(); }
 
+    // A pad Back button is classified on release: a short tap emits Back, a hold
+    // >= the hold threshold emits Options. This is the fallback for bare USB
+    // dance pads that expose no shoulder buttons. Exposed for tests.
+    static constexpr uint64_t kBackHoldOptionsNs = 500'000'000ULL; // 500 ms
+
     void bind_key(SDL_Keycode key, GameAction action);
     void bind_gamepad_button(uint8_t button, GameAction action);
     void reset_to_defaults();
@@ -35,11 +40,13 @@ private:
     void clear_action_states();
     void on_gamepad_added(SDL_JoystickID joystick_id);
     void on_gamepad_removed(SDL_JoystickID joystick_id);
+    void handle_gamepad_back(int device_id, bool pressed, uint64_t timestamp_ns);
 
     std::unordered_map<SDL_Keycode, GameAction> key_map_;
     std::unordered_map<uint8_t, GameAction> gamepad_button_map_;
     std::unordered_map<SDL_JoystickID, SDL_Gamepad*> gamepads_;
     std::unordered_map<GameAction, bool> action_states_;
+    std::unordered_map<int, uint64_t> gamepad_back_hold_ns_; // key: device_id
     std::vector<InputEvent> event_queue_;
 };
 

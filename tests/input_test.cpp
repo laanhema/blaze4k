@@ -86,6 +86,79 @@ int main() {
     }
     std::cout << "  - 4-panel spread keys (DFJK) mapped successfully.\n";
 
+    // 3b. C4 options action: Tab (keyboard) and shoulder buttons (gamepad)
+    TEST_CHECK(input.action_for_key(SDLK_TAB) == td::GameAction::Options);
+
+    SDL_Event tab_down{};
+    tab_down.type = SDL_EVENT_KEY_DOWN;
+    tab_down.key.key = SDLK_TAB;
+    tab_down.key.down = true;
+    tab_down.key.repeat = false;
+    tab_down.key.timestamp = 2500000000ULL;
+    input.handle_sdl_event(tab_down);
+
+    events = input.poll_events();
+    TEST_CHECK(events.size() == 1);
+    TEST_CHECK(events[0].action == td::GameAction::Options);
+    TEST_CHECK(events[0].device == td::DeviceType::Keyboard);
+
+    SDL_Event shoulder_down{};
+    shoulder_down.type = SDL_EVENT_GAMEPAD_BUTTON_DOWN;
+    shoulder_down.gbutton.button = SDL_GAMEPAD_BUTTON_LEFT_SHOULDER;
+    shoulder_down.gbutton.down = true;
+    shoulder_down.gbutton.which = 1;
+    shoulder_down.gbutton.timestamp = 2500001000ULL;
+    input.handle_sdl_event(shoulder_down);
+
+    events = input.poll_events();
+    TEST_CHECK(events.size() == 1);
+    TEST_CHECK(events[0].action == td::GameAction::Options);
+    TEST_CHECK(events[0].device == td::DeviceType::Gamepad);
+
+    SDL_Event right_shoulder_down{};
+    right_shoulder_down.type = SDL_EVENT_GAMEPAD_BUTTON_DOWN;
+    right_shoulder_down.gbutton.button = SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER;
+    right_shoulder_down.gbutton.down = true;
+    right_shoulder_down.gbutton.which = 1;
+    right_shoulder_down.gbutton.timestamp = 2500002000ULL;
+    input.handle_sdl_event(right_shoulder_down);
+
+    events = input.poll_events();
+    TEST_CHECK(events.size() == 1);
+    TEST_CHECK(events[0].action == td::GameAction::Options);
+    std::cout << "  - Options action mapped to Tab + shoulder buttons.\n";
+
+    // 3c. Hold-Back fallback for bare pads: a short tap stays Back, a hold
+    // synthesizes Options so the overlay is reachable without shoulders.
+    auto send_pad_back = [&input](bool pressed, uint64_t ts) {
+        SDL_Event e{};
+        e.type = pressed ? SDL_EVENT_GAMEPAD_BUTTON_DOWN : SDL_EVENT_GAMEPAD_BUTTON_UP;
+        e.gbutton.button = SDL_GAMEPAD_BUTTON_BACK;
+        e.gbutton.down = pressed;
+        e.gbutton.which = 1;
+        e.gbutton.timestamp = ts;
+        input.handle_sdl_event(e);
+    };
+
+    const uint64_t tap_down_ns = 2600000000ULL;
+    send_pad_back(true, tap_down_ns);
+    TEST_CHECK(input.poll_events().empty()); // deferred until release
+    send_pad_back(false, tap_down_ns + 100000000ULL); // 100 ms tap
+    events = input.poll_events();
+    TEST_CHECK(events.size() == 2);
+    TEST_CHECK(events[0].action == td::GameAction::Back && events[0].pressed);
+    TEST_CHECK(events[1].action == td::GameAction::Back && !events[1].pressed);
+
+    const uint64_t hold_down_ns = 2700000000ULL;
+    send_pad_back(true, hold_down_ns);
+    TEST_CHECK(input.poll_events().empty());
+    send_pad_back(false, hold_down_ns + td::InputManager::kBackHoldOptionsNs + 100000000ULL);
+    events = input.poll_events();
+    TEST_CHECK(events.size() == 2);
+    TEST_CHECK(events[0].action == td::GameAction::Options && events[0].pressed);
+    TEST_CHECK(events[1].action == td::GameAction::Options && !events[1].pressed);
+    std::cout << "  - Hold-Back opens Options on shoulder-less pads.\n";
+
     // 4. Test Gamepad / Dance Pad Button Mapping
     const uint64_t pad_timestamp = 3456789012345ULL;
     SDL_Event pad_down{};

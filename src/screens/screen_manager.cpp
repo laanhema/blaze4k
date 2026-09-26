@@ -6,6 +6,16 @@
 
 namespace td {
 
+namespace {
+
+// The manager's default Back-navigation set. Title/Results fall through to the
+// App's Escape-quit. Shared with back_navigates() so the two cannot desync.
+bool default_back_navigates(ScreenId id) {
+    return id == ScreenId::Attract || id == ScreenId::Select || id == ScreenId::Gameplay;
+}
+
+} // namespace
+
 std::string_view screen_id_name(ScreenId id) {
     switch (id) {
         case ScreenId::Title: return "Title";
@@ -45,8 +55,8 @@ bool ScreenManager::has_screen(ScreenId id) const {
     return false;
 }
 
-Screen* ScreenManager::active_screen() {
-    for (std::unique_ptr<Screen>& screen : screens_) {
+Screen* ScreenManager::active_screen() const {
+    for (const std::unique_ptr<Screen>& screen : screens_) {
         if (screen->id() == active_id_) {
             return screen.get();
         }
@@ -120,6 +130,14 @@ void ScreenManager::apply_pending() {
 }
 
 void ScreenManager::handle_back() {
+    // An in-screen modal (C4 options overlay) consumes Back first; returning
+    // true suppresses the default navigation below.
+    if (Screen* active = active_screen(); active != nullptr && active->handle_back(ctx_)) {
+        return;
+    }
+    if (!default_back_navigates(active_id_)) {
+        return; // Title/Results: no-op. The App handles Escape-quit on Title.
+    }
     if (active_id_ == ScreenId::Attract) {
         transition_to(attract_return_);
     } else if (active_id_ == ScreenId::Select) {
@@ -127,14 +145,17 @@ void ScreenManager::handle_back() {
     } else if (active_id_ == ScreenId::Gameplay) {
         transition_to(ScreenId::Select); // abort the run; Results/pause are C7
     }
-    // Title/Results: no-op. The App handles Escape-quit on Title.
 }
 
 bool ScreenManager::back_navigates() const {
-    // Keep this exactly in sync with handle_back(): only these screens consume
-    // Back as navigation. Title/Results fall through to App-quit.
-    return active_id_ == ScreenId::Attract || active_id_ == ScreenId::Select ||
-           active_id_ == ScreenId::Gameplay;
+    // Keep this exactly in sync with handle_back(): the same default navigation
+    // set, plus any active-screen modal that consumes Back. Sharing
+    // default_back_navigates() and Screen::back_consumed() stops a future screen
+    // from making handle_back() act while the App still quits on Escape.
+    if (const Screen* active = active_screen(); active != nullptr && active->back_consumed()) {
+        return true;
+    }
+    return default_back_navigates(active_id_);
 }
 
 void ScreenManager::update(double fixed_dt, const std::vector<InputEvent>& events) {
@@ -143,6 +164,7 @@ void ScreenManager::update(double fixed_dt, const std::vector<InputEvent>& event
     bool had_press = false;
     bool back_pressed = false;
     bool confirm_pressed = false;
+    bool options_pressed = false;
     for (const InputEvent& event : events) {
         if (!event.pressed) {
             continue;
@@ -152,6 +174,8 @@ void ScreenManager::update(double fixed_dt, const std::vector<InputEvent>& event
             back_pressed = true;
         } else if (event.action == GameAction::Confirm) {
             confirm_pressed = true;
+        } else if (event.action == GameAction::Options) {
+            options_pressed = true;
         }
     }
 
@@ -159,7 +183,10 @@ void ScreenManager::update(double fixed_dt, const std::vector<InputEvent>& event
         idle_seconds_ = 0.0;
     }
 
-    if (back_pressed) {
+    // A same-tick [Options, Back] pair must not navigate on pre-update state:
+    // update() is about to open (or close) the overlay. Defer Back to after
+    // update() for that tick so handle_back() sees the state update() created.
+    if (back_pressed && !options_pressed) {
         handle_back();
     }
     // Attract is "just another screen": the manager owns the exit-confirm policy
@@ -170,6 +197,10 @@ void ScreenManager::update(double fixed_dt, const std::vector<InputEvent>& event
 
     if (Screen* active = active_screen(); active != nullptr) {
         active->update(ctx_, fixed_dt, events);
+    }
+
+    if (back_pressed && options_pressed) {
+        handle_back();
     }
 
     const ScreenId before_apply = active_id_;
