@@ -102,6 +102,9 @@ bool MsdFile::read_string(std::string_view content) {
                 while (i < len && content[i] != '\n' && content[i] != '\r') {
                     i++;
                 }
+                while (i < len && (content[i] == '\n' || content[i] == '\r')) {
+                    i++;
+                }
                 continue;
             }
 
@@ -118,7 +121,7 @@ bool MsdFile::read_string(std::string_view content) {
                 trim_in_place(current_param);
                 if (tag.name.empty()) {
                     tag.name = current_param;
-                } else {
+                } else if (tag.params.size() < kMaxParamsPerTag) {
                     tag.params.push_back(current_param);
                 }
                 current_param.clear();
@@ -130,7 +133,7 @@ bool MsdFile::read_string(std::string_view content) {
                 trim_in_place(current_param);
                 if (tag.name.empty()) {
                     tag.name = current_param;
-                } else {
+                } else if (tag.params.size() < kMaxParamsPerTag) {
                     tag.params.push_back(current_param);
                 }
                 current_param.clear();
@@ -139,14 +142,16 @@ bool MsdFile::read_string(std::string_view content) {
                 trim_in_place(current_param);
                 if (tag.name.empty()) {
                     tag.name = current_param;
-                } else {
+                } else if (tag.params.size() < kMaxParamsPerTag) {
                     tag.params.push_back(current_param);
                 }
                 current_param.clear();
                 in_tag = false;
                 i++;
             } else {
-                current_param += c;
+                if (current_param.size() < kMaxParamLength) {
+                    current_param += c;
+                }
                 i++;
             }
         }
@@ -156,7 +161,7 @@ bool MsdFile::read_string(std::string_view content) {
             trim_in_place(current_param);
             if (tag.name.empty()) {
                 tag.name = current_param;
-            } else {
+            } else if (tag.params.size() < kMaxParamsPerTag) {
                 tag.params.push_back(current_param);
             }
         }

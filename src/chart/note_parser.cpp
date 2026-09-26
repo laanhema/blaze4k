@@ -105,6 +105,16 @@ std::optional<Chart> NoteParser::parse_4panel_notedata(
         measures.push_back(std::move(current_measure));
     }
 
+    constexpr size_t kMaxMeasures = 10000;
+    constexpr size_t kMaxRowsPerMeasure = 1024;
+    constexpr size_t kMaxTotalNotes = 100000;
+
+    if (measures.size() > kMaxMeasures) {
+        std::cerr << "[NoteParser] Chart rejected: excessive measures ("
+                  << measures.size() << " > " << kMaxMeasures << ").\n";
+        return std::nullopt;
+    }
+
     // Per-column active hold/roll heads
     std::array<std::optional<Note>, 4> active_heads;
 
@@ -129,6 +139,12 @@ std::optional<Chart> NoteParser::parse_4panel_notedata(
         const size_t num_rows = rows.size();
         if (num_rows == 0) {
             continue;
+        }
+
+        if (num_rows > kMaxRowsPerMeasure) {
+            std::cerr << "[NoteParser] Chart rejected: excessive rows in measure "
+                      << m_idx << " (" << num_rows << " > " << kMaxRowsPerMeasure << ").\n";
+            return std::nullopt;
         }
 
         const double measure_start_beat = static_cast<double>(m_idx) * 4.0;
@@ -208,11 +224,21 @@ std::optional<Chart> NoteParser::parse_4panel_notedata(
     for (int col = 0; col < 4; ++col) {
         if (active_heads[col].has_value()) {
             Note head = active_heads[col].value();
-            head.hold_length_beats = last_parsed_beat - head.beat;
-            head.hold_end_time_seconds = timing.beat_to_seconds(last_parsed_beat);
+            double len = last_parsed_beat - head.beat;
+            if (len <= 0.0) {
+                len = 0.25;
+            }
+            head.hold_length_beats = len;
+            head.hold_end_time_seconds = timing.beat_to_seconds(head.beat + len);
             chart.notes.push_back(head);
             active_heads[col].reset();
         }
+    }
+
+    if (chart.notes.size() > kMaxTotalNotes) {
+        std::cerr << "[NoteParser] Chart rejected: excessive total notes ("
+                  << chart.notes.size() << " > " << kMaxTotalNotes << ").\n";
+        return std::nullopt;
     }
 
     // Sort notes chronologically by beat, then column

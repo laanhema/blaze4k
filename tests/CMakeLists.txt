@@ -69,3 +69,13 @@ target_link_libraries(song_library_test PRIVATE
 
 add_test(NAME song_library_test COMMAND song_library_test)
 
+add_executable(parser_hardening_test
+    parser_hardening_test.cpp
+)
+
+target_link_libraries(parser_hardening_test PRIVATE
+    tundra_core
+)
+
+add_test(NAME parser_hardening_test COMMAND parser_hardening_test)
+
