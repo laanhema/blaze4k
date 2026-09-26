@@ -38,3 +38,13 @@ target_link_libraries(input_test PRIVATE
 )
 
 add_test(NAME input_test COMMAND input_test)
+
+add_executable(parser_test
+    parser_test.cpp
+)
+
+target_link_libraries(parser_test PRIVATE
+    tundra_core
+)
+
+add_test(NAME parser_test COMMAND parser_test)

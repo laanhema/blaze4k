@@ -84,6 +84,9 @@ add_library(tundra_core STATIC
     src/audio/audio_engine.cpp
     src/audio/sound_stream.cpp
     src/input/input_manager.cpp
+    src/chart/msd_file.cpp
+    src/chart/timing_data.cpp
+    src/chart/simfile_parser.cpp
 )
 
 target_include_directories(tundra_core PUBLIC
