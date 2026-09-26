@@ -108,7 +108,8 @@ int main(int argc, char* argv[]) {
             if (i + 1 < argc) {
                 data_dir_text = argv[++i];
             } else {
-                std::cerr << "[main] --data-dir requires a path; using the default data directory\n";
+                std::cerr << "[main] --data-dir requires a path; ignoring the flag and using "
+                             "the default data directory\n";
             }
         } else if (arg == "--help" || arg == "-h") {
             print_help();

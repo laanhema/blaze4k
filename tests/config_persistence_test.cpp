@@ -340,11 +340,20 @@ int main() {
                    R"({"version":1,"scores":{)"
                    R"("huge":{"grade":"S+","percent":0.9,"dp":1e300,"timestamp":1e300},)"
                    R"("big_dp":{"grade":"A","percent":0.5,"dp":5000000000,"timestamp":1700000002},)"
+                   R"("boundary_hi":{"grade":"A","percent":0.5,"dp":9223372036854775808,"timestamp":1},)"
+                   R"("int64_max":{"grade":"A","percent":0.5,"dp":9223372036854775807,"timestamp":1700000004},)"
                    R"("okay":{"grade":"A","percent":0.4,"dp":12,"timestamp":1700000003}}})");
         td::HighScores hostile_scores = td::load_high_scores(hostile, &message, &scores_status);
         TEST_CHECK(scores_status == td::ScoresLoadStatus::LoadedFromFile);
         // The whole-record numeric overflow is rejected, not wrapped.
         TEST_CHECK(td::find_high_score(hostile_scores, "huge") == nullptr);
+        // 2^63 is out of int64 range and must be rejected, never cast.
+        TEST_CHECK(td::find_high_score(hostile_scores, "boundary_hi") == nullptr);
+        // Valid INT64_MAX must survive (then clamp) without becoming INT64_MIN.
+        const td::ScoreRecord* int64_max = td::find_high_score(hostile_scores, "int64_max");
+        TEST_CHECK(int64_max != nullptr);
+        TEST_CHECK(int64_max->dance_points == std::numeric_limits<int>::max());
+        TEST_CHECK(int64_max->timestamp_unix == 1700000004);
         // dp outside int but inside int64 is clamped, never wrapped.
         const td::ScoreRecord* big = td::find_high_score(hostile_scores, "big_dp");
         TEST_CHECK(big != nullptr);

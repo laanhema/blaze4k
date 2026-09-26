@@ -98,10 +98,26 @@ bool read_integer(const json& node, const char* key, std::int64_t& target) {
     if (!it->is_number()) {
         return false;
     }
+    // Read integer JSON natively: routing through double rounds INT64_MAX up to
+    // 2^63 and makes the cast to int64 undefined. Only floats use the double path.
+    if (it->is_number_unsigned()) {
+        const std::uint64_t value = it->get<std::uint64_t>();
+        if (value > static_cast<std::uint64_t>(std::numeric_limits<std::int64_t>::max())) {
+            return false;
+        }
+        target = static_cast<std::int64_t>(value);
+        return true;
+    }
+    if (it->is_number_integer()) {
+        target = it->get<std::int64_t>();
+        return true;
+    }
     const double value = it->get<double>();
+    // 2^63 is the smallest double above INT64_MAX; reject it and anything larger.
+    constexpr double kTwoPow63 = 9223372036854775808.0;
     if (!std::isfinite(value) || value != std::trunc(value) ||
         value < static_cast<double>(std::numeric_limits<std::int64_t>::lowest()) ||
-        value > static_cast<double>(std::numeric_limits<std::int64_t>::max())) {
+        value >= kTwoPow63) {
         return false;
     }
     target = static_cast<std::int64_t>(value);
