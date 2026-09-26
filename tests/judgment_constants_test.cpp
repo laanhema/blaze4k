@@ -60,7 +60,12 @@ bool same_constants(const td::JudgmentConstants& a, const td::JudgmentConstants&
         !nearly(a.life.hit_mine, b.life.hit_mine) ||
         !nearly(a.life.hold_ok, b.life.hold_ok) ||
         !nearly(a.life.hold_ng, b.life.hold_ng) ||
-        a.life.merciful_drain != b.life.merciful_drain) {
+        a.life.merciful_drain != b.life.merciful_drain ||
+        !nearly(a.life.hot_downgrade, b.life.hot_downgrade) ||
+        a.life.regen_combo_after_miss != b.life.regen_combo_after_miss ||
+        a.life.regen_combo_after_fail != b.life.regen_combo_after_fail ||
+        a.life.max_regen_combo_after_miss != b.life.max_regen_combo_after_miss ||
+        a.life.max_regen_combo_after_fail != b.life.max_regen_combo_after_fail) {
         return false;
     }
     for (std::size_t i = 0; i < a.grade_tiers.size(); ++i) {
@@ -123,6 +128,11 @@ int main() {
     TEST_CHECK(nearly(defaults.life.hold_ok, 0.008));
     TEST_CHECK(nearly(defaults.life.hold_ng, -0.080));
     TEST_CHECK(!defaults.life.merciful_drain);
+    TEST_CHECK(nearly(defaults.life.hot_downgrade, -0.10));
+    TEST_CHECK(defaults.life.regen_combo_after_miss == 5);
+    TEST_CHECK(defaults.life.regen_combo_after_fail == 10);
+    TEST_CHECK(defaults.life.max_regen_combo_after_miss == 10);
+    TEST_CHECK(defaults.life.max_regen_combo_after_fail == 10);
     const double expected_tiers[] = {1.00, 0.99, 0.98, 0.96, 0.94, 0.92, 0.89,
                                      0.86, 0.83, 0.80, 0.76, 0.72, 0.68, 0.64, 0.60, 0.55, -1000};
     TEST_CHECK(defaults.grade_tiers.size() == 17);
@@ -172,7 +182,10 @@ int main() {
     // 5. Configurable without recompiling (partial override).
     fs::path override_path = temp_dir / "override.json";
     write_file(override_path,
-               "{\"windows_seconds\": {\"great\": 0.050}, \"dp_weights\": {\"fantastic\": 9}}");
+               "{\"windows_seconds\": {\"great\": 0.050}, \"dp_weights\": {\"fantastic\": 9}, "
+               "\"life_deltas\": {\"hot_downgrade\": -0.2, \"regen_combo_after_miss\": 7, "
+               "\"regen_combo_after_fail\": 8, \"max_regen_combo_after_miss\": 9, "
+               "\"max_regen_combo_after_fail\": 11}}");
     std::string override_message;
     td::JudgmentConstants overridden = td::load_judgment_constants(override_path, &override_message);
     TEST_CHECK(nearly(overridden.windows.great, 0.050));
@@ -181,6 +194,12 @@ int main() {
     TEST_CHECK(nearly(overridden.windows.fantastic, defaults.windows.fantastic));
     TEST_CHECK(overridden.classify_tap(0.048) == td::TapJudgment::Great);
     TEST_CHECK(overridden.classify_tap(0.020) == td::TapJudgment::Fantastic);
+    TEST_CHECK(nearly(overridden.life.hot_downgrade, -0.2));
+    TEST_CHECK(overridden.life.regen_combo_after_miss == 7);
+    TEST_CHECK(overridden.life.regen_combo_after_fail == 8);
+    TEST_CHECK(overridden.life.max_regen_combo_after_miss == 9);
+    TEST_CHECK(overridden.life.max_regen_combo_after_fail == 11);
+    TEST_CHECK(nearly(overridden.life.miss, defaults.life.miss));
     std::cout << "  - 5. configurable via JSON without recompiling.\n";
 
     // 6. Seed file parity.

@@ -28,6 +28,11 @@ class HudRenderer {
 public:
     void render(const ScoreState& state, int screen_w, int screen_h,
                 GlQuadRenderer& renderer) const;
+
+    // ITG-style horizontal life bar. `life` is clamped to [0,1]; the fill takes the
+    // danger tint below the arcade threshold (0.3, metrics.ini:2565). Solid quads
+    // only: no font, no stb_truetype, no asset.
+    void render_life(double life, int screen_w, int screen_h, GlQuadRenderer& renderer) const;
 };
 
 } // namespace td

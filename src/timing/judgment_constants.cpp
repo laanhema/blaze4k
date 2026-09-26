@@ -27,8 +27,11 @@ const JudgmentConstants& JudgmentConstants::compiled_defaults() {
         c.dp_weights = Weights{5, 4, 2, 0, -6, -12, -6, 5, 0};
         c.grade_weights = Weights{5, 4, 2, 0, -6, -12, -6, 5, 0};
 
-        // Life deltas (arcade LifeDeltaPercentChange*)
-        c.life = LifeDeltas{0.008, 0.008, 0.004, 0.0, -0.050, -0.100, -0.050, 0.008, -0.080, false};
+        // Life deltas (arcade LifeDeltaPercentChange*) plus the OpenITG hot
+        // downgrade and RegenComboAfter* defaults (LifeMeterBar.cpp:118-119,208-227,
+        // 244-253; PrefsManager.cpp:119-122).
+        c.life = LifeDeltas{0.008, 0.008, 0.004, 0.0, -0.050, -0.100, -0.050, 0.008,
+                            -0.080, false, -0.10, 5, 10, 10, 10};
 
         // Grade tiers (arcade [Grade] Tier01..Tier17 thresholds)
         c.grade_tiers = {{
@@ -97,12 +100,16 @@ bool JudgmentConstants::validate(std::string* error) const {
 
     const double life_values[] = {
         life.fantastic, life.excellent, life.great, life.decent, life.way_off,
-        life.miss, life.hit_mine, life.hold_ok, life.hold_ng,
+        life.miss, life.hit_mine, life.hold_ok, life.hold_ng, life.hot_downgrade,
     };
     for (double value : life_values) {
         if (!std::isfinite(value)) {
             return fail("life delta must be finite");
         }
+    }
+    if (life.regen_combo_after_miss < 0 || life.regen_combo_after_fail < 0 ||
+        life.max_regen_combo_after_miss < 0 || life.max_regen_combo_after_fail < 0) {
+        return fail("regen combo thresholds must be >= 0");
     }
 
     return true;

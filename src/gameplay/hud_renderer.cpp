@@ -1,5 +1,6 @@
 #include "gameplay/hud_renderer.hpp"
 
+#include <algorithm>
 #include <cstdint>
 #include <string>
 
@@ -19,6 +20,14 @@ constexpr Color kWayOffColor{1.00f, 0.60f, 0.20f, 1.0f};
 constexpr Color kMissColor{1.00f, 0.30f, 0.30f, 1.0f};
 constexpr Color kHoldOkColor{0.45f, 0.65f, 1.00f, 1.0f};
 constexpr Color kHoldNgColor{1.00f, 0.30f, 0.30f, 1.0f};
+
+// Life bar palette + geometry (Tundra presentation, unsourced; no OpenITG parity
+// requirement). The only semantic value is the 0.3 danger threshold.
+constexpr Color kLifeBackColor{0.10f, 0.12f, 0.18f, 0.90f};
+constexpr Color kLifeFrameColor{0.55f, 0.60f, 0.70f, 1.0f};
+constexpr Color kLifeFillColor{0.40f, 0.90f, 1.00f, 1.0f};
+constexpr Color kLifeDangerColor{1.00f, 0.30f, 0.30f, 1.0f};
+constexpr double kLifeDangerThreshold = 0.3;
 
 // Self-contained 5x7 bitmap font. Each row is 5 bits; bit 4 (0x10) is leftmost.
 struct Glyph {
@@ -184,6 +193,38 @@ void HudRenderer::render(const ScoreState& state, int screen_w, int screen_h,
                   (width - text_width(grade_text, main_pixel)) * 0.5f,
                   height - 8.0f - 7.0f * main_pixel, main_pixel, kTextColor);
     }
+}
+
+void HudRenderer::render_life(double life, int screen_w, int screen_h,
+                              GlQuadRenderer& renderer) const {
+    if (screen_w <= 0 || screen_h <= 0) {
+        return;
+    }
+
+    double clamped = life;
+    if (clamped < 0.0) {
+        clamped = 0.0;
+    } else if (clamped > 1.0) {
+        clamped = 1.0;
+    }
+
+    const float width = static_cast<float>(screen_w);
+    const float height = static_cast<float>(screen_h);
+    const float bar_w = std::min(width * 0.40f, 480.0f);
+    const float bar_h = 16.0f;
+    const float border = 2.0f;
+    const float x = (width - bar_w) * 0.5f;
+    // Sit above the bottom-centre grade text.
+    const float y = height - 8.0f - 21.0f - 12.0f - bar_h;
+
+    // Frame (drawn as a slightly larger backing quad), then the filled portion.
+    renderer.draw_quad(Rect{x - border, y - border, bar_w + border * 2.0f, bar_h + border * 2.0f},
+                       kLifeFrameColor);
+    renderer.draw_quad(Rect{x, y, bar_w, bar_h}, kLifeBackColor);
+
+    const Color fill =
+        clamped < kLifeDangerThreshold ? kLifeDangerColor : kLifeFillColor;
+    renderer.draw_quad(Rect{x, y, bar_w * static_cast<float>(clamped), bar_h}, fill);
 }
 
 } // namespace td

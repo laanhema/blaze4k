@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "source": "OpenITG f2c129fe65c65e4a9b3a691ff35e7717b4e8de51 assets/patch-data/Themes/default/metrics.ini",
+  "source": "OpenITG f2c129fe65c65e4a9b3a691ff35e7717b4e8de51 assets/patch-data/Themes/default/metrics.ini; hot_downgrade/regen_combo_after_miss/regen_combo_after_fail/max_regen_combo_after_miss/max_regen_combo_after_fail from src/PrefsManager.cpp + src/LifeMeterBar.cpp",
   "label_note": "grade_tiers[].label is informational only; labels are compiled in and copied by tier index, so editing them here has no effect.",
   "windows_seconds": {
     "fantastic": 0.0215,
@@ -65,6 +65,11 @@
     "hit_mine": -0.05,
     "hold_ok": 0.008,
     "hold_ng": -0.08,
+    "hot_downgrade": -0.1,
+    "regen_combo_after_miss": 5,
+    "regen_combo_after_fail": 10,
+    "max_regen_combo_after_miss": 10,
+    "max_regen_combo_after_fail": 10,
     "merciful_drain": false
   }
 }

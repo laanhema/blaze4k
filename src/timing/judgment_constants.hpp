@@ -60,6 +60,24 @@ struct LifeDeltas {
     double hold_ok   = 0.008;
     double hold_ng   = -0.080;
     bool merciful_drain = false;
+
+    // OpenITG "hot" penalty: while the bar is full (life >= 1), a WayOff/Miss/
+    // hit-mine/hold-NG is forced to this value instead of its table delta
+    // (LifeMeterBar.cpp:118-119,174-175). Pinned from
+    // src/PrefsManager.cpp at commit f2c129fe65c65e4a9b3a691ff35e7717b4e8de51.
+    double hot_downgrade = -0.10;
+    // OpenITG "combo-to-regain-life": after any life loss, the next this many
+    // positive judgments grant no life (LifeMeterBar.cpp:208-227; default 5).
+    int regen_combo_after_miss = 5;
+    // Successive losses accumulate the regain debt by `regen_combo_after_miss`,
+    // never above `max_regen_combo_after_miss` (LifeMeterBar.cpp:220-227;
+    // PrefsManager.cpp:122, default 10).
+    int max_regen_combo_after_miss = 10;
+    // When a delta would cross the fail threshold, the debt is additionally bumped
+    // by `regen_combo_after_fail`, never above `max_regen_combo_after_fail`
+    // (LifeMeterBar.cpp:244-253; PrefsManager.cpp:119,121, defaults 10/10).
+    int regen_combo_after_fail = 10;
+    int max_regen_combo_after_fail = 10;
 };
 
 struct GradeTier {

@@ -6,6 +6,7 @@
 #include "chart/chart.hpp"
 #include "gameplay/hud_renderer.hpp"
 #include "gameplay/judgment_engine.hpp"
+#include "gameplay/life_keeper.hpp"
 #include "gameplay/note_field.hpp"
 #include "gameplay/note_field_renderer.hpp"
 #include "gameplay/noteskin.hpp"
@@ -22,7 +23,13 @@ struct GameplayOptions {
     SpeedMod speed{};
     ScrollDirection scroll = ScrollDirection::Up;
     double global_offset_seconds = 0.0;
+    bool fail_enabled = true; // false = Fail-Off (song continues to the end)
 };
+
+// Where a single song run stands. B6 exposes this so the future screen state
+// machine (C1/C7) can transition out of gameplay. `Cleared` means every row/hold
+// resolved without failing; `Failed` takes precedence.
+enum class GameplayOutcome { InProgress, Cleared, Failed };
 
 // Hosts a single-song gameplay field: chart copy, audio + `MusicClock`, layout,
 // and rendering. Gameplay time comes exclusively from `MusicClock` (bound to the
@@ -58,6 +65,12 @@ public:
     [[nodiscard]] int dance_points() const { return score_.actual_dance_points(); }
     [[nodiscard]] double score_percent() const { return score_.percent(); }
 
+    [[nodiscard]] const LifeState& life_state() const { return life_.state(); }
+    [[nodiscard]] double life() const { return life_.life(); }
+    [[nodiscard]] bool has_failed() const { return life_.has_failed(); }
+    [[nodiscard]] bool is_cleared() const { return score_.is_complete(); }
+    [[nodiscard]] GameplayOutcome outcome() const;
+
     void shutdown();
 
 private:
@@ -71,6 +84,7 @@ private:
     NoteFieldRenderer field_renderer_;
     JudgmentEngine judge_;
     ScoreKeeper score_;
+    LifeKeeper life_;
     HudRenderer hud_;
     std::vector<JudgmentEvent> new_events_;
     std::vector<NoteRenderItem> items_;
@@ -82,6 +96,7 @@ private:
     unsigned int stub_sample_rate_ = 48000;
     bool use_stub_ = false;
     bool audio_started_ = false;
+    bool exited_ = false; // fail transition already taken (gameplay ended)
     bool ready_ = false;
 };
 
