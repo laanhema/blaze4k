@@ -131,3 +131,14 @@ target_link_libraries(score_keeper_test PRIVATE
 )
 
 add_test(NAME score_keeper_test COMMAND score_keeper_test)
+
+
+add_executable(life_keeper_test
+    life_keeper_test.cpp
+)
+
+target_link_libraries(life_keeper_test PRIVATE
+    tundra_core
+)
+
+add_test(NAME life_keeper_test COMMAND life_keeper_test)

@@ -20,6 +20,7 @@ void print_help() {
               << "  --gameplay-demo <file>  TEMPORARY: render a simfile's first chart (.sm/.ssc)\n"
               << "  --speed <mod>           Speed mod for the demo: Nx / Xn, cN, or mN (default 1x)\n"
               << "  --downscroll            Mirror the demo field for downscroll\n"
+              << "  --fail-off              Fail-Off: demo keeps playing at zero life\n"
               << "  --help, -h              Show this help\n";
 }
 
@@ -39,6 +40,7 @@ int main(int argc, char* argv[]) {
     std::string demo_path;
     std::string speed_text;
     bool downscroll = false;
+    bool fail_off = false;
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
@@ -66,6 +68,8 @@ int main(int argc, char* argv[]) {
             }
         } else if (arg == "--downscroll") {
             downscroll = true;
+        } else if (arg == "--fail-off") {
+            fail_off = true;
         } else if (arg == "--help" || arg == "-h") {
             print_help();
             return 0;
@@ -111,6 +115,7 @@ int main(int argc, char* argv[]) {
             }
         }
         options.scroll = downscroll ? td::ScrollDirection::Down : td::ScrollDirection::Up;
+        options.fail_enabled = !fail_off;
 
         if (!gameplay.init(parser.charts().front(), app.judgment_constants(), audio_path, options)) {
             std::cerr << "[main] Failed to initialize gameplay demo\n";

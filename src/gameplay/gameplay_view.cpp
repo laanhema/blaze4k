@@ -35,6 +35,9 @@ bool GameplayView::init(const Chart& chart, const JudgmentConstants& constants,
 
     judge_.reset(&chart_, &constants);
     score_.reset(&chart_, &constants);
+    life_.set_fail_enabled(options.fail_enabled);
+    life_.reset(&chart_, &constants);
+    exited_ = false;
 
     field_.set_chart(&chart_);
     field_.set_speed_mod(options.speed);
@@ -75,7 +78,8 @@ bool GameplayView::init(const Chart& chart, const JudgmentConstants& constants,
         std::cout << " (x-speed " << field_.effective_x_speed() << ")";
     }
     std::cout << ", " << (options.scroll == ScrollDirection::Down ? "downscroll" : "upscroll")
-              << ", time source " << (use_stub_ ? "stub" : "audio") << "\n";
+              << ", time source " << (use_stub_ ? "stub" : "audio")
+              << ", fail " << (options.fail_enabled ? "enabled" : "off") << "\n";
     return true;
 }
 
@@ -95,7 +99,9 @@ void GameplayView::bind_clock_source() {
 }
 
 void GameplayView::handle_input_events(const std::vector<InputEvent>& events, uint64_t reference_ns) {
-    if (!ready_) {
+    // Once failed, gameplay input is closed: forwarding steps would append
+    // judgment events that `update` never drains after the fail transition.
+    if (!ready_ || exited_) {
         return;
     }
 
@@ -143,15 +149,32 @@ void GameplayView::update(double fixed_dt, const std::array<bool, 4>& held_colum
         }
     }
 
+    // Once failed, gameplay has ended: keep the stub clock advancing (demo only)
+    // but stop judging and draining events.
+    if (exited_) {
+        return;
+    }
+
     // Judgments derive from the music clock only; `fixed_dt` advances the demo
     // stub source and never reaches the engine.
     judge_.update(clock_.time_seconds(), held_columns);
 
-    // Scoring is event-sourced: drain the newly appended judgment events into the
-    // keeper. No independent judgment logic, no frame/wall-clock input.
+    // Scoring/life are event-sourced: drain the newly appended judgment events into
+    // both keepers. No independent judgment logic, no frame/wall-clock input.
     new_events_.clear();
     judge_.drain_new_events(new_events_);
     score_.consume(new_events_);
+    life_.consume(new_events_);
+
+    if (life_.has_failed()) {
+        exited_ = true;
+        // Capture the fail time before pausing: `stop()` would seek to frame 0,
+        // making the log read time 0 and snapping `render()` back to song start.
+        // `pause()` halts playback while preserving the stream position.
+        const double fail_time = clock_.time_seconds();
+        audio_.pause();
+        std::cerr << "[GameplayView] Failed: life empty at " << fail_time << "s\n";
+    }
 }
 
 void GameplayView::render(GlQuadRenderer& renderer, int screen_w, int screen_h) {
@@ -189,8 +212,19 @@ void GameplayView::render(GlQuadRenderer& renderer, int screen_w, int screen_h) 
     field_renderer_.render(field_, visible_items_, screen_w, screen_h, skin_, renderer);
 
     // Live HUD. Only reached with a valid GL context (`render()` above early-returns
-    // when the renderer is uninitialized); the score state is computed in update().
+    // when the renderer is uninitialized); the score/life state is computed in update().
     hud_.render(score_.state(), screen_w, screen_h, renderer);
+    hud_.render_life(life_.life(), screen_w, screen_h, renderer);
+}
+
+GameplayOutcome GameplayView::outcome() const {
+    if (life_.has_failed()) {
+        return GameplayOutcome::Failed;
+    }
+    if (score_.is_complete()) {
+        return GameplayOutcome::Cleared;
+    }
+    return GameplayOutcome::InProgress;
 }
 
 void GameplayView::shutdown() {
@@ -209,7 +243,9 @@ void GameplayView::shutdown() {
                   << " Mine " << score.tap_counts[static_cast<std::size_t>(TapJudgment::HitMine)]
                   << " OK " << score.hold_counts[static_cast<std::size_t>(HoldJudgment::Ok)]
                   << " NG " << score.hold_counts[static_cast<std::size_t>(HoldJudgment::Ng)]
-                  << " | events " << judge_.events().size() << "\n";
+                  << " | events " << judge_.events().size()
+                  << " | life " << std::fixed << std::setprecision(3) << life_.life()
+                  << (life_.has_failed() ? " FAILED" : " alive") << "\n";
         audio_.stop();
         audio_.unload();
         skin_.shutdown();

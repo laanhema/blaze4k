@@ -98,6 +98,7 @@ add_library(tundra_core STATIC
     src/gameplay/judgment_engine.cpp
     src/gameplay/score_keeper.cpp
     src/gameplay/hud_renderer.cpp
+    src/gameplay/life_keeper.cpp
     src/gameplay/noteskin.cpp
     src/gameplay/note_field_renderer.cpp
     src/gameplay/gameplay_view.cpp

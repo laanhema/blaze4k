@@ -108,6 +108,11 @@ void override_life(const json& node, LifeDeltas& target) {
     override_number(node, "hit_mine", target.hit_mine);
     override_number(node, "hold_ok", target.hold_ok);
     override_number(node, "hold_ng", target.hold_ng);
+    override_number(node, "hot_downgrade", target.hot_downgrade);
+    override_number(node, "regen_combo_after_miss", target.regen_combo_after_miss);
+    override_number(node, "regen_combo_after_fail", target.regen_combo_after_fail);
+    override_number(node, "max_regen_combo_after_miss", target.max_regen_combo_after_miss);
+    override_number(node, "max_regen_combo_after_fail", target.max_regen_combo_after_fail);
     auto it = node.find("merciful_drain");
     if (it != node.end() && !it->is_null()) {
         if (!it->is_boolean()) {
