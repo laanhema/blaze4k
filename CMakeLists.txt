@@ -80,6 +80,9 @@ endif()
 add_library(tundra_core STATIC
     src/app/window.cpp
     src/app/app.cpp
+    src/audio/miniaudio_impl.cpp
+    src/audio/audio_engine.cpp
+    src/audio/sound_stream.cpp
 )
 
 target_include_directories(tundra_core PUBLIC

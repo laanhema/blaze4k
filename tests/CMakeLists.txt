@@ -18,3 +18,13 @@ target_link_libraries(app_test PRIVATE
 )
 
 add_test(NAME app_test COMMAND app_test)
+
+add_executable(audio_test
+    audio_test.cpp
+)
+
+target_link_libraries(audio_test PRIVATE
+    tundra_core
+)
+
+add_test(NAME audio_test COMMAND audio_test)

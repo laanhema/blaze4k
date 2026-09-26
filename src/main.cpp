@@ -3,12 +3,7 @@
 #include <vector>
 #include "app/app.hpp"
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-parameter"
-#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
-#define MINIAUDIO_IMPLEMENTATION
-#include <miniaudio.h>
-#pragma GCC diagnostic pop
+
 
 int main(int argc, char* argv[]) {
     std::cout << "Tundra Dance - 4-Panel Rhythm Game Engine v0.1.0\n";
