@@ -1,0 +1,281 @@
+#include <cmath>
+#include <cstring>
+#include <filesystem>
+#include <fstream>
+#include <iostream>
+#include <string>
+
+#include "data/judgment_constants_loader.hpp"
+#include "timing/judgment_constants.hpp"
+
+namespace fs = std::filesystem;
+
+#define TEST_CHECK(expr) \
+    do { \
+        if (!(expr)) { \
+            std::cerr << "Assertion failed at " << __FILE__ << ":" << __LINE__ << ": " #expr << "\n"; \
+            std::abort(); \
+        } \
+    } while (0)
+
+namespace {
+
+constexpr double kEps = 1e-12;
+
+bool nearly(double a, double b) {
+    return std::fabs(a - b) <= kEps;
+}
+
+bool same_weights(const td::Weights& a, const td::Weights& b) {
+    return a.fantastic == b.fantastic && a.excellent == b.excellent &&
+           a.great == b.great && a.decent == b.decent &&
+           a.way_off == b.way_off && a.miss == b.miss &&
+           a.hit_mine == b.hit_mine && a.hold_ok == b.hold_ok &&
+           a.hold_ng == b.hold_ng;
+}
+
+bool same_constants(const td::JudgmentConstants& a, const td::JudgmentConstants& b) {
+    if (!nearly(a.windows.fantastic, b.windows.fantastic) ||
+        !nearly(a.windows.excellent, b.windows.excellent) ||
+        !nearly(a.windows.great, b.windows.great) ||
+        !nearly(a.windows.decent, b.windows.decent) ||
+        !nearly(a.windows.way_off, b.windows.way_off) ||
+        !nearly(a.windows.hit_mine, b.windows.hit_mine) ||
+        !nearly(a.windows.hold_ok, b.windows.hold_ok) ||
+        !nearly(a.windows.hold_roll, b.windows.hold_roll) ||
+        !nearly(a.windows.judge_window_scale, b.windows.judge_window_scale) ||
+        !nearly(a.windows.judge_window_add, b.windows.judge_window_add)) {
+        return false;
+    }
+    if (!same_weights(a.dp_weights, b.dp_weights) ||
+        !same_weights(a.grade_weights, b.grade_weights)) {
+        return false;
+    }
+    if (!nearly(a.life.fantastic, b.life.fantastic) ||
+        !nearly(a.life.excellent, b.life.excellent) ||
+        !nearly(a.life.great, b.life.great) ||
+        !nearly(a.life.decent, b.life.decent) ||
+        !nearly(a.life.way_off, b.life.way_off) ||
+        !nearly(a.life.miss, b.life.miss) ||
+        !nearly(a.life.hit_mine, b.life.hit_mine) ||
+        !nearly(a.life.hold_ok, b.life.hold_ok) ||
+        !nearly(a.life.hold_ng, b.life.hold_ng) ||
+        a.life.merciful_drain != b.life.merciful_drain) {
+        return false;
+    }
+    for (std::size_t i = 0; i < a.grade_tiers.size(); ++i) {
+        if (!nearly(a.grade_tiers[i].min_percent, b.grade_tiers[i].min_percent)) {
+            return false;
+        }
+        if (std::strcmp(a.grade_tiers[i].label, b.grade_tiers[i].label) != 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void write_file(const fs::path& path, const std::string& contents) {
+    std::ofstream out(path, std::ios::binary | std::ios::trunc);
+    out << contents;
+}
+
+fs::path find_seed_file() {
+    const char* candidates[] = {
+        "assets/data/judgment_constants.json",
+        "../assets/data/judgment_constants.json",
+        "../../assets/data/judgment_constants.json",
+    };
+    for (const char* candidate : candidates) {
+        if (fs::exists(candidate)) {
+            return candidate;
+        }
+    }
+    return {};
+}
+
+} // namespace
+
+int main() {
+    std::cout << "[judgment_constants_test] Starting judgment constants tests...\n";
+
+    const td::JudgmentConstants& defaults = td::JudgmentConstants::compiled_defaults();
+
+    // 1. Defaults parity vs OpenITG source commit.
+    TEST_CHECK(nearly(defaults.windows.fantastic, 0.0215));
+    TEST_CHECK(nearly(defaults.windows.excellent, 0.0430));
+    TEST_CHECK(nearly(defaults.windows.great, 0.1020));
+    TEST_CHECK(nearly(defaults.windows.decent, 0.1350));
+    TEST_CHECK(nearly(defaults.windows.way_off, 0.1800));
+    TEST_CHECK(nearly(defaults.windows.hit_mine, 0.0700));
+    TEST_CHECK(nearly(defaults.windows.hold_ok, 0.3200));
+    TEST_CHECK(nearly(defaults.windows.hold_roll, 0.3500));
+    TEST_CHECK(nearly(defaults.windows.judge_window_scale, 1.0));
+    TEST_CHECK(nearly(defaults.windows.judge_window_add, 0.0));
+    TEST_CHECK(same_weights(defaults.dp_weights, td::Weights{5, 4, 2, 0, -6, -12, -6, 5, 0}));
+    TEST_CHECK(same_weights(defaults.grade_weights, td::Weights{5, 4, 2, 0, -6, -12, -6, 5, 0}));
+    TEST_CHECK(nearly(defaults.life.fantastic, 0.008));
+    TEST_CHECK(nearly(defaults.life.excellent, 0.008));
+    TEST_CHECK(nearly(defaults.life.great, 0.004));
+    TEST_CHECK(nearly(defaults.life.decent, 0.0));
+    TEST_CHECK(nearly(defaults.life.way_off, -0.050));
+    TEST_CHECK(nearly(defaults.life.miss, -0.100));
+    TEST_CHECK(nearly(defaults.life.hit_mine, -0.050));
+    TEST_CHECK(nearly(defaults.life.hold_ok, 0.008));
+    TEST_CHECK(nearly(defaults.life.hold_ng, -0.080));
+    TEST_CHECK(!defaults.life.merciful_drain);
+    const double expected_tiers[] = {1.00, 0.99, 0.98, 0.96, 0.94, 0.92, 0.89,
+                                     0.86, 0.83, 0.80, 0.76, 0.72, 0.68, 0.64, 0.60, 0.55, -1000};
+    TEST_CHECK(defaults.grade_tiers.size() == 17);
+    for (std::size_t i = 0; i < defaults.grade_tiers.size(); ++i) {
+        TEST_CHECK(nearly(defaults.grade_tiers[i].min_percent, expected_tiers[i]));
+    }
+    std::string validation_error;
+    TEST_CHECK(defaults.validate(&validation_error));
+    std::cout << "  - 1. compiled defaults match pinned OpenITG values.\n";
+
+    // 2. classify_tap boundaries (symmetric, NaN -> Miss).
+    TEST_CHECK(defaults.classify_tap(0.0215) == td::TapJudgment::Fantastic);
+    TEST_CHECK(defaults.classify_tap(0.0215 + kEps) == td::TapJudgment::Excellent);
+    TEST_CHECK(defaults.classify_tap(0.0430 + kEps) == td::TapJudgment::Great);
+    TEST_CHECK(defaults.classify_tap(0.1020 + kEps) == td::TapJudgment::Decent);
+    TEST_CHECK(defaults.classify_tap(0.1350 + kEps) == td::TapJudgment::WayOff);
+    TEST_CHECK(defaults.classify_tap(0.1800 + kEps) == td::TapJudgment::Miss);
+    TEST_CHECK(defaults.classify_tap(-0.0215) == td::TapJudgment::Fantastic);
+    TEST_CHECK(defaults.classify_tap(-(0.0215 + kEps)) == td::TapJudgment::Excellent);
+    TEST_CHECK(defaults.classify_tap(-(0.1800 + kEps)) == td::TapJudgment::Miss);
+    TEST_CHECK(defaults.classify_tap(std::nan("")) == td::TapJudgment::Miss);
+    std::cout << "  - 2. classify_tap boundary and NaN behavior correct.\n";
+
+    // 3. Combo semantics (Decent breaks combo).
+    TEST_CHECK(defaults.continues_combo(td::TapJudgment::Fantastic));
+    TEST_CHECK(defaults.continues_combo(td::TapJudgment::Excellent));
+    TEST_CHECK(defaults.continues_combo(td::TapJudgment::Great));
+    TEST_CHECK(defaults.continues_combo(td::TapJudgment::HitMine));
+    TEST_CHECK(!defaults.continues_combo(td::TapJudgment::Decent));
+    TEST_CHECK(!defaults.continues_combo(td::TapJudgment::WayOff));
+    TEST_CHECK(!defaults.continues_combo(td::TapJudgment::Miss));
+    std::cout << "  - 3. combo continuation semantics correct.\n";
+
+    // 4. Grade tier lookup.
+    TEST_CHECK(std::strcmp(defaults.grade_for_percent(1.0).label, "quad_star") == 0);
+    TEST_CHECK(std::strcmp(defaults.grade_for_percent(0.99).label, "triple_star") == 0);
+    TEST_CHECK(std::strcmp(defaults.grade_for_percent(0.98).label, "double_star") == 0);
+    TEST_CHECK(std::strcmp(defaults.grade_for_percent(0.96).label, "single_star") == 0);
+    TEST_CHECK(std::strcmp(defaults.grade_for_percent(0.94).label, "S+") == 0);
+    TEST_CHECK(std::strcmp(defaults.grade_for_percent(0.55).label, "C-") == 0);
+    TEST_CHECK(std::strcmp(defaults.grade_for_percent(0.54).label, "D") == 0);
+    std::cout << "  - 4. grade tier lookup correct.\n";
+
+    fs::path temp_dir = fs::temp_directory_path() / "td_judgment_constants_test";
+    fs::create_directories(temp_dir);
+
+    // 5. Configurable without recompiling (partial override).
+    fs::path override_path = temp_dir / "override.json";
+    write_file(override_path,
+               "{\"windows_seconds\": {\"great\": 0.050}, \"dp_weights\": {\"fantastic\": 9}}");
+    std::string override_message;
+    td::JudgmentConstants overridden = td::load_judgment_constants(override_path, &override_message);
+    TEST_CHECK(nearly(overridden.windows.great, 0.050));
+    TEST_CHECK(overridden.dp_weights.fantastic == 9);
+    TEST_CHECK(overridden.dp_weights.excellent == 4);
+    TEST_CHECK(nearly(overridden.windows.fantastic, defaults.windows.fantastic));
+    TEST_CHECK(overridden.classify_tap(0.048) == td::TapJudgment::Great);
+    TEST_CHECK(overridden.classify_tap(0.020) == td::TapJudgment::Fantastic);
+    std::cout << "  - 5. configurable via JSON without recompiling.\n";
+
+    // 6. Seed file parity.
+    fs::path seed_path = find_seed_file();
+    TEST_CHECK(!seed_path.empty());
+    std::string seed_message;
+    td::JudgmentConstants seeded = td::load_judgment_constants(seed_path, &seed_message);
+    TEST_CHECK(same_constants(seeded, defaults));
+    std::cout << "  - 6. shipped seed JSON deep-equals compiled defaults.\n";
+
+    // 7. Missing file fallback.
+    std::string missing_message;
+    td::JudgmentConstants missing = td::load_judgment_constants(temp_dir / "does_not_exist.json",
+                                                               &missing_message);
+    TEST_CHECK(same_constants(missing, defaults));
+    TEST_CHECK(!missing_message.empty());
+    std::cout << "  - 7. missing file falls back with warning: " << missing_message << "\n";
+
+    // 8. Malformed JSON fallback.
+    fs::path malformed_path = temp_dir / "malformed.json";
+    write_file(malformed_path, "{ not json");
+    std::string malformed_message;
+    td::JudgmentConstants malformed = td::load_judgment_constants(malformed_path, &malformed_message);
+    TEST_CHECK(same_constants(malformed, defaults));
+    TEST_CHECK(!malformed_message.empty());
+    std::cout << "  - 8. malformed JSON falls back with warning.\n";
+
+    // 9a. Invalid values fallback.
+    fs::path invalid_path = temp_dir / "invalid.json";
+    write_file(invalid_path, "{\"windows_seconds\": {\"great\": -1}}");
+    std::string invalid_message;
+    td::JudgmentConstants invalid = td::load_judgment_constants(invalid_path, &invalid_message);
+    TEST_CHECK(same_constants(invalid, defaults));
+    TEST_CHECK(!invalid_message.empty());
+
+    // 9b. Non-monotonic windows fallback.
+    fs::path nonmono_path = temp_dir / "nonmono.json";
+    write_file(nonmono_path, "{\"windows_seconds\": {\"fantastic\": 0.5}}");
+    std::string nonmono_message;
+    td::JudgmentConstants nonmono = td::load_judgment_constants(nonmono_path, &nonmono_message);
+    TEST_CHECK(same_constants(nonmono, defaults));
+    TEST_CHECK(!nonmono_message.empty());
+
+    // 9c. Partial file: absent keys keep compiled defaults.
+    fs::path partial_path = temp_dir / "partial.json";
+    write_file(partial_path, "{\"dp_weights\": {\"miss\": -20}}");
+    std::string partial_message;
+    td::JudgmentConstants partial = td::load_judgment_constants(partial_path, &partial_message);
+    TEST_CHECK(partial.dp_weights.miss == -20);
+    TEST_CHECK(partial.dp_weights.fantastic == defaults.dp_weights.fantastic);
+    TEST_CHECK(nearly(partial.windows.great, defaults.windows.great));
+    TEST_CHECK(same_weights(partial.grade_weights, defaults.grade_weights));
+    std::cout << "  - 9. invalid values fall back; partial overrides merge over defaults.\n";
+
+    // 10. Integer overrides must be integral and in range.
+    fs::path fractional_path = temp_dir / "fractional.json";
+    write_file(fractional_path, "{\"dp_weights\": {\"fantastic\": 4.9}}");
+    std::string fractional_message;
+    td::JudgmentConstants fractional = td::load_judgment_constants(fractional_path, &fractional_message);
+    TEST_CHECK(same_constants(fractional, defaults));
+    TEST_CHECK(!fractional_message.empty());
+
+    fs::path huge_path = temp_dir / "huge.json";
+    write_file(huge_path, "{\"dp_weights\": {\"fantastic\": 1e20}}");
+    std::string huge_message;
+    td::JudgmentConstants huge = td::load_judgment_constants(huge_path, &huge_message);
+    TEST_CHECK(same_constants(huge, defaults));
+    TEST_CHECK(!huge_message.empty());
+    std::cout << "  - 10. non-integral/out-of-range integer weights fall back.\n";
+
+    // 11. Candidate precedence: the first existing file wins; status reports a file load.
+    fs::path candidate_a = temp_dir / "candidate_a.json";
+    fs::path candidate_b = temp_dir / "candidate_b.json";
+    write_file(candidate_a, "{\"dp_weights\": {\"fantastic\": 7}}");
+    write_file(candidate_b, "{\"dp_weights\": {\"fantastic\": 8}}");
+    std::string candidates_message;
+    td::ConstantsLoadStatus candidates_status = td::ConstantsLoadStatus::UsedDefaults;
+    td::JudgmentConstants from_candidates = td::load_judgment_constants_from_candidates(
+        {candidate_a, candidate_b}, &candidates_message, &candidates_status);
+    TEST_CHECK(from_candidates.dp_weights.fantastic == 7);
+    TEST_CHECK(candidates_status == td::ConstantsLoadStatus::LoadedFromFile);
+    TEST_CHECK(!candidates_message.empty());
+
+    // 12. No candidate found: compiled defaults + fallback status.
+    std::string none_message;
+    td::ConstantsLoadStatus none_status = td::ConstantsLoadStatus::LoadedFromFile;
+    td::JudgmentConstants none = td::load_judgment_constants_from_candidates(
+        {temp_dir / "missing_a.json", temp_dir / "missing_b.json"}, &none_message, &none_status);
+    TEST_CHECK(same_constants(none, defaults));
+    TEST_CHECK(none_status == td::ConstantsLoadStatus::UsedDefaults);
+    TEST_CHECK(!none_message.empty());
+    std::cout << "  - 11. candidate loading precedence and no-candidate fallback correct.\n";
+
+    fs::remove_all(temp_dir);
+
+    std::cout << "[judgment_constants_test] All judgment constants tests passed successfully!\n";
+    return 0;
+}
