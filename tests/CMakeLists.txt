@@ -162,3 +162,13 @@ target_link_libraries(screen_manager_test PRIVATE
 )
 
 add_test(NAME screen_manager_test COMMAND screen_manager_test)
+
+add_executable(config_persistence_test
+    config_persistence_test.cpp
+)
+
+target_link_libraries(config_persistence_test PRIVATE
+    tundra_core
+)
+
+add_test(NAME config_persistence_test COMMAND config_persistence_test)

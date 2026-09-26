@@ -79,6 +79,9 @@ bool Window::init() {
     if (config_.resizable) {
         flags |= SDL_WINDOW_RESIZABLE;
     }
+    if (config_.fullscreen) {
+        flags |= SDL_WINDOW_FULLSCREEN;
+    }
 
     window_ = SDL_CreateWindow(
         config_.title.c_str(),

@@ -104,6 +104,9 @@ add_library(tundra_core STATIC
     src/gameplay/note_field_renderer.cpp
     src/gameplay/gameplay_view.cpp
     src/data/judgment_constants_loader.cpp
+    src/data/config_loader.cpp
+    src/data/high_scores.cpp
+    src/data/data_paths.cpp
     src/screens/screen_manager.cpp
     src/screens/title_screen.cpp
     src/screens/attract_screen.cpp
