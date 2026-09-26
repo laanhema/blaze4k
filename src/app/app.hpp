@@ -4,6 +4,7 @@
 #include <functional>
 #include "app/window.hpp"
 #include "input/input_manager.hpp"
+#include "timing/judgment_constants.hpp"
 
 namespace td {
 
@@ -27,6 +28,7 @@ public:
     [[nodiscard]] Window& window() { return window_; }
     [[nodiscard]] InputManager& input_manager() { return input_manager_; }
     [[nodiscard]] const AppConfig& config() const { return config_; }
+    [[nodiscard]] const JudgmentConstants& judgment_constants() const { return judgment_constants_; }
 
     using UpdateCallback = std::function<void(double fixed_dt)>;
     using RenderCallback = std::function<void(double alpha)>;
@@ -45,6 +47,7 @@ private:
     AppConfig config_;
     Window window_;
     InputManager input_manager_;
+    JudgmentConstants judgment_constants_;
     bool is_running_ = false;
     uint64_t perf_frequency_ = 0;
     uint64_t last_time_ = 0;

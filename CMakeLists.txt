@@ -90,6 +90,8 @@ add_library(tundra_core STATIC
     src/chart/note_parser.cpp
     src/chart/song_library.cpp
     src/timing/music_clock.cpp
+    src/timing/judgment_constants.cpp
+    src/data/judgment_constants_loader.cpp
 )
 
 target_include_directories(tundra_core PUBLIC

@@ -89,3 +89,13 @@ target_link_libraries(music_clock_test PRIVATE
 
 add_test(NAME music_clock_test COMMAND music_clock_test)
 
+add_executable(judgment_constants_test
+    judgment_constants_test.cpp
+)
+
+target_link_libraries(judgment_constants_test PRIVATE
+    tundra_core
+)
+
+add_test(NAME judgment_constants_test COMMAND judgment_constants_test)
+

@@ -1,4 +1,5 @@
 #include "app/app.hpp"
+#include "data/judgment_constants_loader.hpp"
 #include <iostream>
 #include <algorithm>
 
@@ -24,6 +25,19 @@ bool App::init() {
     accumulator_ = 0.0;
     frames_rendered_ = 0;
     is_running_ = true;
+
+    std::string constants_message;
+    ConstantsLoadStatus constants_status = ConstantsLoadStatus::UsedDefaults;
+    judgment_constants_ = load_judgment_constants_from_candidates(
+        {"data/judgment_constants.json", "assets/data/judgment_constants.json"},
+        &constants_message, &constants_status);
+    if (!constants_message.empty()) {
+        if (constants_status == ConstantsLoadStatus::UsedDefaults) {
+            std::cerr << constants_message << "\n";
+        } else {
+            std::cout << constants_message << "\n";
+        }
+    }
 
     std::cout << "[App] Initialized successfully (fixed_dt=" << config_.fixed_dt
               << "s, vsync=" << (config_.window.vsync ? "on" : "off") << ").\n";

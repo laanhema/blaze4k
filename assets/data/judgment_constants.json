@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "source": "OpenITG f2c129fe65c65e4a9b3a691ff35e7717b4e8de51 assets/patch-data/Themes/default/metrics.ini",
+  "label_note": "grade_tiers[].label is informational only; labels are compiled in and copied by tier index, so editing them here has no effect.",
+  "windows_seconds": {
+    "fantastic": 0.0215,
+    "excellent": 0.043,
+    "great": 0.102,
+    "decent": 0.135,
+    "way_off": 0.18,
+    "hit_mine": 0.07,
+    "hold_ok": 0.32,
+    "hold_roll": 0.35,
+    "judge_window_scale": 1.0,
+    "judge_window_add": 0.0
+  },
+  "dp_weights": {
+    "fantastic": 5,
+    "excellent": 4,
+    "great": 2,
+    "decent": 0,
+    "way_off": -6,
+    "miss": -12,
+    "hit_mine": -6,
+    "hold_ok": 5,
+    "hold_ng": 0
+  },
+  "grade_weights": {
+    "fantastic": 5,
+    "excellent": 4,
+    "great": 2,
+    "decent": 0,
+    "way_off": -6,
+    "miss": -12,
+    "hit_mine": -6,
+    "hold_ok": 5,
+    "hold_ng": 0
+  },
+  "grade_tiers": [
+    { "min_percent": 1.0, "label": "quad_star" },
+    { "min_percent": 0.99, "label": "triple_star" },
+    { "min_percent": 0.98, "label": "double_star" },
+    { "min_percent": 0.96, "label": "single_star" },
+    { "min_percent": 0.94, "label": "S+" },
+    { "min_percent": 0.92, "label": "S" },
+    { "min_percent": 0.89, "label": "S-" },
+    { "min_percent": 0.86, "label": "A+" },
+    { "min_percent": 0.83, "label": "A" },
+    { "min_percent": 0.8, "label": "A-" },
+    { "min_percent": 0.76, "label": "B+" },
+    { "min_percent": 0.72, "label": "B" },
+    { "min_percent": 0.68, "label": "B-" },
+    { "min_percent": 0.64, "label": "C+" },
+    { "min_percent": 0.6, "label": "C" },
+    { "min_percent": 0.55, "label": "C-" },
+    { "min_percent": -1000, "label": "D" }
+  ],
+  "life_deltas": {
+    "fantastic": 0.008,
+    "excellent": 0.008,
+    "great": 0.004,
+    "decent": 0.0,
+    "way_off": -0.05,
+    "miss": -0.1,
+    "hit_mine": -0.05,
+    "hold_ok": 0.008,
+    "hold_ng": -0.08,
+    "merciful_drain": false
+  }
+}
