@@ -124,14 +124,17 @@ void ScreenManager::handle_back() {
         transition_to(attract_return_);
     } else if (active_id_ == ScreenId::Select) {
         transition_to(ScreenId::Title);
+    } else if (active_id_ == ScreenId::Gameplay) {
+        transition_to(ScreenId::Select); // abort the run; Results/pause are C7
     }
-    // Title/Gameplay/Results: no-op. The App handles Escape-quit on Title.
+    // Title/Results: no-op. The App handles Escape-quit on Title.
 }
 
 bool ScreenManager::back_navigates() const {
     // Keep this exactly in sync with handle_back(): only these screens consume
-    // Back as navigation. Title/Gameplay/Results fall through to App-quit.
-    return active_id_ == ScreenId::Attract || active_id_ == ScreenId::Select;
+    // Back as navigation. Title/Results fall through to App-quit.
+    return active_id_ == ScreenId::Attract || active_id_ == ScreenId::Select ||
+           active_id_ == ScreenId::Gameplay;
 }
 
 void ScreenManager::update(double fixed_dt, const std::vector<InputEvent>& events) {

@@ -113,7 +113,20 @@ void InputManager::on_gamepad_removed(SDL_JoystickID joystick_id) {
     }
 }
 
+void InputManager::clear_action_states() {
+    for (auto& entry : action_states_) {
+        entry.second = false;
+    }
+}
+
 void InputManager::handle_sdl_event(const SDL_Event& event) {
+    if (event.type == SDL_EVENT_WINDOW_FOCUS_LOST) {
+        // No key-up/gamepad-up is delivered while unfocused; clear the cached
+        // down-state so a hold does not stay stuck after refocus. Gameplay
+        // samples is_action_down each tick, so the next update releases it.
+        clear_action_states();
+        return;
+    }
     if (event.type == SDL_EVENT_GAMEPAD_ADDED) {
         on_gamepad_added(event.gdevice.which);
         return;

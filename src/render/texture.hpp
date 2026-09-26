@@ -1,9 +1,24 @@
 #pragma once
 
 #include <cstdint>
+#include <string>
 #include "render/geometry.hpp"
 
 namespace td {
+
+// Cheap, non-decoding result of probing an image header (stbi_info).
+struct ImageHeader {
+    // True only when the header parsed and the dimensions are positive and
+    // within the untrusted-input cap (<= 4096px).
+    bool ok = false;
+    int width = 0;
+    int height = 0;
+};
+
+// Probes an image header without decoding pixels. Returns ok=false when the
+// file cannot be read/parsed or declares non-positive/oversized dimensions, so
+// callers can reject untrusted images before any pixel allocation. Never throws.
+[[nodiscard]] ImageHeader probe_image_header(const std::string& path);
 
 // Move-only RAII wrapper around an OpenGL 2D texture.
 //
@@ -25,6 +40,13 @@ public:
 
     // Builds a 1x1 texture filled with `color` (useful for tinted solid quads).
     static Texture solid(Color color);
+
+    // Decodes a PNG/JPG/BMP file (via stb_image) and uploads it as RGBA8.
+    // Untrusted input: returns an invalid texture (never throws) for an empty
+    // path, a missing/oversize (> kMaxImageBytes) file, a header declaring
+    // dimensions over the cap (rejected via stbi_info before any decode), a
+    // decode failure, or when no GL context is available (headless).
+    static Texture from_file(const std::string& path);
 
     void destroy();
 

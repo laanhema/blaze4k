@@ -127,6 +127,19 @@ int main() {
     TEST_CHECK(events[0].action == td::GameAction::Confirm);
     std::cout << "  - Custom key rebinding verified.\n";
 
+    // 7. Focus loss clears the cached down-state so a missed release cannot
+    // leave a held note stuck.
+    input.handle_sdl_event(dfjk_events[0]); // Left is held again
+    TEST_CHECK(input.is_action_down(td::GameAction::Left));
+    SDL_Event focus_lost{};
+    focus_lost.type = SDL_EVENT_WINDOW_FOCUS_LOST;
+    input.handle_sdl_event(focus_lost);
+    TEST_CHECK(!input.is_action_down(td::GameAction::Left));
+    TEST_CHECK(!input.is_action_down(td::GameAction::Down));
+    TEST_CHECK(!input.is_action_down(td::GameAction::Up));
+    TEST_CHECK(!input.is_action_down(td::GameAction::Right));
+    std::cout << "  - Focus loss clears held-action state.\n";
+
     std::cout << "[input_test] All input tests passed successfully!\n";
     return 0;
 }
