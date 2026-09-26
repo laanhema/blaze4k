@@ -21,6 +21,7 @@ public:
     std::vector<InputEvent> poll_events();
 
     [[nodiscard]] bool is_action_down(GameAction action) const;
+    [[nodiscard]] GameAction action_for_key(SDL_Keycode key) const;
     [[nodiscard]] size_t connected_gamepads_count() const { return gamepads_.size(); }
 
     void bind_key(SDL_Keycode key, GameAction action);

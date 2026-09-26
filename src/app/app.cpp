@@ -100,9 +100,12 @@ void App::process_events() {
             std::cout << "[App] Window close requested.\n";
             stop();
         } else if (event.type == SDL_EVENT_KEY_DOWN) {
-            if (event.key.key == SDLK_ESCAPE) {
-                std::cout << "[App] Escape pressed. Exiting.\n";
-                stop();
+            if (input_manager_.action_for_key(event.key.key) == GameAction::Back) {
+                const bool consumed = event_cb_ && event_cb_(event);
+                if (!consumed) {
+                    std::cout << "[App] Back pressed. Exiting.\n";
+                    stop();
+                }
             }
         } else if (event.type == SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED) {
             window_.on_resize(event.window.data1, event.window.data2);

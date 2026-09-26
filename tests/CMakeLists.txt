@@ -152,3 +152,13 @@ target_link_libraries(metronome_sync_test PRIVATE
 )
 
 add_test(NAME metronome_sync_test COMMAND metronome_sync_test)
+
+add_executable(screen_manager_test
+    screen_manager_test.cpp
+)
+
+target_link_libraries(screen_manager_test PRIVATE
+    tundra_core
+)
+
+add_test(NAME screen_manager_test COMMAND screen_manager_test)
