@@ -1,6 +1,6 @@
 # Tundra Dance
 
-A modern 4-panel arrow rhythm game for desktop (Windows, macOS, Linux) — a faithful homage to *In The Groove*, *Mungyodance*, and *StepMania*. Hit scrolling arrows in time with music using a keyboard or USB dance pad, judged with ITG-tight timing windows and scored with the OpenITG dance-point/grade system.
+A modern 4-panel arrow rhythm game for desktop (Windows, macOS, Linux) — a faithful homage to _In The Groove_, _Mungyodance_, and _StepMania_. Hit scrolling arrows in time with music using a keyboard or USB dance pad, judged with ITG-tight timing windows and scored with the OpenITG dance-point/grade system.
 
 **Status: pre-implementation.** The full specification lives in the [PRD](.agents/PRDs/PRD.md).
 
@@ -16,15 +16,15 @@ A modern 4-panel arrow rhythm game for desktop (Windows, macOS, Linux) — a fai
 
 ## Tech Stack
 
-| Component  | Choice                                 |
-| ---------- | -------------------------------------- |
-| Language   | C++20                                  |
-| Platform   | SDL3 (≥ 3.2)                           |
-| Rendering  | OpenGL 3.3 core (2D textured quads)    |
-| Audio      | miniaudio                              |
-| Fonts      | stb_truetype                           |
-| Data       | nlohmann/json                          |
-| Build      | CMake (≥ 3.24)                         |
+| Component | Choice                              |
+| --------- | ----------------------------------- |
+| Language  | C++20                               |
+| Platform  | SDL3 (≥ 3.2)                        |
+| Rendering | OpenGL 3.3 core (2D textured quads) |
+| Audio     | miniaudio                           |
+| Fonts     | stb_truetype                        |
+| Data      | nlohmann/json                       |
+| Build     | CMake (≥ 3.24)                      |
 
 Reference authority: **OpenITG source** (judgment windows, DP weights, grades, life behavior) and **StepMania 5 source** (SM/SSC parsing semantics).
 
@@ -79,4 +79,3 @@ tundra-dance/
 
 - [Product Requirements Document](.agents/PRDs/PRD.md) — full spec, scope, and locked decisions
 - [AGENTS.md](AGENTS.md) — contributor/agent guidance
-# tundra-dance
