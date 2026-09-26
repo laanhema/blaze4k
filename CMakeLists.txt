@@ -115,6 +115,7 @@ add_library(tundra_core STATIC
     src/screens/title_screen.cpp
     src/screens/attract_screen.cpp
     src/screens/select_screen.cpp
+    src/screens/options_menu.cpp
     src/screens/gameplay_screen.cpp
     src/screens/select_placeholder_screen.cpp
 )

@@ -200,6 +200,7 @@ void SelectScreen::request_preview_for_selected() {
 
 void SelectScreen::enter(ScreenContext& ctx) {
     rebuild(ctx);
+    options_open_ = false;
 
     if (ctx.config != nullptr) {
         preview_.set_volume(static_cast<float>(ctx.config->audio.preview_volume));
@@ -237,7 +238,52 @@ void SelectScreen::update(ScreenContext& ctx, double fixed_dt,
         if (!event.pressed) {
             continue;
         }
+
+        if (options_open_) {
+            // Modal: the wheel is suspended and every press is routed to the
+            // overlay. Changes are applied to the shared config immediately.
+            // Back is intentionally not handled here: Screen::handle_back() owns
+            // it so the manager can consult post-update state (see
+            // ScreenManager::update).
+            bool changed = false;
+            bool close = false;
+            switch (event.action) {
+                case GameAction::Options:
+                    close = true;
+                    break;
+                case GameAction::Up:
+                    options_menu_move_row(options_, -1);
+                    break;
+                case GameAction::Down:
+                    options_menu_move_row(options_, +1);
+                    break;
+                case GameAction::Left:
+                    options_menu_adjust(options_, -1);
+                    changed = true;
+                    break;
+                case GameAction::Right:
+                case GameAction::Confirm:
+                    options_menu_adjust(options_, +1);
+                    changed = true;
+                    break;
+                default:
+                    break;
+            }
+            if ((changed || close) && ctx.config != nullptr) {
+                options_menu_apply(options_, *ctx.config);
+            }
+            if (close) {
+                options_open_ = false;
+            }
+            continue;
+        }
+
         switch (event.action) {
+            case GameAction::Options:
+                options_ =
+                    options_menu_from_config(ctx.config != nullptr ? *ctx.config : GameConfig{});
+                options_open_ = true;
+                break;
             case GameAction::Up:
                 move_song(-1);
                 break;
@@ -271,6 +317,17 @@ void SelectScreen::update(ScreenContext& ctx, double fixed_dt,
     }
 }
 
+bool SelectScreen::handle_back(ScreenContext& ctx) {
+    if (!options_open_) {
+        return false; // fall through to Select -> Title
+    }
+    if (ctx.config != nullptr) {
+        options_menu_apply(options_, *ctx.config);
+    }
+    options_open_ = false;
+    return true; // consumed: do not navigate away from Select
+}
+
 void SelectScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, int h) {
     if (w <= 0 || h <= 0) {
         return;
@@ -278,6 +335,48 @@ void SelectScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, i
 
     const float width = static_cast<float>(w);
     const float height = static_cast<float>(h);
+
+    if (options_open_) {
+        const Color kDimOverlay{0.0f, 0.0f, 0.0f, 0.72f};
+        const Color kPanelColor{0.10f, 0.13f, 0.20f, 0.98f};
+        renderer.draw_quad(Rect{0.0f, 0.0f, width, height}, kDimOverlay);
+
+        const float panel_w = width * 0.62f;
+        const float panel_h = height * 0.66f;
+        const float panel_x = (width - panel_w) * 0.5f;
+        const float panel_y = (height - panel_h) * 0.5f;
+        renderer.draw_quad(Rect{panel_x, panel_y, panel_w, panel_h}, kPanelColor);
+
+        const float text_x = panel_x + panel_w * 0.08f;
+        float row_y = panel_y + panel_h * 0.16f;
+        const float row_h = panel_h * 0.14f;
+        const float name_pixel = std::max(2.0f, width * 0.0035f);
+        const float value_pixel = std::max(2.0f, width * 0.0032f);
+
+        draw_text(renderer, "OPTIONS", text_x, panel_y + panel_h * 0.05f,
+                  std::max(2.5f, width * 0.0045f), kTitleColor);
+
+        const float value_x = panel_x + panel_w * 0.55f;
+        for (int i = 0; i < kOptionsRowCount; ++i) {
+            const bool selected = i == options_.row;
+            if (selected) {
+                renderer.draw_quad(
+                    Rect{text_x - 8.0f, row_y - 4.0f, panel_w * 0.84f, row_h * 0.9f},
+                    kPlaceholderColor);
+            }
+            draw_text(renderer, options_row_name(i), text_x, row_y, name_pixel,
+                      selected ? kSelectedColor : kTextColor);
+            draw_text(renderer, options_row_value_text(options_, i), value_x, row_y, value_pixel,
+                      selected ? kSelectedColor : kTextColor);
+            row_y += row_h;
+        }
+
+        draw_text_centered(
+            renderer,
+            "[UP/DOWN] ROW  [LEFT/RIGHT] CHANGE  [ENTER] NEXT  [BACK] CLOSE",
+            width * 0.5f, panel_y + panel_h * 0.91f, 2.0f, kHintColor);
+        return;
+    }
 
     const float title_pixel = std::max(2.0f, width * 0.0035f);
     draw_text(renderer, "SONG SELECT", width * 0.04f, height * 0.04f, title_pixel, kTitleColor);
@@ -373,6 +472,7 @@ void SelectScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, i
 void SelectScreen::exit(ScreenContext& /*ctx*/) {
     preview_.stop();
     texture_cache_.clear();
+    options_open_ = false;
 }
 
 } // namespace td

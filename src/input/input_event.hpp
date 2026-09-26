@@ -20,6 +20,10 @@ enum class GameAction {
     MenuLeft,
     MenuRight,
 
+    // In-screen options overlay (C4): open/close only; navigation reuses the
+    // directional actions and Confirm/Back, all of which are pad-mapped.
+    Options,
+
     None
 };
 
@@ -35,6 +39,7 @@ constexpr std::string_view action_to_string(GameAction action) {
         case GameAction::MenuDown: return "MenuDown";
         case GameAction::MenuLeft: return "MenuLeft";
         case GameAction::MenuRight: return "MenuRight";
+        case GameAction::Options: return "Options";
         case GameAction::None: return "None";
     }
     return "Unknown";

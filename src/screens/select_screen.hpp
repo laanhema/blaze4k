@@ -7,6 +7,7 @@
 #include "audio/preview_player.hpp"
 #include "chart/timing_data.hpp"
 #include "render/texture_cache.hpp"
+#include "screens/options_menu.hpp"
 #include "screens/screen.hpp"
 
 namespace td {
@@ -42,6 +43,8 @@ public:
     void update(ScreenContext& ctx, double fixed_dt, const std::vector<InputEvent>& events) override;
     void render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, int h) override;
     void exit(ScreenContext& ctx) override;
+    bool handle_back(ScreenContext& ctx) override;
+    [[nodiscard]] bool back_consumed() const override { return options_open_; }
 
     // Test accessors (headless, pure).
     [[nodiscard]] std::size_t song_count() const { return songs_.size(); }
@@ -52,6 +55,8 @@ public:
     [[nodiscard]] int chart_count() const;
     [[nodiscard]] std::size_t total_chart_count() const;
     [[nodiscard]] const PreviewPlayer& preview() const { return preview_; }
+    [[nodiscard]] bool options_open() const { return options_open_; }
+    [[nodiscard]] const OptionsMenu& options_menu() const { return options_; }
 
 private:
     struct WheelEntry {
@@ -70,6 +75,8 @@ private:
     int selected_chart_ = 0;
     PreviewPlayer preview_;
     TextureCache texture_cache_;
+    OptionsMenu options_;
+    bool options_open_ = false;
 };
 
 } // namespace td
