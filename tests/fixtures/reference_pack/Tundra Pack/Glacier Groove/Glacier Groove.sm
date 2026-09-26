@@ -1,0 +1,26 @@
+#TITLE:Glacier\:Groove\;Part 1;
+#SUBTITLE:// Inline comment inside tag
+Sub;
+#ARTIST:Glacier Artists;
+#BANNER:banner.png;
+#BACKGROUND:bg.png;
+#BPMS:0.0=128.0;
+#NOTES:
+     dance-single:
+     :
+     Medium:
+     4:
+     ::::
+// Empty first measure
+0000
+0000
+0000
+0000
+,
+// Active second measure
+1000
+0100
+0010
+0001
+;
+#OFFSET:0.010

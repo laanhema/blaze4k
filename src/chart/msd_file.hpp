@@ -22,6 +22,8 @@ class MsdFile {
 public:
     static constexpr size_t kMaxFileSize = 16 * 1024 * 1024; // 16 MB allocation cap
     static constexpr size_t kMaxTags = 10000;                // 10,000 tag cap
+    static constexpr size_t kMaxParamsPerTag = 1000;         // Max 1,000 parameters per tag
+    static constexpr size_t kMaxParamLength = 1024 * 1024;   // 1 MB cap per parameter
 
     MsdFile() = default;
 

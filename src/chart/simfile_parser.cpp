@@ -171,7 +171,7 @@ bool SimfileParser::parse_msd(const MsdFile& msd, const std::string& file_extens
                 std::string desc = tag.value(1);
                 std::string diff = tag.value(2);
                 int meter = parse_int_safe(tag.value(3), 1);
-                std::string note_data = tag.value(5);
+                std::string note_data = tag.params.back();
 
                 auto chart_opt = NoteParser::parse_4panel_notedata(
                     steps_type,
