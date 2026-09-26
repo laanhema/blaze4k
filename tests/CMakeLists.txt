@@ -142,3 +142,13 @@ target_link_libraries(life_keeper_test PRIVATE
 )
 
 add_test(NAME life_keeper_test COMMAND life_keeper_test)
+
+add_executable(metronome_sync_test
+    metronome_sync_test.cpp
+)
+
+target_link_libraries(metronome_sync_test PRIVATE
+    tundra_core
+)
+
+add_test(NAME metronome_sync_test COMMAND metronome_sync_test)
