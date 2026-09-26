@@ -2,6 +2,7 @@
 #include "audio/audio_engine.hpp"
 #include <iostream>
 #include <algorithm>
+#include <cmath>
 #include <miniaudio.h>
 
 namespace td {
@@ -128,20 +129,27 @@ bool SoundStream::seek_seconds(double seconds) {
 }
 
 double SoundStream::get_position_seconds() const {
-    if (!is_loaded_ || !sound_) {
+    if (!is_loaded_ || !sound_ || sample_rate_ == 0) {
         return 0.0;
+    }
+    return static_cast<double>(get_position_frames()) / static_cast<double>(sample_rate_);
+}
+
+uint64_t SoundStream::get_position_frames() const {
+    if (!is_loaded_ || !sound_ || sample_rate_ == 0) {
+        return 0;
     }
 
     ma_uint64 cursor = 0;
-    if (ma_sound_get_cursor_in_pcm_frames(sound_.get(), &cursor) == MA_SUCCESS && sample_rate_ > 0) {
+    if (ma_sound_get_cursor_in_pcm_frames(sound_.get(), &cursor) == MA_SUCCESS) {
         double pos = static_cast<double>(cursor) / static_cast<double>(sample_rate_);
         if (is_playing() && pos < last_position_) {
-            return last_position_;
+            return static_cast<uint64_t>(std::llround(last_position_ * static_cast<double>(sample_rate_)));
         }
         last_position_ = pos;
-        return pos;
+        return cursor;
     }
-    return last_position_;
+    return static_cast<uint64_t>(std::llround(last_position_ * static_cast<double>(sample_rate_)));
 }
 
 double SoundStream::get_length_seconds() const {

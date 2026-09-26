@@ -79,3 +79,13 @@ target_link_libraries(parser_hardening_test PRIVATE
 
 add_test(NAME parser_hardening_test COMMAND parser_hardening_test)
 
+add_executable(music_clock_test
+    music_clock_test.cpp
+)
+
+target_link_libraries(music_clock_test PRIVATE
+    tundra_core
+)
+
+add_test(NAME music_clock_test COMMAND music_clock_test)
+
