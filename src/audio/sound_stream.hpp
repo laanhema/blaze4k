@@ -28,6 +28,8 @@ public:
 
     bool seek_seconds(double seconds);
     [[nodiscard]] double get_position_seconds() const;
+    [[nodiscard]] uint64_t get_position_frames() const;
+    [[nodiscard]] uint32_t get_sample_rate() const { return sample_rate_; }
     [[nodiscard]] double get_length_seconds() const;
     [[nodiscard]] bool is_playing() const;
     [[nodiscard]] bool is_loaded() const { return is_loaded_; }

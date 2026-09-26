@@ -89,6 +89,7 @@ add_library(tundra_core STATIC
     src/chart/simfile_parser.cpp
     src/chart/note_parser.cpp
     src/chart/song_library.cpp
+    src/timing/music_clock.cpp
 )
 
 target_include_directories(tundra_core PUBLIC
