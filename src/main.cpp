@@ -1,9 +1,28 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <filesystem>
 #include "app/app.hpp"
+#include "chart/simfile_parser.hpp"
+#include "gameplay/gameplay_view.hpp"
+#include "render/gl_quad_renderer.hpp"
 
+namespace fs = std::filesystem;
 
+namespace {
+
+void print_help() {
+    std::cout << "Usage: tundra-dance [options]\n"
+              << "  --headless              Run without window/GL context\n"
+              << "  --smoke-test [N]        Run N frames and exit cleanly (default: 10)\n"
+              << "  --no-vsync              Disable vertical sync\n"
+              << "  --gameplay-demo <file>  TEMPORARY: render a simfile's first chart (.sm/.ssc)\n"
+              << "  --speed <mod>           Speed mod for the demo: Nx / Xn, cN, or mN (default 1x)\n"
+              << "  --downscroll            Mirror the demo field for downscroll\n"
+              << "  --help, -h              Show this help\n";
+}
+
+} // namespace
 
 int main(int argc, char* argv[]) {
     std::cout << "Tundra Dance - 4-Panel Rhythm Game Engine v0.1.0\n";
@@ -13,6 +32,12 @@ int main(int argc, char* argv[]) {
     config.window.width = 1280;
     config.window.height = 720;
     config.window.vsync = true;
+
+    // TEMPORARY: `--gameplay-demo` is a throwaway harness so the real GL note-field
+    // path and the live music clock can be exercised before C1's screen manager.
+    std::string demo_path;
+    std::string speed_text;
+    bool downscroll = false;
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
@@ -26,12 +51,22 @@ int main(int argc, char* argv[]) {
             config.smoke_test_frames = frames;
         } else if (arg == "--no-vsync") {
             config.window.vsync = false;
+        } else if (arg == "--gameplay-demo") {
+            if (i + 1 < argc) {
+                demo_path = argv[++i];
+            } else {
+                std::cerr << "[main] --gameplay-demo requires a simfile path\n";
+            }
+        } else if (arg == "--speed") {
+            if (i + 1 < argc) {
+                speed_text = argv[++i];
+            } else {
+                std::cerr << "[main] --speed requires a mod value (e.g. C400, 1.5x, M600)\n";
+            }
+        } else if (arg == "--downscroll") {
+            downscroll = true;
         } else if (arg == "--help" || arg == "-h") {
-            std::cout << "Usage: tundra-dance [options]\n"
-                      << "  --headless         Run without window/GL context\n"
-                      << "  --smoke-test [N]   Run N frames and exit cleanly (default: 10)\n"
-                      << "  --no-vsync         Disable vertical sync\n"
-                      << "  --help, -h         Show this help\n";
+            print_help();
             return 0;
         }
     }
@@ -42,7 +77,69 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    td::GlQuadRenderer quad_renderer;
+    td::GameplayView gameplay;
+
+    if (!demo_path.empty()) {
+        td::SimfileParser parser;
+        if (!parser.parse_file(demo_path)) {
+            std::cerr << "[main] Failed to parse simfile: " << demo_path << "\n";
+            return 1;
+        }
+        if (parser.charts().empty()) {
+            std::cerr << "[main] Simfile has no supported 4-panel charts: " << demo_path << "\n";
+            return 1;
+        }
+
+        std::string audio_path;
+        if (!parser.metadata().music_path.empty()) {
+            const fs::path resolved = fs::path(demo_path).parent_path() / parser.metadata().music_path;
+            if (fs::exists(resolved)) {
+                audio_path = resolved.string();
+            } else {
+                std::cerr << "[main] Music file not found: " << resolved.string() << "\n";
+            }
+        }
+
+        td::GameplayOptions options;
+        if (!speed_text.empty()) {
+            if (!td::parse_speed_mod(speed_text, options.speed)) {
+                std::cerr << "[main] Invalid --speed '" << speed_text
+                          << "'; defaulting to X-mod 1x\n";
+                options.speed = td::SpeedMod{};
+            }
+        }
+        options.scroll = downscroll ? td::ScrollDirection::Down : td::ScrollDirection::Up;
+
+        if (!gameplay.init(parser.charts().front(), audio_path, options)) {
+            std::cerr << "[main] Failed to initialize gameplay demo\n";
+            return 1;
+        }
+
+        if (!app.window().is_headless()) {
+            if (!quad_renderer.init()) {
+                std::cerr << "[main] Failed to initialize quad renderer\n";
+            }
+        }
+
+        app.set_update_callback([&gameplay](double fixed_dt) {
+            gameplay.update(fixed_dt);
+        });
+        app.set_render_callback([&gameplay, &quad_renderer, &app](double /*alpha*/) {
+            if (quad_renderer.is_initialized()) {
+                quad_renderer.begin(app.window().width(), app.window().height());
+            }
+            gameplay.render(quad_renderer, app.window().width(), app.window().height());
+            if (quad_renderer.is_initialized()) {
+                quad_renderer.end();
+            }
+        });
+    }
+
     app.run();
+
+    gameplay.shutdown();
+    quad_renderer.shutdown();
     std::cout << "Tundra Dance shut down cleanly.\n";
     return 0;
 }

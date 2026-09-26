@@ -91,6 +91,13 @@ add_library(tundra_core STATIC
     src/chart/song_library.cpp
     src/timing/music_clock.cpp
     src/timing/judgment_constants.cpp
+    src/render/texture.cpp
+    src/render/gl_quad_renderer.cpp
+    src/gameplay/speed_mod.cpp
+    src/gameplay/note_field.cpp
+    src/gameplay/noteskin.cpp
+    src/gameplay/note_field_renderer.cpp
+    src/gameplay/gameplay_view.cpp
     src/data/judgment_constants_loader.cpp
 )
 
