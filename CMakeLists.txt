@@ -76,22 +76,32 @@ if(NOT TARGET stb)
     target_include_directories(stb INTERFACE ${stb_SOURCE_DIR})
 endif()
 
-# Main executable
-add_executable(tundra-dance
-    src/main.cpp
+# Core library target
+add_library(tundra_core STATIC
+    src/app/window.cpp
+    src/app/app.cpp
 )
 
-target_include_directories(tundra-dance PRIVATE
+target_include_directories(tundra_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-target_link_libraries(tundra-dance PRIVATE
+target_link_libraries(tundra_core PUBLIC
     SDL3::SDL3-static
     glad
     nlohmann_json::nlohmann_json
     miniaudio
     stb
     ${CMAKE_DL_LIBS}
+)
+
+# Main executable
+add_executable(tundra-dance
+    src/main.cpp
+)
+
+target_link_libraries(tundra-dance PRIVATE
+    tundra_core
 )
 
 # Testing

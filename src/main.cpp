@@ -1,10 +1,7 @@
 #include <iostream>
-#include <SDL3/SDL.h>
-#include <glad/glad.h>
-#include <nlohmann/json.hpp>
-
-#define STB_TRUETYPE_IMPLEMENTATION
-#include <stb_truetype.h>
+#include <string>
+#include <vector>
+#include "app/app.hpp"
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-parameter"
@@ -14,39 +11,43 @@
 #pragma GCC diagnostic pop
 
 int main(int argc, char* argv[]) {
-    (void)argc;
-    (void)argv;
+    std::cout << "Tundra Dance - 4-Panel Rhythm Game Engine v0.1.0\n";
 
-    std::cout << "Tundra Dance - Rhythm Game Engine v0.1.0\n";
-    std::cout << "Initializing subsystems...\n";
+    td::AppConfig config;
+    config.window.title = "Tundra Dance";
+    config.window.width = 1280;
+    config.window.height = 720;
+    config.window.vsync = true;
 
-    // Test nlohmann/json
-    nlohmann::json info = {
-        {"game", "Tundra Dance"},
-        {"engine", "C++20 / SDL3 / OpenGL 3.3"},
-        {"version", "0.1.0"}
-    };
-    std::cout << "JSON support: " << info["game"].get<std::string>() << "\n";
-
-    // Test SDL3 version
-    int sdlVersion = SDL_GetVersion();
-    std::cout << "SDL3 version: " << SDL_VERSIONNUM_MAJOR(sdlVersion) << "."
-              << SDL_VERSIONNUM_MINOR(sdlVersion) << "."
-              << SDL_VERSIONNUM_MICRO(sdlVersion) << "\n";
-
-    // Test miniaudio context initialization
-    ma_context maContext;
-    if (ma_context_init(nullptr, 0, nullptr, &maContext) == MA_SUCCESS) {
-        std::cout << "miniaudio initialized successfully.\n";
-        ma_context_uninit(&maContext);
-    } else {
-        std::cout << "miniaudio initialized in fallback mode.\n";
+    for (int i = 1; i < argc; ++i) {
+        std::string arg = argv[i];
+        if (arg == "--headless") {
+            config.window.headless = true;
+        } else if (arg == "--smoke-test") {
+            int frames = 10;
+            if (i + 1 < argc && argv[i + 1][0] != '-') {
+                frames = std::stoi(argv[++i]);
+            }
+            config.smoke_test_frames = frames;
+        } else if (arg == "--no-vsync") {
+            config.window.vsync = false;
+        } else if (arg == "--help" || arg == "-h") {
+            std::cout << "Usage: tundra-dance [options]\n"
+                      << "  --headless         Run without window/GL context\n"
+                      << "  --smoke-test [N]   Run N frames and exit cleanly (default: 10)\n"
+                      << "  --no-vsync         Disable vertical sync\n"
+                      << "  --help, -h         Show this help\n";
+            return 0;
+        }
     }
 
-    // Test stb_truetype
-    stbtt_fontinfo font;
-    std::cout << "stb_truetype ready (struct size: " << sizeof(font) << " bytes).\n";
+    td::App app(config);
+    if (!app.init()) {
+        std::cerr << "Failed to initialize application.\n";
+        return 1;
+    }
 
-    std::cout << "Scaffold verification complete.\n";
+    app.run();
+    std::cout << "Tundra Dance shut down cleanly.\n";
     return 0;
 }
