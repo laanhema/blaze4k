@@ -83,6 +83,7 @@ add_library(tundra_core STATIC
     src/audio/miniaudio_impl.cpp
     src/audio/audio_engine.cpp
     src/audio/sound_stream.cpp
+    src/input/input_manager.cpp
 )
 
 target_include_directories(tundra_core PUBLIC

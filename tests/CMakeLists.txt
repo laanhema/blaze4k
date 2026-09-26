@@ -28,3 +28,13 @@ target_link_libraries(audio_test PRIVATE
 )
 
 add_test(NAME audio_test COMMAND audio_test)
+
+add_executable(input_test
+    input_test.cpp
+)
+
+target_link_libraries(input_test PRIVATE
+    tundra_core
+)
+
+add_test(NAME input_test COMMAND input_test)
