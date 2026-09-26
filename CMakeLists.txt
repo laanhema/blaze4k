@@ -87,6 +87,7 @@ add_library(tundra_core STATIC
     src/chart/msd_file.cpp
     src/chart/timing_data.cpp
     src/chart/simfile_parser.cpp
+    src/chart/note_parser.cpp
 )
 
 target_include_directories(tundra_core PUBLIC

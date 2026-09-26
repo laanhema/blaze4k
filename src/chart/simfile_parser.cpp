@@ -1,5 +1,6 @@
 #include "chart/simfile_parser.hpp"
 #include "chart/msd_file.hpp"
+#include "chart/note_parser.hpp"
 #include <iostream>
 #include <algorithm>
 #include <cctype>
@@ -22,6 +23,14 @@ bool iequals(std::string_view a, std::string_view b) {
 double parse_double_safe(std::string_view s, double fallback = 0.0) {
     try {
         return std::stod(std::string(s));
+    } catch (...) {
+        return fallback;
+    }
+}
+
+int parse_int_safe(std::string_view s, int fallback = 1) {
+    try {
+        return std::stoi(std::string(s));
     } catch (...) {
         return fallback;
     }
@@ -57,8 +66,10 @@ bool SimfileParser::parse_string(std::string_view content, const std::string& fi
 bool SimfileParser::parse_msd(const MsdFile& msd, const std::string& file_extension) {
     metadata_ = SongMetadata{};
     timing_.clear();
+    charts_.clear();
     is_ssc_ = iequals(file_extension, ".ssc");
 
+    // Pass 1: Parse global metadata and timing
     for (const auto& tag : msd.tags()) {
         if (iequals(tag.name, "VERSION")) {
             is_ssc_ = true;
@@ -101,6 +112,79 @@ bool SimfileParser::parse_msd(const MsdFile& msd, const std::string& file_extens
             timing_.parse_bpms_string(tag.value());
         } else if (iequals(tag.name, "STOPS")) {
             timing_.parse_stops_string(tag.value());
+        }
+    }
+
+    // Pass 2: Parse charts
+    if (is_ssc_) {
+        // SSC chart blocks
+        std::string cur_stepstype;
+        std::string cur_desc;
+        std::string cur_diff = "Beginner";
+        int cur_meter = 1;
+        TimingData cur_timing = timing_;
+
+        for (const auto& tag : msd.tags()) {
+            if (iequals(tag.name, "NOTEDATA")) {
+                cur_stepstype.clear();
+                cur_desc.clear();
+                cur_diff = "Beginner";
+                cur_meter = 1;
+                cur_timing = timing_;
+            } else if (iequals(tag.name, "STEPSTYPE")) {
+                cur_stepstype = tag.value();
+            } else if (iequals(tag.name, "CHARTNAME") || iequals(tag.name, "DESCRIPTION")) {
+                cur_desc = tag.value();
+            } else if (iequals(tag.name, "DIFFICULTY")) {
+                cur_diff = tag.value();
+            } else if (iequals(tag.name, "METER")) {
+                cur_meter = parse_int_safe(tag.value(), 1);
+            } else if (iequals(tag.name, "BPMS") && !cur_stepstype.empty()) {
+                cur_timing.parse_bpms_string(tag.value());
+            } else if (iequals(tag.name, "STOPS") && !cur_stepstype.empty()) {
+                cur_timing.parse_stops_string(tag.value());
+            } else if (iequals(tag.name, "OFFSET") && !cur_stepstype.empty()) {
+                cur_timing.set_offset(parse_double_safe(tag.value(), metadata_.offset));
+            } else if (iequals(tag.name, "NOTES")) {
+                auto chart_opt = NoteParser::parse_4panel_notedata(
+                    cur_stepstype,
+                    cur_desc,
+                    cur_diff,
+                    cur_meter,
+                    tag.value(),
+                    cur_timing
+                );
+                if (chart_opt.has_value()) {
+                    charts_.push_back(std::move(chart_opt.value()));
+                }
+            }
+        }
+    } else {
+        // SM format: #NOTES:stepstype:desc:diff:meter:radar:notedata;
+        for (const auto& tag : msd.tags()) {
+            if (iequals(tag.name, "NOTES")) {
+                if (tag.params.size() < 6) {
+                    std::cerr << "[SimfileParser] Warning: #NOTES tag has fewer than 6 parameters\n";
+                    continue;
+                }
+                std::string steps_type = tag.value(0);
+                std::string desc = tag.value(1);
+                std::string diff = tag.value(2);
+                int meter = parse_int_safe(tag.value(3), 1);
+                std::string note_data = tag.value(5);
+
+                auto chart_opt = NoteParser::parse_4panel_notedata(
+                    steps_type,
+                    desc,
+                    diff,
+                    meter,
+                    note_data,
+                    timing_
+                );
+                if (chart_opt.has_value()) {
+                    charts_.push_back(std::move(chart_opt.value()));
+                }
+            }
         }
     }
 

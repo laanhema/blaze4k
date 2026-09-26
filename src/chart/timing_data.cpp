@@ -25,6 +25,7 @@ TimingData::TimingData() {
 
 void TimingData::clear() {
     offset_ = 0.0;
+    has_exotic_timing_ = false;
     bpms_.clear();
     stops_.clear();
     bpms_.push_back({0.0, 120.0});
@@ -32,6 +33,7 @@ void TimingData::clear() {
 
 void TimingData::add_bpm(double beat, double bpm) {
     if (bpm <= 0.0) {
+        has_exotic_timing_ = true;
         std::cerr << "[TimingData] Warning: Invalid non-positive BPM " << bpm << " at beat " << beat << "\n";
         return;
     }
@@ -40,7 +42,12 @@ void TimingData::add_bpm(double beat, double bpm) {
 }
 
 void TimingData::add_stop(double beat, double length_seconds) {
-    if (length_seconds <= 0.0) {
+    if (length_seconds < 0.0) {
+        has_exotic_timing_ = true;
+        std::cerr << "[TimingData] Warning: Negative stop (warp) " << length_seconds << "s at beat " << beat << "\n";
+        return;
+    }
+    if (length_seconds == 0.0) {
         return;
     }
     stops_.push_back({beat, length_seconds});
@@ -81,7 +88,10 @@ bool TimingData::parse_bpms_string(std::string_view bpms_str) {
         try {
             double beat = std::stod(token.substr(0, eq_pos));
             double bpm = std::stod(token.substr(eq_pos + 1));
-            if (bpm > 0.0) {
+            if (bpm <= 0.0) {
+                has_exotic_timing_ = true;
+                std::cerr << "[TimingData] Warning: Non-positive BPM " << bpm << " detected.\n";
+            } else {
                 bpms_.push_back({beat, bpm});
             }
         } catch (...) {
@@ -113,7 +123,10 @@ bool TimingData::parse_stops_string(std::string_view stops_str) {
         try {
             double beat = std::stod(token.substr(0, eq_pos));
             double len = std::stod(token.substr(eq_pos + 1));
-            if (len > 0.0) {
+            if (len < 0.0) {
+                has_exotic_timing_ = true;
+                std::cerr << "[TimingData] Warning: Negative stop (warp) " << len << "s detected.\n";
+            } else if (len > 0.0) {
                 stops_.push_back({beat, len});
             }
         } catch (...) {

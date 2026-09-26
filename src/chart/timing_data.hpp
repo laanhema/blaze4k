@@ -37,6 +37,8 @@ public:
 
     [[nodiscard]] const std::vector<BpmSegment>& bpms() const { return bpms_; }
     [[nodiscard]] const std::vector<StopSegment>& stops() const { return stops_; }
+    [[nodiscard]] bool has_exotic_timing() const { return has_exotic_timing_; }
+    void set_exotic_timing(bool exotic = true) { has_exotic_timing_ = exotic; }
 
     void clear();
 
@@ -44,6 +46,7 @@ private:
     void ensure_sorted_and_valid();
 
     double offset_ = 0.0;
+    bool has_exotic_timing_ = false;
     std::vector<BpmSegment> bpms_;
     std::vector<StopSegment> stops_;
 };
