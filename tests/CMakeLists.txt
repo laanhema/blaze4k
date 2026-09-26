@@ -58,3 +58,14 @@ target_link_libraries(note_parser_test PRIVATE
 )
 
 add_test(NAME note_parser_test COMMAND note_parser_test)
+
+add_executable(song_library_test
+    song_library_test.cpp
+)
+
+target_link_libraries(song_library_test PRIVATE
+    tundra_core
+)
+
+add_test(NAME song_library_test COMMAND song_library_test)
+
