@@ -3,6 +3,7 @@
 #include <string>
 #include <functional>
 #include "app/window.hpp"
+#include "input/input_manager.hpp"
 
 namespace td {
 
@@ -24,6 +25,7 @@ public:
 
     [[nodiscard]] bool is_running() const { return is_running_; }
     [[nodiscard]] Window& window() { return window_; }
+    [[nodiscard]] InputManager& input_manager() { return input_manager_; }
     [[nodiscard]] const AppConfig& config() const { return config_; }
 
     using UpdateCallback = std::function<void(double fixed_dt)>;
@@ -42,6 +44,7 @@ private:
 
     AppConfig config_;
     Window window_;
+    InputManager input_manager_;
     bool is_running_ = false;
     uint64_t perf_frequency_ = 0;
     uint64_t last_time_ = 0;

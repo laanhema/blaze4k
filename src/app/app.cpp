@@ -94,6 +94,7 @@ void App::process_events() {
             window_.on_resize(event.window.data1, event.window.data2);
         }
 
+        input_manager_.handle_sdl_event(event);
         on_event(event);
     }
 }
