@@ -3,10 +3,15 @@
 #include <string>
 #include <vector>
 #include <array>
+#include <cstdlib>
 #include <exception>
 #include <filesystem>
 #include "app/app.hpp"
 #include "chart/simfile_parser.hpp"
+#include "data/config.hpp"
+#include "data/config_loader.hpp"
+#include "data/data_paths.hpp"
+#include "data/high_scores.hpp"
 #include "gameplay/gameplay_view.hpp"
 #include "render/gl_quad_renderer.hpp"
 #include "screens/attract_screen.hpp"
@@ -24,6 +29,9 @@ void print_help() {
               << "  --smoke-test [N]        Run N frames and exit cleanly (default: 10)\n"
               << "  --no-vsync              Disable vertical sync\n"
               << "  --attract-timeout <s>   Idle seconds before Attract (default 30; <=0 disables)\n"
+              << "  --data-dir <path>       Override the data directory (config.json/scores.json)\n"
+              << "  --xdg                   Use the Linux XDG data directory instead of ./data\n"
+              << "                          (also enabled by the TUNDRA_XDG=1 environment variable)\n"
               << "  --gameplay-demo <file>  TEMPORARY: render a simfile's first chart (.sm/.ssc)\n"
               << "  --speed <mod>           Speed mod for the demo: Nx / Xn, cN, or mN (default 1x)\n"
               << "  --downscroll            Mirror the demo field for downscroll\n"
@@ -50,6 +58,8 @@ int main(int argc, char* argv[]) {
     bool fail_off = false;
     double attract_timeout = 30.0;
     bool attract_timeout_given = false;
+    bool xdg_flag = false;
+    std::string data_dir_text;
 
     for (int i = 1; i < argc; ++i) {
         std::string arg = argv[i];
@@ -92,6 +102,14 @@ int main(int argc, char* argv[]) {
             downscroll = true;
         } else if (arg == "--fail-off") {
             fail_off = true;
+        } else if (arg == "--xdg") {
+            xdg_flag = true;
+        } else if (arg == "--data-dir") {
+            if (i + 1 < argc) {
+                data_dir_text = argv[++i];
+            } else {
+                std::cerr << "[main] --data-dir requires a path; using the default data directory\n";
+            }
         } else if (arg == "--help" || arg == "-h") {
             print_help();
             return 0;
@@ -100,6 +118,44 @@ int main(int argc, char* argv[]) {
 
     if (!demo_path.empty() && attract_timeout_given) {
         std::cerr << "[main] --attract-timeout is ignored with --gameplay-demo\n";
+    }
+
+    // C2: resolve the local data directory and restore config/high scores before
+    // the window is created (video settings must be applied to AppConfig first).
+    const char* xdg_env = std::getenv("TUNDRA_XDG");
+    const bool prefer_xdg = xdg_flag || (xdg_env != nullptr && std::string(xdg_env) == "1");
+    const char* xdg_home_env = std::getenv("XDG_DATA_HOME");
+    const char* home_env = std::getenv("HOME");
+    const td::ResolvedDataPaths paths = td::resolve_data_paths(
+        td::default_executable_dir(), prefer_xdg, xdg_home_env != nullptr ? xdg_home_env : "",
+        home_env != nullptr ? home_env : "",
+        data_dir_text.empty() ? fs::path{} : fs::path(data_dir_text));
+
+    std::string config_message;
+    td::ConfigLoadStatus config_status = td::ConfigLoadStatus::UsedDefaults;
+    td::GameConfig game_config = td::load_config(paths.config_file, &config_message, &config_status);
+    if (!config_message.empty()) {
+        if (config_status == td::ConfigLoadStatus::UsedDefaults) {
+            std::cerr << config_message << "\n";
+        } else {
+            std::cout << config_message << "\n";
+        }
+    }
+    config.window.width = game_config.video.width;
+    config.window.height = game_config.video.height;
+    config.window.vsync = game_config.video.vsync;
+    config.window.fullscreen = game_config.video.fullscreen;
+
+    std::string scores_message;
+    td::ScoresLoadStatus scores_status = td::ScoresLoadStatus::UsedDefaults;
+    td::HighScores high_scores =
+        td::load_high_scores(paths.scores_file, &scores_message, &scores_status);
+    if (!scores_message.empty()) {
+        if (scores_status == td::ScoresLoadStatus::UsedDefaults) {
+            std::cerr << scores_message << "\n";
+        } else {
+            std::cout << scores_message << "\n";
+        }
     }
 
     td::App app(config);
@@ -182,6 +238,8 @@ int main(int argc, char* argv[]) {
         shell->add_screen(std::make_unique<td::AttractScreen>());
         shell->add_screen(std::make_unique<td::SelectPlaceholderScreen>());
         shell->start(td::ScreenId::Title);
+        shell->context().config = &game_config;
+        shell->context().scores = &high_scores;
 
         if (!app.window().is_headless()) {
             if (!quad_renderer.init()) {
@@ -210,6 +268,18 @@ int main(int argc, char* argv[]) {
     }
 
     app.run();
+
+    // C2: persist config and high scores on a clean exit. Both saves are atomic
+    // and idempotent; failures are warnings, never fatal.
+    std::string save_message;
+    if (!td::save_config(paths.config_file, game_config, &save_message) &&
+        !save_message.empty()) {
+        std::cerr << save_message << "\n";
+    }
+    if (!td::save_high_scores(paths.scores_file, high_scores, &save_message) &&
+        !save_message.empty()) {
+        std::cerr << save_message << "\n";
+    }
 
     gameplay.shutdown();
     quad_renderer.shutdown();

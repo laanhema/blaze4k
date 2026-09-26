@@ -29,6 +29,9 @@ public:
     [[nodiscard]] bool back_navigates() const; // true only where handle_back() acts
     [[nodiscard]] ScreenId attract_return() const { return attract_return_; }
 
+    // Shared state attached by main (config/scores) before the first update.
+    [[nodiscard]] ScreenContext& context() { return ctx_; }
+
     void set_idle_timeout_seconds(double seconds); // <=0 disables idle->Attract
     [[nodiscard]] double idle_timeout_seconds() const { return idle_timeout_seconds_; }
     [[nodiscard]] double idle_seconds() const { return idle_seconds_; }

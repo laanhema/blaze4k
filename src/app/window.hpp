@@ -11,6 +11,7 @@ struct WindowConfig {
     int width = 1280;
     int height = 720;
     bool vsync = true;
+    bool fullscreen = false;
     bool resizable = true;
     bool headless = false;
 };
