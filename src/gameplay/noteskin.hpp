@@ -30,6 +30,10 @@ public:
 
     [[nodiscard]] const NoteStyle& style_for(NoteType type) const;
     [[nodiscard]] Color column_tint(int column) const;
+    // ITG note color for the beat subdivision a note lands on (OpenITG
+    // `NoteDisplay.cpp` denominator colors). Drives tap/hold/roll tint so timing
+    // reads at a glance; column direction is carried by the arrow shape instead.
+    [[nodiscard]] Color quantization_color(NoteQuantization quantization) const;
     [[nodiscard]] const Texture& quad_texture() const { return white_; }
     // Direction-aware head art (tap/hold/roll arrows; mine is direction-agnostic).
     [[nodiscard]] const Texture& head_texture(NoteType type, int column) const;

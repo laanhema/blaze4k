@@ -354,3 +354,13 @@ target_compile_definitions(perf_loop_test PRIVATE
 )
 
 add_test(NAME perf_loop_test COMMAND perf_loop_test)
+
+add_executable(gameplay_screen_test
+    gameplay_screen_test.cpp
+)
+
+target_link_libraries(gameplay_screen_test PRIVATE
+    tundra_core
+)
+
+add_test(NAME gameplay_screen_test COMMAND gameplay_screen_test)

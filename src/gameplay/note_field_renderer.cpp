@@ -15,6 +15,14 @@ Rect centered_quad(double center_x, double center_y, double width, double height
     };
 }
 
+// ITG timing color for a note: tap/hold/roll art is tinted by the beat
+// subdivision the note lands on, not by its column.
+Color note_tint(const NoteSkin& skin, const NoteRenderItem& item) {
+    const NoteQuantization quantization =
+        item.note != nullptr ? item.note->quantization : NoteQuantization::Fourth;
+    return skin.quantization_color(quantization);
+}
+
 } // namespace
 
 void NoteFieldRenderer::render(const NoteField& field,
@@ -50,10 +58,20 @@ void NoteFieldRenderer::render(const NoteField& field,
             continue;
         }
         const NoteStyle& style = skin.style_for(item.type);
-        const Color tint = skin.column_tint(item.column);
+        const Color tint = note_tint(skin, item);
 
-        const double head_y = field.screen_y(item.head_offset);
+        double head_y = field.screen_y(item.head_offset);
         const double tail_y = field.screen_y(item.tail_offset);
+        // While a hit hold is being held, the head has scrolled past the
+        // receptor; clamp the leading edge to the receptor so the body recedes
+        // (OpenITG draws the remaining, still-held portion of the hold).
+        if (item.head_hidden) {
+            if (field.config().direction == ScrollDirection::Down) {
+                head_y = std::min(head_y, receptor_y);
+            } else {
+                head_y = std::max(head_y, receptor_y);
+            }
+        }
         const double top = std::min(head_y, tail_y);
         const double bottom = std::max(head_y, tail_y);
         const double width = style.width * 0.6;
@@ -74,7 +92,7 @@ void NoteFieldRenderer::render(const NoteField& field,
             continue;
         }
         const NoteStyle& style = skin.style_for(item.type);
-        const Color tint = skin.column_tint(item.column);
+        const Color tint = note_tint(skin, item);
         const double cap_height = style.height * 0.3;
         const Rect cap = centered_quad(field.column_x(item.column, field_left),
                                        field.screen_y(item.tail_offset),
@@ -85,11 +103,11 @@ void NoteFieldRenderer::render(const NoteField& field,
 
     // 4. Heads (taps, hold heads, roll heads).
     for (const NoteRenderItem& item : items) {
-        if (item.type == NoteType::Mine) {
+        if (item.type == NoteType::Mine || item.head_hidden) {
             continue;
         }
         const NoteStyle& style = skin.style_for(item.type);
-        const Color tint = skin.column_tint(item.column);
+        const Color tint = note_tint(skin, item);
         const Rect head = centered_quad(field.column_x(item.column, field_left),
                                         field.screen_y(item.head_offset),
                                         style.width, style.height);
@@ -98,18 +116,18 @@ void NoteFieldRenderer::render(const NoteField& field,
         last_drawn_quads_++;
     }
 
-    // 5. Mines (smaller, drawn last so they sit on top).
+    // 5. Mines (smaller, drawn last so they sit on top). Mines keep their own
+    // red art, so they are not quantization-tinted.
     for (const NoteRenderItem& item : items) {
         if (item.type != NoteType::Mine) {
             continue;
         }
         const NoteStyle& style = skin.style_for(NoteType::Mine);
-        const Color tint = skin.column_tint(item.column);
         const Rect mine = centered_quad(field.column_x(item.column, field_left),
                                         field.screen_y(item.head_offset),
                                         style.width, style.height);
         renderer.draw_textured_quad(mine, skin.head_texture(NoteType::Mine, item.column), UVRect{},
-                                    multiply(style.head_color, tint));
+                                    style.head_color);
         last_drawn_quads_++;
     }
 }

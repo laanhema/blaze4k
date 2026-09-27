@@ -3,6 +3,7 @@
 #include <sstream>
 #include <algorithm>
 #include <cctype>
+#include <cmath>
 #include <array>
 
 namespace td {
@@ -155,6 +156,11 @@ std::optional<Chart> NoteParser::parse_4panel_notedata(
             const double time_sec = timing.beat_to_seconds(beat);
             last_parsed_beat = beat;
 
+            // ITG note color bucket, from the row within the measure (OpenITG
+            // `GetNoteType`). 192 rows per measure == 48 rows/beat * 4 beats.
+            const NoteQuantization quantization =
+                quantization_for_row(static_cast<int>(std::lround(row_fraction * 192.0)));
+
             const std::string& row_str = rows[r_idx];
 
             for (int col = 0; col < 4; ++col) {
@@ -167,6 +173,7 @@ std::optional<Chart> NoteParser::parse_4panel_notedata(
                         note.beat = beat;
                         note.time_seconds = time_sec;
                         note.type = NoteType::Tap;
+                        note.quantization = quantization;
                         chart.notes.push_back(note);
                         chart.tap_count++;
                         break;
@@ -177,6 +184,7 @@ std::optional<Chart> NoteParser::parse_4panel_notedata(
                         head.beat = beat;
                         head.time_seconds = time_sec;
                         head.type = NoteType::HoldHead;
+                        head.quantization = quantization;
                         active_heads[col] = head;
                         chart.hold_count++;
                         break;
@@ -187,6 +195,7 @@ std::optional<Chart> NoteParser::parse_4panel_notedata(
                         head.beat = beat;
                         head.time_seconds = time_sec;
                         head.type = NoteType::RollHead;
+                        head.quantization = quantization;
                         active_heads[col] = head;
                         chart.roll_count++;
                         break;
@@ -208,6 +217,7 @@ std::optional<Chart> NoteParser::parse_4panel_notedata(
                         note.beat = beat;
                         note.time_seconds = time_sec;
                         note.type = NoteType::Mine;
+                        note.quantization = quantization;
                         chart.notes.push_back(note);
                         chart.mine_count++;
                         break;

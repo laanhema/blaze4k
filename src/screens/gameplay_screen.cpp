@@ -14,6 +14,7 @@ namespace td {
 void GameplayScreen::enter(ScreenContext& ctx) {
     active_ = false;
     end_reported_ = false;
+    end_delay_elapsed_ = 0.0;
     held_ = {false, false, false, false};
 
     if (ctx.play_request == nullptr || ctx.play_request->song == nullptr ||
@@ -75,6 +76,14 @@ void GameplayScreen::update(ScreenContext& ctx, double fixed_dt,
 
     if (view_.outcome() != GameplayOutcome::InProgress && ctx.manager != nullptr) {
         if (!end_reported_) {
+            // Hold the field for a beat so the final note/fail state is readable
+            // before the score screen appears (presentation timing only; the
+            // judgment path itself never consults frame delta).
+            end_delay_elapsed_ += fixed_dt;
+            if (end_delay_elapsed_ < kEndDelaySeconds) {
+                return;
+            }
+
             end_reported_ = true;
             if (ctx.results != nullptr && ctx.play_request != nullptr) {
                 *ctx.results = results_summary_from(view_.score_state(), view_.has_failed(),

@@ -21,7 +21,7 @@ namespace td {
 // C4's options overlay closing), the default navigation is skipped.
 class ScreenManager {
 public:
-    explicit ScreenManager(double idle_timeout_seconds = 30.0);
+    explicit ScreenManager(double idle_timeout_seconds = 120.0);
 
     void add_screen(std::unique_ptr<Screen> screen); // keyed by screen->id()
     void start(ScreenId initial);                    // calls enter() once
@@ -56,7 +56,7 @@ private:
     bool has_pending_ = false;
     bool started_ = false;
     ScreenId attract_return_ = ScreenId::Title;
-    double idle_timeout_seconds_ = 30.0;
+    double idle_timeout_seconds_ = 120.0;
     double idle_seconds_ = 0.0;
 };
 

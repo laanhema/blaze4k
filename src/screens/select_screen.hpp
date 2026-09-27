@@ -68,6 +68,8 @@ private:
     void move_song(int delta);
     void move_chart(int delta);
     void request_preview_for_selected();
+    void apply_navigation(GameAction action);
+    [[nodiscard]] GameAction held_direction(const ScreenContext& ctx) const;
 
     std::vector<WheelEntry> songs_;
     std::vector<std::string> pack_names_;
@@ -77,6 +79,14 @@ private:
     TextureCache texture_cache_;
     OptionsMenu options_;
     bool options_open_ = false;
+
+    // Held-direction key repeat: once a direction is held past the initial
+    // delay, it re-triggers navigation at an accelerating interval. Sampled from
+    // ctx.action_down, so it is inert in headless/unit tests (null callback).
+    GameAction hold_action_ = GameAction::None;
+    double hold_elapsed_ = 0.0;
+    double repeat_interval_ = 0.0;
+    bool hold_repeating_ = false;
 };
 
 } // namespace td

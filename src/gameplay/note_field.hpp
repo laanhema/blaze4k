@@ -30,6 +30,10 @@ struct NoteRenderItem {
     double head_offset = 0.0;
     double tail_offset = 0.0; // >= head_offset for holds/rolls
     bool has_body = false;
+    // Set for an in-progress hold/roll whose head has already been judged away:
+    // the body keeps scrolling from the receptor to the tail, but the head (and
+    // its trailing edge) is not drawn (OpenITG draws the active hold body).
+    bool head_hidden = false;
 };
 
 // Pure, deterministic layout core for the scrolling note field.

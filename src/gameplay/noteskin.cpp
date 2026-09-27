@@ -33,15 +33,15 @@ Texture upload_mask(const std::vector<uint8_t>& bytes) {
 } // namespace
 
 NoteSkin::NoteSkin() {
-    const Color cyan{0.20f, 0.90f, 1.00f, 1.0f};
-    tap_style_ = NoteStyle{cyan, cyan, cyan, 56.0, 56.0};
-
-    const Color green{0.30f, 1.00f, 0.45f, 1.0f};
-    hold_style_ = NoteStyle{green, green, green, 56.0, 56.0};
-
-    const Color amber{1.00f, 0.75f, 0.20f, 1.0f};
-    const Color purple{0.70f, 0.40f, 1.00f, 1.0f};
-    roll_style_ = NoteStyle{amber, amber, purple, 56.0, 56.0};
+    // Tap/hold/roll heads are neutral white masks: the quantization color (ITG
+    // palette) supplies their hue at draw time, so the note's beat subdivision —
+    // not its column — drives the color and reads as a timing aid. Type still
+    // reads through shape (hold shoulder, roll dashes) and mine keeps its own
+    // red art.
+    const Color white{1.0f, 1.0f, 1.0f, 1.0f};
+    tap_style_ = NoteStyle{white, white, white, 56.0, 56.0};
+    hold_style_ = NoteStyle{white, white, white, 56.0, 56.0};
+    roll_style_ = NoteStyle{white, white, white, 56.0, 56.0};
 
     const Color red{1.00f, 0.25f, 0.25f, 1.0f};
     mine_style_ = NoteStyle{red, red, red, 40.0, 40.0};
@@ -115,6 +115,25 @@ Color NoteSkin::column_tint(int column) const {
         return Color{1.0f, 1.0f, 1.0f, 1.0f};
     }
     return kColumnTints[static_cast<std::size_t>(column)];
+}
+
+Color NoteSkin::quantization_color(NoteQuantization quantization) const {
+    // In The Groove note colors, sampled from OpenITG's default noteskin
+    // (`NoteSkins/dance/default/_down tap note 8x8.png`, the 8 color rows indexed
+    // by NoteType). Hue encodes the note's beat subdivision, so a glance reveals
+    // the timing; the arrow shape still carries the column direction.
+    switch (quantization) {
+        case NoteQuantization::Fourth:          return Color{0.98f, 0.51f, 0.36f, 1.0f}; // orange-red
+        case NoteQuantization::Eighth:          return Color{0.36f, 0.67f, 0.98f, 1.0f}; // blue
+        case NoteQuantization::Twelfth:         return Color{0.58f, 0.98f, 0.36f, 1.0f}; // green
+        case NoteQuantization::Sixteenth:       return Color{0.98f, 0.93f, 0.36f, 1.0f}; // yellow
+        case NoteQuantization::TwentyFourth:    return Color{0.67f, 0.36f, 0.98f, 1.0f}; // purple
+        case NoteQuantization::ThirtySecond:    return Color{0.36f, 0.98f, 0.82f, 1.0f}; // cyan
+        case NoteQuantization::FortyEighth:     return Color{0.89f, 0.36f, 0.98f, 1.0f}; // pink
+        case NoteQuantization::SixtyFourth:     return Color{0.60f, 0.60f, 0.60f, 1.0f}; // grey
+        case NoteQuantization::OneNinetySecond: return Color{0.35f, 0.35f, 0.35f, 1.0f}; // dark grey
+    }
+    return Color{1.0f, 1.0f, 1.0f, 1.0f};
 }
 
 const Texture& NoteSkin::select(const std::array<Texture, 4>& textures, int column) {

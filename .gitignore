@@ -17,3 +17,10 @@ compile_commands.json
 
 # Cache
 .cache/
+
+# Simfiles
+.songs/
+
+# Temporary files
+todo.txt
+TODO.md

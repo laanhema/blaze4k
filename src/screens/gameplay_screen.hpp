@@ -32,11 +32,16 @@ public:
     // published and transition requested), so a run is never reported twice.
     [[nodiscard]] bool end_reported() const { return end_reported_; }
 
+    // Seconds the field lingers after the run ends before the Results transition,
+    // so the final note/fail state is readable instead of snapping away.
+    static constexpr double kEndDelaySeconds = 2.0;
+
 private:
     GameplayView view_;
     std::array<bool, 4> held_{false, false, false, false};
     bool active_ = false;
     bool end_reported_ = false;
+    double end_delay_elapsed_ = 0.0;
 };
 
 } // namespace td

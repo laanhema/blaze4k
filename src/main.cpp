@@ -37,7 +37,7 @@ void print_help() {
               << "  --headless              Run without window/GL context\n"
               << "  --smoke-test [N]        Run N frames and exit cleanly (default: 10)\n"
               << "  --no-vsync              Disable vertical sync\n"
-              << "  --attract-timeout <s>   Idle seconds before Attract (default 30; <=0 disables)\n"
+              << "  --attract-timeout <s>   Idle seconds before Attract (default 120; <=0 disables)\n"
               << "  --songs <dir>           Songs folder to scan (default: ./songs, ./data/songs)\n"
               << "  --start-screen <name>   Start on 'title' or 'select' (default: title)\n"
               << "  --data-dir <path>       Override the data directory (config.json/scores.json)\n"
@@ -69,7 +69,7 @@ int main(int argc, char* argv[]) {
     std::string speed_text;
     bool downscroll = false;
     bool fail_off = false;
-    double attract_timeout = 30.0;
+    double attract_timeout = 120.0;
     bool attract_timeout_given = false;
     bool xdg_flag = false;
     std::string data_dir_text;
@@ -96,7 +96,7 @@ int main(int argc, char* argv[]) {
                     attract_timeout = std::stod(value);
                 } catch (const std::exception&) {
                     std::cerr << "[main] Invalid --attract-timeout '" << value
-                              << "'; using default 30s\n";
+                              << "'; using default 120s\n";
                 }
             } else {
                 std::cerr << "[main] --attract-timeout requires a number of seconds\n";

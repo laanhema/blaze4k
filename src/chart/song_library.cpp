@@ -43,6 +43,30 @@ bool is_audio_extension(std::string_view ext) {
            iequals(ext, ".wav");
 }
 
+// Canonical StepMania difficulty ordering, hardest first. Used only to break
+// ties when two charts share a foot rating; the primary sort key is the meter.
+int difficulty_rank(std::string_view label) {
+    if (iequals(label, "Challenge")) return 5;
+    if (iequals(label, "Hard")) return 4;
+    if (iequals(label, "Medium")) return 3;
+    if (iequals(label, "Easy")) return 2;
+    if (iequals(label, "Beginner")) return 1;
+    return 0; // Edit and unknown labels
+}
+
+// The song-select wheel lists difficulties hardest-at-top/easiest-at-bottom, so
+// charts are ordered by descending foot rating (ties broken by canonical
+// difficulty rank, then simfile order). The parser keeps simfile order; only the
+// scanned library is reordered for display.
+void sort_charts_hardest_first(std::vector<Chart>& charts) {
+    std::stable_sort(charts.begin(), charts.end(), [](const Chart& a, const Chart& b) {
+        if (a.meter != b.meter) {
+            return a.meter > b.meter;
+        }
+        return difficulty_rank(a.difficulty) > difficulty_rank(b.difficulty);
+    });
+}
+
 } // namespace
 
 size_t SongLibrary::total_songs() const {
@@ -196,6 +220,7 @@ std::optional<Song> SongLibrary::process_song_folder(
     song.metadata = parser.metadata();
     song.timing = parser.timing();
     song.charts = parser.charts();
+    sort_charts_hardest_first(song.charts);
 
     // 1. Resolve Banner Art
     std::filesystem::path banner;

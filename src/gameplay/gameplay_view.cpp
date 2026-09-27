@@ -218,13 +218,21 @@ void GameplayView::render(GlQuadRenderer& renderer, int screen_w, int screen_h) 
 
     // "Visual feedback matches the log": filter the rendered set to exactly the
     // notes the judgment log has not hidden (OpenITG hide rule, Player.cpp:1284-1302).
+    // Exception: a hold/roll whose head was judged away but whose tail is still
+    // being held keeps its body on screen — only the head is hidden.
     visible_items_.clear();
     for (const NoteRenderItem& item : items_) {
         const int index =
             item.note == nullptr ? -1 : static_cast<int>(item.note - chart_.notes.data());
-        if (!judge_.is_note_hidden(index)) {
-            visible_items_.push_back(item);
+        if (judge_.is_note_hidden(index)) {
+            if (judge_.is_hold_in_progress(index)) {
+                NoteRenderItem active = item;
+                active.head_hidden = true;
+                visible_items_.push_back(active);
+            }
+            continue;
         }
+        visible_items_.push_back(item);
     }
 
     field_renderer_.render(field_, visible_items_, screen_w, screen_h, skin_, renderer);

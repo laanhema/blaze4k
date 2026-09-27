@@ -375,6 +375,19 @@ bool JudgmentEngine::is_note_hidden(int note_index) const {
     return is_tap_window_hidden(state.tap);
 }
 
+bool JudgmentEngine::is_hold_in_progress(int note_index) const {
+    if (chart_ == nullptr || note_index < 0 ||
+        static_cast<std::size_t>(note_index) >= states_.size()) {
+        return false;
+    }
+    const Note& note = chart_->notes[static_cast<std::size_t>(note_index)];
+    if (!note.is_hold_or_roll()) {
+        return false;
+    }
+    const NoteState& state = states_[static_cast<std::size_t>(note_index)];
+    return state.hold_head_hit && !state.complete;
+}
+
 const JudgmentEvent* JudgmentEngine::latest_event() const {
     if (events_.empty()) {
         return nullptr;

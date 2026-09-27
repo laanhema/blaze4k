@@ -37,6 +37,11 @@ public:
 
     [[nodiscard]] bool is_note_judged(int note_index) const;
     [[nodiscard]] bool is_note_hidden(int note_index) const;
+
+    // True while a hold/roll head has been hit but its outcome (OK/NG) is still
+    // pending. The note head is already judged (and possibly hidden), but the
+    // body must keep rendering as the player holds it down.
+    [[nodiscard]] bool is_hold_in_progress(int note_index) const;
     [[nodiscard]] const JudgmentEvent* latest_event() const;
 
 private:

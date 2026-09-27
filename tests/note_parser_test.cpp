@@ -153,6 +153,50 @@ int main() {
     TEST_CHECK(ssc_parser.charts()[0].tap_count == 4);
     std::cout << "  - SSC chart block parsed successfully.\n";
 
+    // 6. OpenITG beat-subdivision buckets (ITG note colors) from a row index.
+    TEST_CHECK(td::quantization_for_row(0) == td::NoteQuantization::Fourth);
+    TEST_CHECK(td::quantization_for_row(48) == td::NoteQuantization::Fourth);
+    TEST_CHECK(td::quantization_for_row(24) == td::NoteQuantization::Eighth);
+    TEST_CHECK(td::quantization_for_row(16) == td::NoteQuantization::Twelfth);
+    TEST_CHECK(td::quantization_for_row(12) == td::NoteQuantization::Sixteenth);
+    TEST_CHECK(td::quantization_for_row(8) == td::NoteQuantization::TwentyFourth);
+    TEST_CHECK(td::quantization_for_row(6) == td::NoteQuantization::ThirtySecond);
+    TEST_CHECK(td::quantization_for_row(4) == td::NoteQuantization::FortyEighth);
+    TEST_CHECK(td::quantization_for_row(3) == td::NoteQuantization::SixtyFourth);
+    TEST_CHECK(td::quantization_for_row(1) == td::NoteQuantization::OneNinetySecond);
+    std::cout << "  - Quantization buckets match OpenITG GetNoteType.\n";
+
+    // 7. Quantization is attached per note from its row within the measure.
+    std::string quant_sm =
+        "#TITLE:Quant;\n"
+        "#BPMS:0.0=120.0;\n"
+        "#NOTES:\n"
+        "     dance-single:\n"
+        "     :\n"
+        "     Hard:\n"
+        "     7:\n"
+        "     ::::\n"
+        "1000\n" // beat 0.0 -> 4th
+        "0100\n" // beat 0.5 -> 8th
+        "0010\n" // beat 1.0 -> 4th
+        "0001\n" // beat 1.5 -> 8th
+        "1000\n" // beat 2.0 -> 4th
+        "0100\n" // beat 2.5 -> 8th
+        "0010\n" // beat 3.0 -> 4th
+        "0001\n" // beat 3.5 -> 8th
+        ";\n";
+
+    td::SimfileParser quant_parser;
+    TEST_CHECK(quant_parser.parse_string(quant_sm, ".sm"));
+    TEST_CHECK(quant_parser.charts().size() == 1);
+    const td::Chart& quant_chart = quant_parser.charts()[0];
+    TEST_CHECK(quant_chart.notes.size() == 8);
+    TEST_CHECK(quant_chart.notes[0].quantization == td::NoteQuantization::Fourth);
+    TEST_CHECK(quant_chart.notes[1].quantization == td::NoteQuantization::Eighth);
+    TEST_CHECK(quant_chart.notes[2].quantization == td::NoteQuantization::Fourth);
+    TEST_CHECK(quant_chart.notes[3].quantization == td::NoteQuantization::Eighth);
+    std::cout << "  - Notes carry the quantization of their measure row.\n";
+
     std::cout << "[note_parser_test] All note parser tests passed successfully!\n";
     return 0;
 }

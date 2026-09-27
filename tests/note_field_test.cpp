@@ -273,8 +273,14 @@ int main() {
 
         td::NoteSkin skin;
         TEST_CHECK(skin.style_for(td::NoteType::Mine).width < skin.style_for(td::NoteType::Tap).width);
-        TEST_CHECK(skin.style_for(td::NoteType::HoldHead).head_color.g !=
-                   skin.style_for(td::NoteType::RollHead).head_color.g);
+        // ITG note colors encode the beat subdivision (not column direction):
+        // 4th=red, 8th=blue, 16th=yellow.
+        const td::Color fourth = skin.quantization_color(td::NoteQuantization::Fourth);
+        const td::Color eighth = skin.quantization_color(td::NoteQuantization::Eighth);
+        const td::Color sixteenth = skin.quantization_color(td::NoteQuantization::Sixteenth);
+        TEST_CHECK(fourth.r > fourth.g && fourth.r > fourth.b);
+        TEST_CHECK(eighth.b > eighth.r && eighth.b > eighth.g);
+        TEST_CHECK(sixteenth.r > sixteenth.b && sixteenth.g > sixteenth.b);
         TEST_CHECK(skin.style_for(td::NoteType::Mine).head_color.r >
                    skin.style_for(td::NoteType::Mine).head_color.g);
         std::cout << "  - Tap/hold/roll/mine are visually distinct.\n";

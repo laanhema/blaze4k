@@ -154,6 +154,14 @@ void test_difficulty_navigation(td::ScreenManager& manager, td::SelectScreen* se
     TEST_CHECK(navigate_to_chart_count(manager, select, 3));
     TEST_CHECK(select->selected_chart_index() == 0);
 
+    // The wheel lists difficulties hardest-at-top/easiest-at-bottom: the Alpha
+    // song's simfile order (Beginner 1, Medium 5, Challenge 10) is reordered to
+    // descending foot rating.
+    const td::Song* song = select->selected_song();
+    TEST_CHECK(song != nullptr && song->charts.size() == 3);
+    TEST_CHECK(song->charts[0].meter == 10 && song->charts[1].meter == 5 &&
+               song->charts[2].meter == 1);
+
     manager.update(kDt, {press(GameAction::Right)});
     TEST_CHECK(select->selected_chart_index() == 1);
     manager.update(kDt, {press(GameAction::Right)});
@@ -175,6 +183,39 @@ void test_difficulty_navigation(td::ScreenManager& manager, td::SelectScreen* se
     manager.update(kDt, {press(GameAction::Left)});
     TEST_CHECK(select->selected_chart_index() == 0);
     std::cout << "  - Left/Right clamp within difficulty list ok.\n";
+}
+
+void test_held_navigation_repeat(td::ScreenManager& manager, td::SelectScreen* select) {
+    while (select->selected_song_index() != 0) {
+        manager.update(kDt, {press(GameAction::Down)});
+    }
+
+    GameAction held = GameAction::None;
+    manager.context().action_down = [&held](GameAction action) { return action == held; };
+
+    held = GameAction::Down;
+    manager.update(kDt, {press(GameAction::Down)}); // initial step
+    TEST_CHECK(select->selected_song_index() == 1);
+
+    // Below the initial delay the direction is held but does not repeat yet.
+    manager.update(kDt, {});
+    manager.update(kDt, {});
+    TEST_CHECK(select->selected_song_index() == 1);
+
+    // Past the delay it accelerates through the wheel without further presses.
+    manager.update(kDt, {});
+    manager.update(kDt, {});
+    TEST_CHECK(select->selected_song_index() != 1);
+
+    // Releasing stops the repeat (sampled from the authoritative callback).
+    held = GameAction::None;
+    manager.update(kDt, {});
+    const int after_release = select->selected_song_index();
+    manager.update(kDt, {});
+    TEST_CHECK(select->selected_song_index() == after_release);
+
+    manager.context().action_down = nullptr;
+    std::cout << "  - held direction repeat accelerates and stops on release ok.\n";
 }
 
 void test_best_grade(td::ScreenManager& manager, td::SelectScreen* select, td::HighScores& scores) {
@@ -550,6 +591,7 @@ int main() {
     test_wheel_load(select_ptr);
     test_song_navigation(manager, select_ptr);
     test_difficulty_navigation(manager, select_ptr);
+    test_held_navigation_repeat(manager, select_ptr);
     test_best_grade(manager, select_ptr, scores);
     test_bpm_formatting();
     test_options_derivation();

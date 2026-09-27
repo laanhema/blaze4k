@@ -240,6 +240,30 @@ int main() {
         std::cout << "  - Missed hold head never produces HoldOk/HoldNg.\n";
     }
 
+    // 7b. An active hold keeps its body after the head is judged away; once the
+    // hold resolves (OK/NG) or its head is missed, it is no longer in progress.
+    {
+        td::Chart chart;
+        chart.notes.push_back(make_note(0, 2.0, td::NoteType::HoldHead, 4.0));
+        td::JudgmentEngine engine;
+        engine.reset(&chart, &k);
+
+        TEST_CHECK(!engine.is_hold_in_progress(0)); // head not hit yet
+        engine.handle_step(0, 2.0);                 // Fantastic head
+        TEST_CHECK(engine.is_note_hidden(0));       // head judged away
+        TEST_CHECK(engine.is_hold_in_progress(0));  // body still scrolling
+        engine.update(4.0, held_col(0));            // tail reached -> HoldOk
+        TEST_CHECK(!engine.is_hold_in_progress(0)); // resolved
+
+        td::Chart missed_chart;
+        missed_chart.notes.push_back(make_note(0, 2.0, td::NoteType::HoldHead, 4.0));
+        td::JudgmentEngine missed_engine;
+        missed_engine.reset(&missed_chart, &k);
+        missed_engine.update(2.0 + k.windows.way_off + 1e-3, held_none());
+        TEST_CHECK(!missed_engine.is_hold_in_progress(0));
+        std::cout << "  - Active hold keeps its body after the head is hidden.\n";
+    }
+
     // 8. Roll re-hits refresh life; end => RollOk; neglected => RollNg.
     {
         td::Chart chart;

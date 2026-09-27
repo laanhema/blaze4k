@@ -24,6 +24,15 @@ namespace {
 constexpr double kDefaultPreviewStartSeconds = 0.0;
 constexpr double kDefaultPreviewLengthSeconds = 12.0;
 
+// Held-direction key repeat: wait kRepeatDelaySeconds before the first repeat,
+// then repeat every kRepeatInitialIntervalSeconds, shrinking by kRepeatAccelFactor
+// each step down to kRepeatMinIntervalSeconds. Holding an arrow therefore walks
+// the wheel slowly at first, then accelerates.
+constexpr double kRepeatDelaySeconds = 0.35;
+constexpr double kRepeatInitialIntervalSeconds = 0.12;
+constexpr double kRepeatMinIntervalSeconds = 0.04;
+constexpr double kRepeatAccelFactor = 0.75;
+
 constexpr Color kTitleColor{0.86f, 0.93f, 1.00f, 1.0f};
 constexpr Color kPackColor{0.90f, 0.75f, 0.30f, 1.0f};
 constexpr Color kSelectedColor{1.00f, 0.92f, 0.35f, 1.0f};
@@ -230,6 +239,44 @@ void SelectScreen::move_chart(int delta) {
     selected_chart_ = std::clamp(selected_chart_ + delta, 0, count - 1);
 }
 
+void SelectScreen::apply_navigation(GameAction action) {
+    switch (action) {
+        case GameAction::Up:
+            move_song(-1);
+            break;
+        case GameAction::Down:
+            move_song(+1);
+            break;
+        case GameAction::Left:
+            move_chart(-1);
+            break;
+        case GameAction::Right:
+            move_chart(+1);
+            break;
+        default:
+            break;
+    }
+}
+
+GameAction SelectScreen::held_direction(const ScreenContext& ctx) const {
+    if (!ctx.action_down) {
+        return GameAction::None; // headless/tests: no authoritative held state
+    }
+    // Prefer the direction already repeating so adding a second key does not
+    // hijack an in-progress hold.
+    if (hold_action_ != GameAction::None && ctx.action_down(hold_action_)) {
+        return hold_action_;
+    }
+    const GameAction candidates[] = {GameAction::Up, GameAction::Down, GameAction::Left,
+                                     GameAction::Right};
+    for (GameAction action : candidates) {
+        if (ctx.action_down(action)) {
+            return action;
+        }
+    }
+    return GameAction::None;
+}
+
 void SelectScreen::update(ScreenContext& ctx, double fixed_dt,
                           const std::vector<InputEvent>& events) {
     preview_.update(fixed_dt);
@@ -383,6 +430,50 @@ void SelectScreen::update(ScreenContext& ctx, double fixed_dt,
                 break;
         }
     }
+
+    // Held-direction repeat: the press above moved once; if the direction stays
+    // down, accelerate through the wheel. Skipped while the options overlay is up
+    // (its rows are stepped one press at a time) and when no authoritative
+    // held-state source is wired (headless/unit tests).
+    if (options_open_ || !ctx.action_down) {
+        hold_action_ = GameAction::None;
+        hold_elapsed_ = 0.0;
+        repeat_interval_ = 0.0;
+        hold_repeating_ = false;
+        return;
+    }
+
+    const GameAction held = held_direction(ctx);
+    if (held == GameAction::None) {
+        hold_action_ = GameAction::None;
+        hold_elapsed_ = 0.0;
+        repeat_interval_ = 0.0;
+        hold_repeating_ = false;
+        return;
+    }
+    if (held != hold_action_) {
+        hold_action_ = held;
+        hold_elapsed_ = 0.0;
+        repeat_interval_ = kRepeatInitialIntervalSeconds;
+        hold_repeating_ = false;
+        return;
+    }
+
+    hold_elapsed_ += fixed_dt;
+    if (!hold_repeating_) {
+        if (hold_elapsed_ >= kRepeatDelaySeconds) {
+            hold_repeating_ = true;
+            hold_elapsed_ = 0.0;
+            apply_navigation(held);
+        }
+        return;
+    }
+    if (hold_elapsed_ >= repeat_interval_) {
+        hold_elapsed_ = 0.0;
+        apply_navigation(held);
+        repeat_interval_ =
+            std::max(kRepeatMinIntervalSeconds, repeat_interval_ * kRepeatAccelFactor);
+    }
 }
 
 bool SelectScreen::handle_back(ScreenContext& ctx) {
@@ -410,14 +501,14 @@ void SelectScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, i
         renderer.draw_quad(Rect{0.0f, 0.0f, width, height}, kDimOverlay);
 
         const float panel_w = width * 0.62f;
-        const float panel_h = height * 0.66f;
+        const float panel_h = height * 0.76f;
         const float panel_x = (width - panel_w) * 0.5f;
         const float panel_y = (height - panel_h) * 0.5f;
         renderer.draw_quad(Rect{panel_x, panel_y, panel_w, panel_h}, kPanelColor);
 
         const float text_x = panel_x + panel_w * 0.08f;
-        float row_y = panel_y + panel_h * 0.16f;
-        const float row_h = panel_h * 0.14f;
+        float row_y = panel_y + panel_h * 0.19f;
+        const float row_h = panel_h * 0.115f;
         const float name_pixel = std::max(2.0f, width * 0.0035f);
         const float value_pixel = std::max(2.0f, width * 0.0032f);
 
@@ -442,7 +533,7 @@ void SelectScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, i
         draw_text_centered(
             renderer,
             "[UP/DOWN] ROW  [LEFT/RIGHT] CHANGE  [ENTER] NEXT  [BACK] CLOSE",
-            width * 0.5f, panel_y + panel_h * 0.91f, 2.0f, kHintColor);
+            width * 0.5f, panel_y + panel_h * 0.93f, 2.0f, kHintColor);
         return;
     }
 
@@ -487,13 +578,18 @@ void SelectScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, i
                   kDimColor);
     }
 
-    // Windowed wheel on the right, with a pack-change separator.
+    // Fixed-size windowed wheel on the right, with a pack-change separator. The
+    // window is 13 rows tall; the highlight stays centered whenever the window
+    // can slide, and the window fills the full 13 rows at either end of the list.
     const int count = static_cast<int>(songs_.size());
-    const int first = std::max(0, selected_song_ - 4);
-    const int last = std::min(count - 1, selected_song_ + 4);
-    const float row_h = height * 0.052f;
+    constexpr int kHalfRows = 6;
+    const int window_rows = 2 * kHalfRows + 1;
+    int first = selected_song_ - kHalfRows;
+    first = std::clamp(first, 0, std::max(0, count - window_rows));
+    const int last = std::min(count - 1, first + window_rows - 1);
+    const float row_h = height * 0.045f;
     const float list_x = width * 0.52f;
-    float row_y = height * 0.20f;
+    float row_y = height * 0.18f;
     for (int i = first; i <= last; ++i) {
         const WheelEntry& item = songs_[static_cast<std::size_t>(i)];
         const bool selected = i == selected_song_;
@@ -533,7 +629,7 @@ void SelectScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, i
 
     draw_text_centered(
         renderer,
-        "[UP/DOWN] SONG   [LEFT/RIGHT] DIFFICULTY   [ENTER] PLAY   [BACK] TITLE",
+        "[UP/DOWN] SONG   [LEFT/RIGHT] DIFFICULTY   [ENTER] PLAY   [TAB] OPTIONS   [BACK] TITLE",
         width * 0.5f, height * 0.93f, 2.0f, kHintColor);
 }
 
