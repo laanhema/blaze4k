@@ -1,5 +1,6 @@
 #include "render/gl_quad_renderer.hpp"
 
+#include <cmath>
 #include <iostream>
 
 #include <glad/glad.h>
@@ -174,6 +175,7 @@ void GlQuadRenderer::begin(int framebuffer_width, int framebuffer_height) {
     glDisable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    blend_mode_ = BlendMode::Alpha;
 
     glUseProgram(program_);
     glUniformMatrix4fv(projection_location_, 1, GL_FALSE, projection_);
@@ -181,6 +183,19 @@ void GlQuadRenderer::begin(int framebuffer_width, int framebuffer_height) {
 
     vertices_.clear();
     bound_texture_ = 0;
+}
+
+void GlQuadRenderer::set_blend_mode(BlendMode mode) {
+    if (!initialized_ || blend_mode_ == mode) {
+        return;
+    }
+    flush();
+    blend_mode_ = mode;
+    if (mode == BlendMode::Add) {
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+    } else {
+        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    }
 }
 
 void GlQuadRenderer::bind_texture(unsigned int id) {
@@ -191,16 +206,29 @@ void GlQuadRenderer::bind_texture(unsigned int id) {
     bound_texture_ = id;
 }
 
-void GlQuadRenderer::append_quad(const Rect& rect, const UVRect& uv, Color color) {
+void GlQuadRenderer::append_quad(const Rect& rect, const UVRect& uv, Color color, float radians) {
     const float x0 = rect.x;
     const float y0 = rect.y;
     const float x1 = rect.x + rect.w;
     const float y1 = rect.y + rect.h;
 
-    const Vertex top_left{x0, y0, uv.u0, uv.v0, color.r, color.g, color.b, color.a};
-    const Vertex top_right{x1, y0, uv.u1, uv.v0, color.r, color.g, color.b, color.a};
-    const Vertex bottom_right{x1, y1, uv.u1, uv.v1, color.r, color.g, color.b, color.a};
-    const Vertex bottom_left{x0, y1, uv.u0, uv.v1, color.r, color.g, color.b, color.a};
+    Vertex top_left{x0, y0, uv.u0, uv.v0, color.r, color.g, color.b, color.a};
+    Vertex top_right{x1, y0, uv.u1, uv.v0, color.r, color.g, color.b, color.a};
+    Vertex bottom_right{x1, y1, uv.u1, uv.v1, color.r, color.g, color.b, color.a};
+    Vertex bottom_left{x0, y1, uv.u0, uv.v1, color.r, color.g, color.b, color.a};
+
+    if (radians != 0.0f) {
+        const float cx = rect.x + rect.w * 0.5f;
+        const float cy = rect.y + rect.h * 0.5f;
+        const float c = std::cos(radians);
+        const float s = std::sin(radians);
+        for (Vertex* v : {&top_left, &top_right, &bottom_right, &bottom_left}) {
+            const float dx = v->x - cx;
+            const float dy = v->y - cy;
+            v->x = cx + dx * c - dy * s;
+            v->y = cy + dx * s + dy * c;
+        }
+    }
 
     vertices_.push_back(top_left);
     vertices_.push_back(top_right);
@@ -219,12 +247,17 @@ void GlQuadRenderer::draw_quad(const Rect& rect, Color color) {
 }
 
 void GlQuadRenderer::draw_textured_quad(const Rect& rect, const Texture& texture, const UVRect& uv, Color color) {
+    draw_textured_quad(rect, texture, uv, color, 0.0f);
+}
+
+void GlQuadRenderer::draw_textured_quad(const Rect& rect, const Texture& texture, const UVRect& uv,
+                                        Color color, float radians) {
     if (!initialized_) {
         return;
     }
     const unsigned int id = texture.valid() ? texture.id() : white_.id();
     bind_texture(id);
-    append_quad(rect, uv, color);
+    append_quad(rect, uv, color, radians);
 }
 
 void GlQuadRenderer::flush() {
@@ -254,6 +287,7 @@ void GlQuadRenderer::end() {
         return;
     }
     flush();
+    set_blend_mode(BlendMode::Alpha);
     bound_texture_ = 0;
 }
 

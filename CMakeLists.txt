@@ -102,8 +102,10 @@ add_library(tundra_core STATIC
     src/audio/preview_player.cpp
     src/audio/metronome.cpp
     src/audio/ui_sounds.cpp
+    src/audio/assist_tick_player.cpp
     src/gameplay/speed_mod.cpp
     src/gameplay/gameplay_options.cpp
+    src/gameplay/assist_tick_schedule.cpp
     src/gameplay/note_field.cpp
     src/gameplay/judgment_engine.cpp
     src/gameplay/score_keeper.cpp

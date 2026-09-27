@@ -26,6 +26,10 @@ struct UVRect {
     float v1 = 1.0f;
 };
 
+// How a quad combines with what is already drawn. `Add` is StepMania's
+// BlendMode_Add (src * alpha + dst): it brightens, never darkens.
+enum class BlendMode { Alpha, Add };
+
 [[nodiscard]] constexpr Color with_alpha(Color color, float alpha) {
     color.a = alpha;
     return color;

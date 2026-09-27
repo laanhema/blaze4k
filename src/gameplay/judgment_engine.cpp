@@ -388,6 +388,27 @@ bool JudgmentEngine::is_hold_in_progress(int note_index) const {
     return state.hold_head_hit && !state.complete;
 }
 
+bool JudgmentEngine::is_hold_head_hit(int note_index) const {
+    if (note_index < 0 || static_cast<std::size_t>(note_index) >= states_.size()) {
+        return false;
+    }
+    return states_[static_cast<std::size_t>(note_index)].hold_head_hit;
+}
+
+HoldJudgment JudgmentEngine::hold_judgment(int note_index) const {
+    if (note_index < 0 || static_cast<std::size_t>(note_index) >= states_.size()) {
+        return HoldJudgment::Num;
+    }
+    return states_[static_cast<std::size_t>(note_index)].hold;
+}
+
+double JudgmentEngine::hold_last_held_seconds(int note_index) const {
+    if (note_index < 0 || static_cast<std::size_t>(note_index) >= states_.size()) {
+        return 0.0;
+    }
+    return states_[static_cast<std::size_t>(note_index)].hold_satisfied_time;
+}
+
 const JudgmentEvent* JudgmentEngine::latest_event() const {
     if (events_.empty()) {
         return nullptr;

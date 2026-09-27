@@ -2,6 +2,7 @@
 #include <fstream>
 #include <filesystem>
 #include <iostream>
+#include <iterator>
 #include <memory>
 #include <sstream>
 #include <string>
@@ -218,29 +219,56 @@ void test_held_navigation_repeat(td::ScreenManager& manager, td::SelectScreen* s
     std::cout << "  - held direction repeat accelerates and stops on release ok.\n";
 }
 
-void test_best_grade(td::ScreenManager& manager, td::SelectScreen* select, td::HighScores& scores) {
+void test_best_score(td::ScreenManager& manager, td::SelectScreen* select, td::HighScores& scores) {
     const td::Song* song = select->selected_song();
     const td::Chart* chart = select->selected_chart();
     TEST_CHECK(song != nullptr && chart != nullptr);
 
-    TEST_CHECK(td::best_grade_for(manager.context(), *song, *chart) == nullptr);
+    TEST_CHECK(td::best_score_for(manager.context(), *song, *chart) == nullptr);
 
     td::ScoreRecord record;
     record.grade = "quad_star";
     record.percent = 0.97;
     scores.scores[td::make_chart_key(*song, *chart)] = record;
 
-    const td::ScoreRecord* found = td::best_grade_for(manager.context(), *song, *chart);
+    const td::ScoreRecord* found = td::best_score_for(manager.context(), *song, *chart);
     TEST_CHECK(found != nullptr);
     TEST_CHECK(found->grade == "quad_star");
+    TEST_CHECK(found->percent == 0.97);
+    std::cout << "  - best score lookup ok.\n";
+}
 
-    TEST_CHECK(td::grade_display_label("quad_star") == "★★★★");
-    TEST_CHECK(td::grade_display_label("triple_star") == "★★★");
-    TEST_CHECK(td::grade_display_label("double_star") == "★★");
-    TEST_CHECK(td::grade_display_label("single_star") == "★");
-    TEST_CHECK(td::grade_display_label("S+") == "S+");
-    TEST_CHECK(td::grade_display_label("unknown") == "unknown");
-    std::cout << "  - best grade lookup + star label mapping ok.\n";
+bool same_color(td::Color a, td::Color b) {
+    return a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
+}
+
+void test_difficulty_colors() {
+    const td::Color beginner = td::difficulty_color("Beginner");
+    const td::Color easy = td::difficulty_color("Easy");
+    const td::Color medium = td::difficulty_color("Medium");
+    const td::Color hard = td::difficulty_color("Hard");
+    const td::Color challenge = td::difficulty_color("Challenge");
+    const td::Color edit = td::difficulty_color("Edit");
+
+    // Each canonical difficulty gets its own tint; Edit falls back to neutral.
+    const td::Color all[] = {beginner, easy, medium, hard, challenge, edit};
+    for (std::size_t i = 0; i < std::size(all); ++i) {
+        for (std::size_t j = i + 1; j < std::size(all); ++j) {
+            TEST_CHECK(!same_color(all[i], all[j]));
+        }
+    }
+    TEST_CHECK(same_color(td::difficulty_color("unknown"), edit));
+
+    // Labels are passthrough, so matching is case-insensitive; Novice aliases Beginner.
+    TEST_CHECK(same_color(td::difficulty_color("hard"), hard));
+    TEST_CHECK(same_color(td::difficulty_color("CHALLENGE"), challenge));
+    TEST_CHECK(same_color(td::difficulty_color("Novice"), beginner));
+
+    // Hue sanity: hard is red-dominant, challenge blue-dominant, easy green-dominant.
+    TEST_CHECK(hard.r > hard.g && hard.r > hard.b);
+    TEST_CHECK(challenge.b > challenge.r && challenge.b > challenge.g);
+    TEST_CHECK(easy.g > easy.r && easy.g > easy.b);
+    std::cout << "  - difficulty color mapping ok.\n";
 }
 
 void test_bpm_formatting() {
@@ -262,6 +290,7 @@ void test_options_derivation() {
     config.gameplay.speed_mod = "C400";
     config.gameplay.scroll = "down";
     config.gameplay.fail_enabled = false;
+    config.gameplay.assist_tick = true;
     config.offset.global_offset_seconds = 0.02;
 
     const td::GameplayOptions options = td::gameplay_options_from_config(config);
@@ -269,6 +298,7 @@ void test_options_derivation() {
     TEST_CHECK(options.speed.value == 400.0);
     TEST_CHECK(options.scroll == td::ScrollDirection::Down);
     TEST_CHECK(!options.fail_enabled);
+    TEST_CHECK(options.assist_tick);
     TEST_CHECK(options.global_offset_seconds == 0.02);
 
     td::GameConfig invalid;
@@ -473,19 +503,28 @@ void test_calibration_launch_from_options(td::ScreenManager& manager, td::Select
     manager.update(kDt, {press(GameAction::Confirm)});
     TEST_CHECK(!select->options_open());
     TEST_CHECK(manager.active_id() == ScreenId::Calibration);
+    // Calibration plays its own metronome: the song preview must be stopped.
+    TEST_CHECK(select->preview().requested_path().empty());
 
-    // Back aborts the wizard to Select with the persisted offset untouched.
+    // Back aborts the wizard with the persisted offset untouched, landing back in
+    // the options overlay on the calibration row (not on the bare wheel).
     const double offset_before = config.offset.global_offset_seconds;
     manager.update(kDt, {press(GameAction::Back)});
     TEST_CHECK(manager.active_id() == ScreenId::Select);
     TEST_CHECK(config.offset.global_offset_seconds == offset_before);
+    TEST_CHECK(select->options_open());
+    TEST_CHECK(select->options_menu().row == static_cast<int>(td::OptionsRow::CalibrateOffset));
 
-    // Right launches it as well.
-    manager.update(kDt, {press(GameAction::Options)});
-    move_to_calibrate_row();
+    // Right launches it as well, straight from the reopened overlay.
     manager.update(kDt, {press(GameAction::Right)});
     TEST_CHECK(manager.active_id() == ScreenId::Calibration);
     manager.update(kDt, {press(GameAction::Back)});
+    TEST_CHECK(manager.active_id() == ScreenId::Select);
+    TEST_CHECK(select->options_open());
+
+    // A second Back then closes the overlay and stays on Select.
+    manager.update(kDt, {press(GameAction::Back)});
+    TEST_CHECK(!select->options_open());
     TEST_CHECK(manager.active_id() == ScreenId::Select);
 
     // Options (Tab/shoulder) closes the overlay on the calibration row too.
@@ -516,23 +555,32 @@ void test_remap_launch_from_options(td::ScreenManager& manager, td::SelectScreen
     manager.update(kDt, {press(GameAction::Options)});
     TEST_CHECK(select->options_open());
     move_to_remap_row();
+    const std::string preview_path = select->preview().requested_path();
+    TEST_CHECK(!preview_path.empty());
     manager.update(kDt, {press(GameAction::Confirm)});
     TEST_CHECK(!select->options_open());
     TEST_CHECK(manager.active_id() == ScreenId::InputRemap);
+    // The song preview keeps playing behind the remap screen (not stopped on exit).
+    TEST_CHECK(select->preview().requested_path() == preview_path);
 
-    // Back returns to Select; bindings are untouched by a plain exit.
+    // Back returns to the options overlay on the remap row; bindings are
+    // untouched by a plain exit.
     const auto key_bindings_before = config.input.key_bindings;
     manager.update(kDt, {press(GameAction::Back)});
     TEST_CHECK(manager.active_id() == ScreenId::Select);
     TEST_CHECK(config.input.key_bindings == key_bindings_before);
+    TEST_CHECK(select->preview().requested_path() == preview_path);
+    TEST_CHECK(select->options_open());
+    TEST_CHECK(select->options_menu().row == static_cast<int>(td::OptionsRow::RemapInput));
 
-    // Right launches it as well.
-    manager.update(kDt, {press(GameAction::Options)});
-    move_to_remap_row();
+    // Right launches it as well, straight from the reopened overlay.
     manager.update(kDt, {press(GameAction::Right)});
     TEST_CHECK(manager.active_id() == ScreenId::InputRemap);
     manager.update(kDt, {press(GameAction::Back)});
     TEST_CHECK(manager.active_id() == ScreenId::Select);
+    TEST_CHECK(select->options_open());
+    manager.update(kDt, {press(GameAction::Back)});
+    TEST_CHECK(!select->options_open());
 
     // Options (Tab/shoulder) closes the overlay on the remap row too.
     manager.update(kDt, {press(GameAction::Options)});
@@ -592,7 +640,8 @@ int main() {
     test_song_navigation(manager, select_ptr);
     test_difficulty_navigation(manager, select_ptr);
     test_held_navigation_repeat(manager, select_ptr);
-    test_best_grade(manager, select_ptr, scores);
+    test_best_score(manager, select_ptr, scores);
+    test_difficulty_colors();
     test_bpm_formatting();
     test_options_derivation();
     test_confirm_handoff(manager, select_ptr, gameplay_ptr, request);

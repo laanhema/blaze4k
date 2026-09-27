@@ -12,6 +12,7 @@
 #include "chart/song_library.hpp"
 #include "data/config.hpp"
 #include "data/high_scores.hpp"
+#include "gameplay/hud_renderer.hpp"
 #include "render/bitmap_font.hpp"
 #include "render/gl_quad_renderer.hpp"
 #include "screens/play_request.hpp"
@@ -40,6 +41,12 @@ constexpr Color kTextColor{0.82f, 0.87f, 0.95f, 1.0f};
 constexpr Color kDimColor{0.55f, 0.60f, 0.72f, 1.0f};
 constexpr Color kHintColor{0.60f, 0.66f, 0.78f, 1.0f};
 constexpr Color kPlaceholderColor{0.16f, 0.20f, 0.30f, 1.0f};
+
+constexpr Color kBeginnerColor{0.78f, 0.52f, 1.00f, 1.0f};
+constexpr Color kEasyColor{0.40f, 0.90f, 0.45f, 1.0f};
+constexpr Color kMediumColor{1.00f, 0.88f, 0.30f, 1.0f};
+constexpr Color kHardColor{1.00f, 0.38f, 0.38f, 1.0f};
+constexpr Color kChallengeColor{0.40f, 0.65f, 1.00f, 1.0f};
 
 bool iequals(std::string_view a, std::string_view b) {
     if (a.size() != b.size()) {
@@ -89,23 +96,26 @@ std::string format_bpm_range(const TimingData& timing) {
     return format_bpm_value(lowest) + "-" + format_bpm_value(highest);
 }
 
-std::string grade_display_label(const std::string& grade) {
-    if (grade == "quad_star") {
-        return "★★★★";
+Color difficulty_color(const std::string& difficulty) {
+    if (iequals(difficulty, "Beginner") || iequals(difficulty, "Novice")) {
+        return kBeginnerColor;
     }
-    if (grade == "triple_star") {
-        return "★★★";
+    if (iequals(difficulty, "Easy")) {
+        return kEasyColor;
     }
-    if (grade == "double_star") {
-        return "★★";
+    if (iequals(difficulty, "Medium")) {
+        return kMediumColor;
     }
-    if (grade == "single_star") {
-        return "★";
+    if (iequals(difficulty, "Hard")) {
+        return kHardColor;
     }
-    return grade;
+    if (iequals(difficulty, "Challenge")) {
+        return kChallengeColor;
+    }
+    return kTextColor;
 }
 
-const ScoreRecord* best_grade_for(const ScreenContext& ctx, const Song& song, const Chart& chart) {
+const ScoreRecord* best_score_for(const ScreenContext& ctx, const Song& song, const Chart& chart) {
     if (ctx.scores == nullptr) {
         return nullptr;
     }
@@ -211,6 +221,17 @@ void SelectScreen::enter(ScreenContext& ctx) {
     rebuild(ctx);
     options_open_ = false;
 
+    // Returning from a screen launched off the options overlay (Calibration,
+    // InputRemap): reopen the overlay on the same row instead of dropping to the
+    // wheel. Re-seed from config so a freshly calibrated offset is displayed.
+    if (reopen_options_on_enter_) {
+        reopen_options_on_enter_ = false;
+        const int row = options_.row;
+        options_ = options_menu_from_config(ctx.config != nullptr ? *ctx.config : GameConfig{});
+        options_.row = row;
+        options_open_ = true;
+    }
+
     if (ctx.config != nullptr) {
         preview_.set_volume(static_cast<float>(ctx.config->audio.preview_volume));
     }
@@ -218,6 +239,13 @@ void SelectScreen::enter(ScreenContext& ctx) {
     std::cout << "[SelectScreen] library: " << songs_.size() << " songs, "
               << total_chart_count() << " charts\n";
 
+    // Returning from InputRemap: the preview kept playing in the background, so
+    // leave it running rather than restarting the delay and sample window.
+    const Song* song = selected_song();
+    if (song != nullptr && preview_.state() != PreviewState::Idle &&
+        preview_.requested_path() == song->resolved_music_path) {
+        return;
+    }
     request_preview_for_selected();
 }
 
@@ -322,6 +350,7 @@ void SelectScreen::update(ScreenContext& ctx, double fixed_dt,
                     options_open_ = false;
                     options_consumed = true;
                     if (ctx.manager != nullptr) {
+                        reopen_options_on_enter_ = true;
                         ctx.manager->transition_to(ScreenId::Calibration);
                     }
                     continue;
@@ -352,6 +381,8 @@ void SelectScreen::update(ScreenContext& ctx, double fixed_dt,
                     options_open_ = false;
                     options_consumed = true;
                     if (ctx.manager != nullptr) {
+                        keep_preview_on_exit_ = true;
+                        reopen_options_on_enter_ = true;
                         ctx.manager->transition_to(ScreenId::InputRemap);
                     }
                     continue;
@@ -500,27 +531,35 @@ void SelectScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, i
         const Color kPanelColor{0.10f, 0.13f, 0.20f, 0.98f};
         renderer.draw_quad(Rect{0.0f, 0.0f, width, height}, kDimOverlay);
 
-        const float panel_w = width * 0.62f;
+        const float panel_w = width * 0.74f;
         const float panel_h = height * 0.76f;
         const float panel_x = (width - panel_w) * 0.5f;
         const float panel_y = (height - panel_h) * 0.5f;
         renderer.draw_quad(Rect{panel_x, panel_y, panel_w, panel_h}, kPanelColor);
 
-        const float text_x = panel_x + panel_w * 0.08f;
+        const float text_x = panel_x + panel_w * 0.06f;
         float row_y = panel_y + panel_h * 0.19f;
-        const float row_h = panel_h * 0.115f;
+        // Rows share the band between the title and the hint line, so adding a
+        // row shrinks the spacing instead of overlapping the hint.
+        const float row_h = panel_h * 0.69f / static_cast<float>(kOptionsRowCount);
         const float name_pixel = std::max(2.0f, width * 0.0035f);
         const float value_pixel = std::max(2.0f, width * 0.0032f);
 
         draw_text(renderer, "OPTIONS", text_x, panel_y + panel_h * 0.05f,
                   std::max(2.5f, width * 0.0045f), kTitleColor);
 
-        const float value_x = panel_x + panel_w * 0.55f;
+        // Value column starts after the widest row name, so long names never
+        // run into their values.
+        float name_w = 0.0f;
+        for (int i = 0; i < kOptionsRowCount; ++i) {
+            name_w = std::max(name_w, text_width(options_row_name(i), name_pixel));
+        }
+        const float value_x = text_x + name_w + name_pixel * 12.0f;
         for (int i = 0; i < kOptionsRowCount; ++i) {
             const bool selected = i == options_.row;
             if (selected) {
                 renderer.draw_quad(
-                    Rect{text_x - 8.0f, row_y - 4.0f, panel_w * 0.84f, row_h * 0.9f},
+                    Rect{text_x - 8.0f, row_y - 4.0f, panel_w * 0.88f + 16.0f, row_h * 0.9f},
                     kPlaceholderColor);
             }
             draw_text(renderer, options_row_name(i), text_x, row_y, name_pixel,
@@ -607,24 +646,32 @@ void SelectScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, i
         row_y += row_h;
     }
 
-    // Difficulty rows for the highlighted song: passthrough label + meter + best grade.
+    // Difficulty rows for the highlighted song: passthrough label + meter + best
+    // percent, tinted per difficulty. The tint carries the difficulty, so the
+    // selected row is marked by a highlight bar and a cursor instead of a color.
     const std::size_t chart_total = song == nullptr ? 0 : song->charts.size();
+    const float diff_x = width * 0.04f;
+    const float diff_row_h = height * 0.042f;
     float diff_y = height * 0.62f;
-    draw_text(renderer, "DIFFICULTY", width * 0.04f, diff_y, 2.5f, kDimColor);
+    draw_text(renderer, "DIFFICULTY", diff_x, diff_y, 2.5f, kDimColor);
     diff_y += height * 0.05f;
     for (std::size_t i = 0; i < chart_total; ++i) {
         const Chart& chart = song->charts[i];
         const bool selected = static_cast<int>(i) == selected_chart_;
 
-        std::string grade = "---";
-        if (const ScoreRecord* record = best_grade_for(ctx, *song, chart); record != nullptr) {
-            grade = grade_display_label(record->grade);
+        std::string best = "---";
+        if (const ScoreRecord* record = best_score_for(ctx, *song, chart); record != nullptr) {
+            best = format_percent(record->percent);
         }
 
-        const std::string row =
-            "  " + chart.difficulty + "  [" + std::to_string(chart.meter) + "]   " + grade;
-        draw_text(renderer, row, width * 0.04f, diff_y, 2.5f, selected ? kSelectedColor : kTextColor);
-        diff_y += height * 0.042f;
+        if (selected) {
+            renderer.draw_quad(Rect{diff_x - 6.0f, diff_y - 4.0f, width * 0.42f, diff_row_h},
+                               kPlaceholderColor);
+        }
+        const std::string row = std::string(selected ? "> " : "  ") + chart.difficulty + "  [" +
+                                std::to_string(chart.meter) + "]   " + best;
+        draw_text(renderer, row, diff_x, diff_y, 2.5f, difficulty_color(chart.difficulty));
+        diff_y += diff_row_h;
     }
 
     draw_text_centered(
@@ -634,9 +681,16 @@ void SelectScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, i
 }
 
 void SelectScreen::exit(ScreenContext& /*ctx*/) {
-    preview_.stop();
+    if (!keep_preview_on_exit_) {
+        preview_.stop();
+    }
+    keep_preview_on_exit_ = false;
     texture_cache_.clear();
     options_open_ = false;
+}
+
+void SelectScreen::update_inactive(double fixed_dt) {
+    preview_.update(fixed_dt); // no-op once stopped (Idle)
 }
 
 } // namespace td

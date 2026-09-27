@@ -27,6 +27,7 @@ constexpr int kSpeedTypeRow = static_cast<int>(OptionsRow::SpeedType);
 constexpr int kSpeedValueRow = static_cast<int>(OptionsRow::SpeedValue);
 constexpr int kScrollRow = static_cast<int>(OptionsRow::Scroll);
 constexpr int kFailRow = static_cast<int>(OptionsRow::Fail);
+constexpr int kAssistTickRow = static_cast<int>(OptionsRow::AssistTick);
 constexpr int kCalibrateRow = static_cast<int>(OptionsRow::CalibrateOffset);
 constexpr int kRemapRow = static_cast<int>(OptionsRow::RemapInput);
 
@@ -37,12 +38,14 @@ void test_seeding() {
     config.gameplay.speed_mod = "C400";
     config.gameplay.scroll = "down";
     config.gameplay.fail_enabled = false;
+    config.gameplay.assist_tick = true;
 
     const OptionsMenu menu = td::options_menu_from_config(config);
     TEST_CHECK(menu.speed_type == SpeedModType::CMod);
     TEST_CHECK(near(menu.c_value, 400.0));
     TEST_CHECK(menu.scroll_down);
     TEST_CHECK(!menu.fail_enabled);
+    TEST_CHECK(menu.assist_tick);
     TEST_CHECK(near(menu.x_value, 1.0));  // untouched slots stay at defaults
     TEST_CHECK(near(menu.m_value, 600.0));
     TEST_CHECK(menu.row == kSpeedTypeRow);
@@ -77,14 +80,16 @@ void test_row_navigation() {
     td::options_menu_move_row(menu, +1);
     TEST_CHECK(menu.row == 3);
     td::options_menu_move_row(menu, +1);
-    TEST_CHECK(menu.row == kCalibrateRow); // row 4
+    TEST_CHECK(menu.row == kAssistTickRow); // row 4
     td::options_menu_move_row(menu, +1);
-    TEST_CHECK(menu.row == kRemapRow); // row 5
+    TEST_CHECK(menu.row == kCalibrateRow); // row 5
+    td::options_menu_move_row(menu, +1);
+    TEST_CHECK(menu.row == kRemapRow); // row 6
     td::options_menu_move_row(menu, +1);
     TEST_CHECK(menu.row == kRemapRow); // clamped at the new bottom
     td::options_menu_move_row(menu, -1);
     TEST_CHECK(menu.row == kCalibrateRow);
-    td::options_menu_move_row(menu, -5);
+    td::options_menu_move_row(menu, -6);
     TEST_CHECK(menu.row == 0); // clamped
     std::cout << "  - row navigation clamps at both ends ok.\n";
 }
@@ -172,7 +177,14 @@ void test_toggles() {
     const bool fail_before = menu.fail_enabled;
     td::options_menu_adjust(menu, +1);
     TEST_CHECK(menu.fail_enabled != fail_before);
-    std::cout << "  - scroll/fail toggles ok.\n";
+
+    menu.row = kAssistTickRow;
+    TEST_CHECK(!menu.assist_tick); // off by default
+    td::options_menu_adjust(menu, +1);
+    TEST_CHECK(menu.assist_tick);
+    td::options_menu_adjust(menu, -1);
+    TEST_CHECK(!menu.assist_tick);
+    std::cout << "  - scroll/fail/assist tick toggles ok.\n";
 }
 
 void test_formatting() {
@@ -204,6 +216,12 @@ void test_formatting() {
     TEST_CHECK(td::options_row_value_text(menu, kFailRow) == "ON");
     menu.fail_enabled = false;
     TEST_CHECK(td::options_row_value_text(menu, kFailRow) == "OFF");
+
+    menu.assist_tick = false;
+    TEST_CHECK(td::options_row_value_text(menu, kAssistTickRow) == "OFF");
+    menu.assist_tick = true;
+    TEST_CHECK(td::options_row_value_text(menu, kAssistTickRow) == "ON");
+    TEST_CHECK(td::options_row_name(kAssistTickRow) == "ASSIST TICK");
 
     TEST_CHECK(td::options_row_name(kSpeedTypeRow) == "SPEED TYPE");
     TEST_CHECK(td::options_row_name(kFailRow) == "FAIL");
@@ -238,7 +256,7 @@ void test_calibration_row_is_action_only() {
 
 void test_remap_row_is_action_only() {
     TEST_CHECK(td::options_row_name(kRemapRow) == "REMAP INPUT");
-    TEST_CHECK(td::kOptionsRowCount == 6);
+    TEST_CHECK(td::kOptionsRowCount == 7);
 
     td::GameConfig config;
     const std::vector<td::InputBinding> key_before = config.input.key_bindings;
@@ -267,11 +285,13 @@ void test_apply_and_round_trip() {
     menu.c_value = 400.0;
     menu.scroll_down = true;
     menu.fail_enabled = false;
+    menu.assist_tick = true;
 
     td::options_menu_apply(menu, config);
     TEST_CHECK(config.gameplay.speed_mod == "C400");
     TEST_CHECK(config.gameplay.scroll == "down");
     TEST_CHECK(!config.gameplay.fail_enabled);
+    TEST_CHECK(config.gameplay.assist_tick);
 
     SpeedMod parsed;
     TEST_CHECK(td::parse_speed_mod(config.gameplay.speed_mod, parsed));
@@ -283,6 +303,7 @@ void test_apply_and_round_trip() {
     TEST_CHECK(near(round_tripped.c_value, menu.c_value));
     TEST_CHECK(round_tripped.scroll_down == menu.scroll_down);
     TEST_CHECK(round_tripped.fail_enabled == menu.fail_enabled);
+    TEST_CHECK(round_tripped.assist_tick == menu.assist_tick);
 
     // X and M forms round-trip through the parser too.
     td::GameConfig x_config;

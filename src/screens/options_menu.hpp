@@ -17,6 +17,7 @@ enum class OptionsRow : int {
     SpeedValue,    // numeric, type-specific
     Scroll,        // UP / DOWN
     Fail,          // ON / OFF
+    AssistTick,    // ON / OFF: tick on every note row (timing practice)
     CalibrateOffset, // action row: opens the C5 calibration wizard
     RemapInput,      // action row: opens the C6 input remapping screen
     Count,
@@ -34,6 +35,7 @@ struct OptionsMenu {
     double m_value = 600.0;
     bool scroll_down = false;
     bool fail_enabled = true;
+    bool assist_tick = false;
     int row = static_cast<int>(OptionsRow::SpeedType);
 
     // Display-only mirror of the persisted offset. `options_menu_apply` must NOT

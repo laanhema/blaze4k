@@ -109,13 +109,19 @@ class FakeScreen : public td::Screen {
 public:
     explicit FakeScreen(ScreenId id) : id_(id) {}
     [[nodiscard]] ScreenId id() const override { return id_; }
+    [[nodiscard]] bool back_consumed() const override { return modal; }
+
+    bool modal = false; // stands in for Select's options overlay being open
 
 private:
     ScreenId id_;
 };
 
-void add_fake(td::ScreenManager& manager, ScreenId id) {
-    manager.add_screen(std::make_unique<FakeScreen>(id));
+FakeScreen* add_fake(td::ScreenManager& manager, ScreenId id) {
+    auto screen = std::make_unique<FakeScreen>(id);
+    FakeScreen* raw = screen.get();
+    manager.add_screen(std::move(screen));
+    return raw;
 }
 
 void test_menu_triggers() {
@@ -153,6 +159,39 @@ void test_menu_triggers() {
     manager.update(0.1, {press(GameAction::Right)});
     TEST_CHECK(sink.played.size() == 1 && sink.played[0] == UiSound::Move);
     std::cout << "  - menu Move/Confirm/Back triggers ok.\n";
+}
+
+void test_options_toggle_triggers() {
+    FakeSink sink;
+    td::ScreenManager manager(0.0);
+    add_fake(manager, ScreenId::Title);
+    FakeScreen* select = add_fake(manager, ScreenId::Select);
+    manager.context().ui_sounds = &sink;
+    manager.start(ScreenId::Select);
+
+    // Opening the overlay (not yet modal) plays Confirm.
+    sink.played.clear();
+    manager.update(0.1, {press(GameAction::Options)});
+    TEST_CHECK(sink.played.size() == 1 && sink.played[0] == UiSound::Confirm);
+
+    // Closing it (modal) plays Back.
+    select->modal = true;
+    sink.played.clear();
+    manager.update(0.1, {press(GameAction::Options)});
+    TEST_CHECK(sink.played.size() == 1 && sink.played[0] == UiSound::Back);
+
+    // No duplicate when the same sound already fired from another press.
+    select->modal = false;
+    sink.played.clear();
+    manager.update(0.1, {press(GameAction::Options), press(GameAction::Confirm)});
+    TEST_CHECK(sink.played.size() == 1 && sink.played[0] == UiSound::Confirm);
+
+    // Options does nothing on Title, so it stays silent there.
+    manager.start(ScreenId::Title);
+    sink.played.clear();
+    manager.update(0.1, {press(GameAction::Options)});
+    TEST_CHECK(sink.played.empty());
+    std::cout << "  - Select Options open/close triggers ok.\n";
 }
 
 void test_non_menu_screens_silent() {
@@ -197,6 +236,7 @@ int main() {
     std::cout << "[ui_sounds_test] Running UI sound synth + trigger tests...\n";
     test_wav_synth();
     test_menu_triggers();
+    test_options_toggle_triggers();
     test_non_menu_screens_silent();
     test_unavailable_player_is_silent();
     std::cout << "[ui_sounds_test] All tests passed!\n";

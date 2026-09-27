@@ -36,7 +36,9 @@ public:
     Texture& operator=(Texture&& other) noexcept;
 
     // Uploads tightly-packed RGBA8 pixels. Returns an invalid texture on bad input.
-    static Texture from_rgba(int width, int height, const uint8_t* rgba);
+    // `mipmaps` builds a mip chain with trilinear minification, for art drawn
+    // well below its native size (e.g. 128px noteskin frames drawn at 56px).
+    static Texture from_rgba(int width, int height, const uint8_t* rgba, bool mipmaps = false);
 
     // Builds a 1x1 texture filled with `color` (useful for tinted solid quads).
     static Texture solid(Color color);
@@ -46,7 +48,7 @@ public:
     // path, a missing/oversize (> kMaxImageBytes) file, a header declaring
     // dimensions over the cap (rejected via stbi_info before any decode), a
     // decode failure, or when no GL context is available (headless).
-    static Texture from_file(const std::string& path);
+    static Texture from_file(const std::string& path, bool mipmaps = false);
 
     void destroy();
 

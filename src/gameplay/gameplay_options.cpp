@@ -19,6 +19,7 @@ GameplayOptions gameplay_options_from_config(const GameConfig& config) {
         (config.gameplay.scroll == "down") ? ScrollDirection::Down : ScrollDirection::Up;
     options.global_offset_seconds = config.offset.global_offset_seconds;
     options.fail_enabled = config.gameplay.fail_enabled;
+    options.assist_tick = config.gameplay.assist_tick;
     return options;
 }
 

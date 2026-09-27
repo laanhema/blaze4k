@@ -19,5 +19,7 @@ enum class ArrowDirection { Left = 0, Down = 1, Up = 2, Right = 3 };
 [[nodiscard]] std::vector<uint8_t> make_mine_rgba(int size);
 [[nodiscard]] std::vector<uint8_t> make_receptor_rgba(int size, ArrowDirection dir);
 [[nodiscard]] std::vector<uint8_t> make_body_rgba(int size);
+// Filled circle spanning the whole square (e.g. the Cel mine's glowing core).
+[[nodiscard]] std::vector<uint8_t> make_disc_rgba(int size);
 
 } // namespace td

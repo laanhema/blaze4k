@@ -1,6 +1,7 @@
 #include "screens/gameplay_screen.hpp"
 
 #include <iostream>
+#include <utility>
 
 #include "chart/chart.hpp"
 #include "chart/song.hpp"
@@ -10,6 +11,9 @@
 #include "timing/judgment_constants.hpp"
 
 namespace td {
+
+GameplayScreen::GameplayScreen(std::filesystem::path assist_tick_wav_path)
+    : assist_tick_path_(std::move(assist_tick_wav_path)) {}
 
 void GameplayScreen::enter(ScreenContext& ctx) {
     active_ = false;
@@ -34,6 +38,7 @@ void GameplayScreen::enter(ScreenContext& ctx) {
     const JudgmentConstants& constants =
         ctx.constants != nullptr ? *ctx.constants : JudgmentConstants::compiled_defaults();
 
+    view_.set_assist_tick_sound(assist_tick_path_);
     active_ = view_.init(chart, constants, audio_path, ctx.play_request->options,
                          song.resolved_background_path);
     std::cout << "[GameplayScreen] started '" << song.metadata.title << "' " << chart.difficulty

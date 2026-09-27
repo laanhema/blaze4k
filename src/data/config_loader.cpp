@@ -230,6 +230,7 @@ void read_gameplay(const json& document, GameplaySettings& target, std::string& 
         target.scroll = default_scroll;
     }
     read_bool_field(*node, "fail_enabled", target.fail_enabled, warnings, "gameplay");
+    read_bool_field(*node, "assist_tick", target.assist_tick, warnings, "gameplay");
 }
 
 void read_input(const json& document, InputSettings& target, std::string& warnings) {
@@ -394,6 +395,7 @@ bool save_config(const std::filesystem::path& path, const GameConfig& config,
         {"speed_mod", config.gameplay.speed_mod},
         {"scroll", config.gameplay.scroll},
         {"fail_enabled", config.gameplay.fail_enabled},
+        {"assist_tick", config.gameplay.assist_tick},
     };
     document["input"] = {
         {"key_bindings", key_bindings},

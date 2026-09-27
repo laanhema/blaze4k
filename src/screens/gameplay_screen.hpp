@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cstddef>
+#include <filesystem>
 #include <vector>
 
 #include "gameplay/gameplay_view.hpp"
@@ -16,6 +17,11 @@ namespace td {
 // when no Results screen is registered, so a run can never strand here.
 class GameplayScreen : public Screen {
 public:
+    GameplayScreen() = default;
+    // `assist_tick_wav_path`: where the assist-tick click is synthesized/loaded
+    // when the option is on. Default-constructed = assist tick silent.
+    explicit GameplayScreen(std::filesystem::path assist_tick_wav_path);
+
     [[nodiscard]] ScreenId id() const override { return ScreenId::Gameplay; }
 
     void enter(ScreenContext& ctx) override;
@@ -38,6 +44,7 @@ public:
 
 private:
     GameplayView view_;
+    std::filesystem::path assist_tick_path_;
     std::array<bool, 4> held_{false, false, false, false};
     bool active_ = false;
     bool end_reported_ = false;

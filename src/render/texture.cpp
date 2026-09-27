@@ -69,7 +69,7 @@ void Texture::destroy() {
     height_ = 0;
 }
 
-Texture Texture::from_rgba(int width, int height, const uint8_t* rgba) {
+Texture Texture::from_rgba(int width, int height, const uint8_t* rgba, bool mipmaps) {
     Texture texture;
 
     if (width <= 0 || height <= 0 || rgba == nullptr) {
@@ -92,7 +92,11 @@ Texture Texture::from_rgba(int width, int height, const uint8_t* rgba) {
     glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0,
                  GL_RGBA, GL_UNSIGNED_BYTE, rgba);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    if (mipmaps) {
+        glGenerateMipmap(GL_TEXTURE_2D);
+    }
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
+                    mipmaps ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
@@ -124,7 +128,7 @@ Texture Texture::solid(Color color) {
     return from_rgba(1, 1, rgba);
 }
 
-Texture Texture::from_file(const std::string& path) {
+Texture Texture::from_file(const std::string& path, bool mipmaps) {
     Texture texture;
 
     if (path.empty()) {
@@ -169,7 +173,7 @@ Texture Texture::from_file(const std::string& path) {
         return texture;
     }
 
-    texture = from_rgba(width, height, pixels);
+    texture = from_rgba(width, height, pixels, mipmaps);
     stbi_image_free(pixels);
     return texture;
 }

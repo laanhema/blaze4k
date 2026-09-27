@@ -354,7 +354,8 @@ int main(int argc, char* argv[]) {
         shell->add_screen(std::make_unique<td::TitleScreen>());
         shell->add_screen(std::make_unique<td::AttractScreen>());
         shell->add_screen(std::make_unique<td::SelectScreen>());
-        shell->add_screen(std::make_unique<td::GameplayScreen>());
+        shell->add_screen(
+            std::make_unique<td::GameplayScreen>(paths.data_dir / "sfx" / "assist_tick.wav"));
         shell->add_screen(std::make_unique<td::ResultsScreen>());
         shell->add_screen(
             std::make_unique<td::CalibrationScreen>(paths.data_dir / "calibration_click.wav"));

@@ -1,3 +1,4 @@
+#include <array>
 #include <iostream>
 #include <cmath>
 #include <string>
@@ -271,8 +272,10 @@ int main() {
         TEST_CHECK(roll != nullptr && roll->has_body && roll->tail_offset > roll->head_offset);
         TEST_CHECK(mine != nullptr && !mine->has_body);
 
+        // Headless (no init): the procedural fallback skin's sprites.
         td::NoteSkin skin;
-        TEST_CHECK(skin.style_for(td::NoteType::Mine).width < skin.style_for(td::NoteType::Tap).width);
+        const std::array<td::SkinSprite, 2> mine_layers = skin.mine(0.0);
+        TEST_CHECK(mine_layers[0].scale < 1.0f);
         // ITG note colors encode the beat subdivision (not column direction):
         // 4th=red, 8th=blue, 16th=yellow.
         const td::Color fourth = skin.quantization_color(td::NoteQuantization::Fourth);
@@ -281,8 +284,7 @@ int main() {
         TEST_CHECK(fourth.r > fourth.g && fourth.r > fourth.b);
         TEST_CHECK(eighth.b > eighth.r && eighth.b > eighth.g);
         TEST_CHECK(sixteenth.r > sixteenth.b && sixteenth.g > sixteenth.b);
-        TEST_CHECK(skin.style_for(td::NoteType::Mine).head_color.r >
-                   skin.style_for(td::NoteType::Mine).head_color.g);
+        TEST_CHECK(mine_layers[0].tint.r > mine_layers[0].tint.g);
         std::cout << "  - Tap/hold/roll/mine are visually distinct.\n";
     }
 

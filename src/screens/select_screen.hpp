@@ -6,6 +6,7 @@
 
 #include "audio/preview_player.hpp"
 #include "chart/timing_data.hpp"
+#include "render/geometry.hpp"
 #include "render/texture_cache.hpp"
 #include "screens/options_menu.hpp"
 #include "screens/screen.hpp"
@@ -21,18 +22,19 @@ struct ScoreRecord;
 // No remapping of the underlying timing.
 [[nodiscard]] std::string format_bpm_range(const TimingData& timing);
 
-// Pure best-grade label: the four OpenITG star tiers render as star glyphs
-// (quad_star -> four stars ... single_star -> one star); every other stored
-// label ("S+", "A", ...) passes through unchanged.
-[[nodiscard]] std::string grade_display_label(const std::string& grade);
+// Pure difficulty tint for the select screen's chart rows, keyed on the
+// passthrough simfile label (case-insensitive): Beginner/Novice purple, Easy
+// green, Medium yellow, Hard red, Challenge blue. Edit and unknown labels get the
+// neutral text color.
+[[nodiscard]] Color difficulty_color(const std::string& difficulty);
 
 // Best stored score for a chart, or nullptr when scores are unavailable/empty.
-[[nodiscard]] const ScoreRecord* best_grade_for(const ScreenContext& ctx, const Song& song,
+[[nodiscard]] const ScoreRecord* best_score_for(const ScreenContext& ctx, const Song& song,
                                                 const Chart& chart);
 
 // The real Song Select wheel: a flat, pack-grouped list of the scanned library
 // with banner art, artist/BPM, passthrough difficulty labels + foot ratings, and
-// the player's best grade per chart. Highlighting a song arms a delayed audio
+// the player's best percent per chart. Highlighting a song arms a delayed audio
 // preview; Confirm publishes a `PlayRequest` and transitions to Gameplay; Back
 // is handled centrally by the manager (Select -> Title).
 class SelectScreen : public Screen {
@@ -43,6 +45,7 @@ public:
     void update(ScreenContext& ctx, double fixed_dt, const std::vector<InputEvent>& events) override;
     void render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, int h) override;
     void exit(ScreenContext& ctx) override;
+    void update_inactive(double fixed_dt) override;
     bool handle_back(ScreenContext& ctx) override;
     [[nodiscard]] bool back_consumed() const override { return options_open_; }
 
@@ -79,6 +82,14 @@ private:
     TextureCache texture_cache_;
     OptionsMenu options_;
     bool options_open_ = false;
+    // Set when launching InputRemap: exit() then leaves the preview playing (and
+    // update_inactive() keeps it looping) so the song continues behind the remap
+    // screen. Every other exit stops the preview.
+    bool keep_preview_on_exit_ = false;
+    // Set when launching Calibration/InputRemap from the options overlay: the
+    // next enter() reopens the overlay on the launching row, so Back from those
+    // screens lands in Options rather than on the bare wheel.
+    bool reopen_options_on_enter_ = false;
 
     // Held-direction key repeat: once a direction is held past the initial
     // delay, it re-triggers navigation at an accelerating interval. Sampled from

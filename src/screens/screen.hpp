@@ -76,6 +76,11 @@ public:
                         int /*h*/) {}
     virtual void exit(ScreenContext& /*ctx*/) {}
 
+    // Ticked by the manager every fixed step while this screen is NOT active, so
+    // state a screen deliberately kept alive across exit() (e.g. Select's song
+    // preview while InputRemap is open) keeps advancing. Default: no-op.
+    virtual void update_inactive(double /*fixed_dt*/) {}
+
     // Consume Back for an in-screen modal/sub-state; return true to suppress the
     // manager's default back navigation (e.g. the C4 options overlay). The
     // default preserves C1 behavior for every screen without an in-screen state.

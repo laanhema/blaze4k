@@ -179,6 +179,21 @@ void InputRemapScreen::render(ScreenContext& /*ctx*/, GlQuadRenderer& renderer, 
     first_row = std::clamp(first_row, 0, std::max(0, total_rows - visible_rows));
     const int last_row = std::min(total_rows, first_row + visible_rows);
 
+    // Table layout: ACTION | [DEVICE] | KEY. Column starts come from the widest
+    // label over every row (not just the visible window) so they never shift
+    // while scrolling.
+    float action_col_w = 0.0f;
+    float device_col_w = 0.0f;
+    for (const RemapRow& remap_row : model_.rows) {
+        action_col_w =
+            std::max(action_col_w, text_width(remap_action_name(remap_row.action), name_pixel));
+        device_col_w = std::max(device_col_w,
+                                text_width("[" + remap_device_name(remap_row.device) + "]", name_pixel));
+    }
+    const float col_gap = text_width("   ", name_pixel);
+    const float device_x = text_x + action_col_w + col_gap;
+    const float key_x = device_x + device_col_w + col_gap;
+
     float row_y = list_top;
     for (int i = first_row; i < last_row; ++i) {
         const bool is_reset = i == reset_row;
@@ -194,11 +209,12 @@ void InputRemapScreen::render(ScreenContext& /*ctx*/, GlQuadRenderer& renderer, 
                       selected ? kAccentColor : kResetColor);
         } else {
             const RemapRow& remap_row = model_.rows[static_cast<std::size_t>(i)];
-            const std::string label = remap_action_name(remap_row.action) + "  [" +
-                                      remap_device_name(remap_row.device) + "]  " +
-                                      remap_row_value_text(model_, i);
-            draw_text(renderer, label, text_x, row_y, name_pixel,
-                      selected ? kAccentColor : kTextColor);
+            const Color color = selected ? kAccentColor : kTextColor;
+            draw_text(renderer, remap_action_name(remap_row.action), text_x, row_y, name_pixel,
+                      color);
+            draw_text(renderer, "[" + remap_device_name(remap_row.device) + "]", device_x, row_y,
+                      name_pixel, color);
+            draw_text(renderer, remap_row_value_text(model_, i), key_x, row_y, name_pixel, color);
         }
         row_y += row_h;
     }

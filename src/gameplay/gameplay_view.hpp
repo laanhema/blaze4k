@@ -1,9 +1,12 @@
 #pragma once
 
 #include <array>
+#include <filesystem>
 #include <string>
+#include <utility>
 #include <vector>
 #include "chart/chart.hpp"
+#include "gameplay/assist_tick_schedule.hpp"
 #include "gameplay/hud_renderer.hpp"
 #include "gameplay/judgment_animator.hpp"
 #include "gameplay/judgment_engine.hpp"
@@ -14,6 +17,7 @@
 #include "gameplay/score_keeper.hpp"
 #include "gameplay/gameplay_options.hpp"
 #include "gameplay/speed_mod.hpp"
+#include "audio/assist_tick_player.hpp"
 #include "audio/sound_stream.hpp"
 #include "input/input_event.hpp"
 #include "render/background_renderer.hpp"
@@ -41,6 +45,10 @@ public:
 
     GameplayView(const GameplayView&) = delete;
     GameplayView& operator=(const GameplayView&) = delete;
+
+    // WAV used when `GameplayOptions::assist_tick` is on (synthesized if
+    // missing). Set before init(); empty leaves the assist tick silent.
+    void set_assist_tick_sound(std::filesystem::path path) { assist_tick_path_ = std::move(path); }
 
     bool init(const Chart& chart, const JudgmentConstants& constants, const std::string& audio_path,
               const GameplayOptions& options, const std::string& background_path = "");
@@ -71,6 +79,15 @@ public:
 
 private:
     void bind_clock_source();
+    void schedule_assist_ticks();
+    void arm_explosion(const JudgmentEvent& event);
+
+    // Latest tap/held explosion per column (presentation only), in music time.
+    struct ColumnExplosion {
+        TapJudgment window = TapJudgment::Num;
+        double start_seconds = 0.0;
+        double duration = 0.0;
+    };
 
     Chart chart_;
     MusicClock clock_;
@@ -84,9 +101,18 @@ private:
     LifeKeeper life_;
     HudRenderer hud_;
     JudgmentAnimator judge_anim_;
+    AssistTickSchedule assist_schedule_;
+    AssistTickPlayer assist_player_;
+    std::filesystem::path assist_tick_path_;
+    std::vector<double> due_ticks_;
     std::vector<JudgmentEvent> new_events_;
     std::vector<NoteRenderItem> items_;
     std::vector<NoteRenderItem> visible_items_;
+    // Receptor press feedback (presentation only): last press per column in music time.
+    std::array<bool, 4> was_held_{false, false, false, false};
+    std::array<double, 4> press_time_{-1e9, -1e9, -1e9, -1e9};
+    std::array<ColumnExplosion, 4> explosions_{};
+    std::array<double, 4> mine_explosion_start_{-1e9, -1e9, -1e9, -1e9};
     NoteFieldConfig config_{};
 
     double receptor_fraction_ = 0.15;
@@ -94,6 +120,7 @@ private:
     unsigned int stub_sample_rate_ = 48000;
     bool use_stub_ = false;
     bool audio_started_ = false;
+    bool assist_tick_ = false; // option on and the tick voices loaded
     bool exited_ = false; // fail transition already taken (gameplay ended)
     bool final_combo_celebrated_ = false; // final combo pop armed once
     bool ready_ = false;

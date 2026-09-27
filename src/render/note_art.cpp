@@ -170,4 +170,8 @@ std::vector<uint8_t> make_body_rgba(int size) {
     });
 }
 
+std::vector<uint8_t> make_disc_rgba(int size) {
+    return make_mask(size, [](double x, double y) { return x * x + y * y <= 1.0; });
+}
+
 } // namespace td

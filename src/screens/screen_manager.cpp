@@ -217,6 +217,18 @@ void ScreenManager::update(double fixed_dt, const std::vector<InputEvent>& event
         if (back_pressed) {
             ctx_.ui_sounds->play(UiSound::Back);
         }
+        // Options toggles Select's overlay: Confirm when opening it, Back when
+        // closing it (read from pre-update modal state, before update() flips it).
+        // Skipped when that same sound already fired this tick.
+        if (options_pressed && active_id_ == ScreenId::Select) {
+            const Screen* active = active_screen();
+            const bool closing = active != nullptr && active->back_consumed();
+            if (closing && !back_pressed) {
+                ctx_.ui_sounds->play(UiSound::Back);
+            } else if (!closing && !confirm_pressed) {
+                ctx_.ui_sounds->play(UiSound::Confirm);
+            }
+        }
     }
 
     // A same-tick [Options, Back] pair must not navigate on pre-update state:
@@ -242,6 +254,12 @@ void ScreenManager::update(double fixed_dt, const std::vector<InputEvent>& event
     const ScreenId before_apply = active_id_;
     apply_pending();
     const bool active_changed = active_id_ != before_apply;
+
+    for (std::unique_ptr<Screen>& screen : screens_) {
+        if (screen->id() != active_id_) {
+            screen->update_inactive(fixed_dt);
+        }
+    }
 
     // Idle-attract policy: measured only from the injected fixed_dt, and only
     // while Title/Select are active.

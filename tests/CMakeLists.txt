@@ -309,6 +309,16 @@ target_link_libraries(note_art_test PRIVATE
 
 add_test(NAME note_art_test COMMAND note_art_test)
 
+add_executable(noteskin_test
+    noteskin_test.cpp
+)
+
+target_link_libraries(noteskin_test PRIVATE
+    tundra_core
+)
+
+add_test(NAME noteskin_test COMMAND noteskin_test)
+
 add_executable(judgment_animator_test
     judgment_animator_test.cpp
 )
@@ -364,3 +374,13 @@ target_link_libraries(gameplay_screen_test PRIVATE
 )
 
 add_test(NAME gameplay_screen_test COMMAND gameplay_screen_test)
+
+add_executable(assist_tick_test
+    assist_tick_test.cpp
+)
+
+target_link_libraries(assist_tick_test PRIVATE
+    tundra_core
+)
+
+add_test(NAME assist_tick_test COMMAND assist_tick_test)

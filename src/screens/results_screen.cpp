@@ -23,6 +23,7 @@ constexpr Color kDimColor{0.55f, 0.60f, 0.72f, 1.0f};
 constexpr Color kAccentColor{1.00f, 0.92f, 0.35f, 1.0f};
 constexpr Color kHintColor{0.60f, 0.66f, 0.78f, 1.0f};
 constexpr Color kFailedColor{1.00f, 0.30f, 0.30f, 1.0f};
+constexpr Color kFlashColor{1.00f, 1.00f, 1.00f, 1.0f};
 
 // Tier-colored grade text. Pure presentation: the grade tier itself is already
 // pinned by ScoreState/grade_tiers; this only chooses a color.
@@ -128,12 +129,12 @@ void ResultsScreen::render(ScreenContext& /*ctx*/, GlQuadRenderer& renderer, int
     const float title_alpha = ResultsAnimator::title_alpha(elapsed);
     const float stats_alpha = ResultsAnimator::stats_alpha(elapsed);
 
-    // Full-screen accent flash behind the text, only on a NEW RECORD finale.
+    // Full-screen white flash behind the text, only on a NEW RECORD finale.
     if (shows_record_finale()) {
         const float flash = ResultsAnimator::record_flash(elapsed);
         if (flash > 0.0f) {
             renderer.draw_quad(Rect{0.0f, 0.0f, width, height},
-                               with_alpha(kAccentColor, flash));
+                               with_alpha(kFlashColor, flash));
         }
     }
 

@@ -261,7 +261,30 @@ int main() {
         missed_engine.reset(&missed_chart, &k);
         missed_engine.update(2.0 + k.windows.way_off + 1e-3, held_none());
         TEST_CHECK(!missed_engine.is_hold_in_progress(0));
+        TEST_CHECK(!missed_engine.is_hold_head_hit(0));
         std::cout << "  - Active hold keeps its body after the head is hidden.\n";
+    }
+
+    // 7c. Presentation accessors: last-held time follows the button and freezes
+    // on release; the outcome stays readable after the hold resolves.
+    {
+        td::Chart chart;
+        chart.notes.push_back(make_note(1, 2.0, td::NoteType::HoldHead, 4.0));
+        td::JudgmentEngine engine;
+        engine.reset(&chart, &k);
+
+        engine.handle_step(1, 2.0);
+        TEST_CHECK(engine.is_hold_head_hit(0));
+        TEST_CHECK(engine.hold_judgment(0) == td::HoldJudgment::Num);
+        engine.update(2.5, held_col(1));
+        TEST_CHECK(std::abs(engine.hold_last_held_seconds(0) - 2.5) < 1e-9);
+        engine.update(2.6, held_none()); // let go: last-held time stays at 2.5
+        TEST_CHECK(std::abs(engine.hold_last_held_seconds(0) - 2.5) < 1e-9);
+        engine.update(2.5 + k.windows.hold_ok + 1e-3, held_none());
+        TEST_CHECK(engine.hold_judgment(0) == td::HoldJudgment::Ng);
+        TEST_CHECK(engine.is_hold_head_hit(0));
+        TEST_CHECK(engine.hold_judgment(-1) == td::HoldJudgment::Num);
+        std::cout << "  - Hold last-held time and outcome accessors ok.\n";
     }
 
     // 8. Roll re-hits refresh life; end => RollOk; neglected => RollNg.

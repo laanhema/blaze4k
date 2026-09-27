@@ -13,6 +13,7 @@ struct GameplayOptions {
     ScrollDirection scroll = ScrollDirection::Up;
     double global_offset_seconds = 0.0;
     bool fail_enabled = true; // false = Fail-Off (song continues to the end)
+    bool assist_tick = false; // tick sound on every tap/hold/roll row (timing practice)
 };
 
 // Pure mapping from the persisted player config (C2) to gameplay options.

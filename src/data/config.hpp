@@ -42,6 +42,7 @@ struct GameplaySettings {
     std::string speed_mod = "1x";
     std::string scroll = "up";
     bool fail_enabled = true;
+    bool assist_tick = false; // timing-practice tick on every note row
 };
 
 // `action -> [binding names]`. C2 models and persists the bindings but does not

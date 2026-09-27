@@ -67,11 +67,13 @@ public:
         ++exit_count;
         g_log.push_back("exit:" + name_of(sid_));
     }
+    void update_inactive(double /*fixed_dt*/) override { ++inactive_update_count; }
 
     int enter_count = 0;
     int update_count = 0;
     int render_count = 0;
     int exit_count = 0;
+    int inactive_update_count = 0;
     bool transition_on_update = false;
     ScreenId transition_target = ScreenId::Title;
     bool active_was_source = false;
@@ -142,6 +144,24 @@ void test_deferred_application() {
     TEST_CHECK(select.ptr->enter_count == 1);
     TEST_CHECK(manager.active_id() == ScreenId::Select);
     std::cout << "  - deferred application (no self-destroy) ok.\n";
+}
+
+void test_inactive_screens_ticked() {
+    td::ScreenManager manager;
+    SpyRef title = add_spy(manager, ScreenId::Title);
+    SpyRef select = add_spy(manager, ScreenId::Select);
+    manager.start(ScreenId::Title);
+
+    manager.update(kDt, {});
+    TEST_CHECK(title.ptr->update_count == 1);
+    TEST_CHECK(title.ptr->inactive_update_count == 0); // active: update() only
+    TEST_CHECK(select.ptr->inactive_update_count == 1);
+
+    manager.transition_to(ScreenId::Select);
+    manager.update(kDt, {});
+    TEST_CHECK(title.ptr->inactive_update_count == 1);
+    TEST_CHECK(select.ptr->inactive_update_count == 1);
+    std::cout << "  - inactive screens get update_inactive() each tick ok.\n";
 }
 
 void test_unregistered_target() {
@@ -479,6 +499,7 @@ int main() {
     test_boot_lifecycle();
     test_transition_ordering();
     test_deferred_application();
+    test_inactive_screens_ticked();
     test_unregistered_target();
     test_idle_attract_policy();
     test_idle_only_from_title_select();

@@ -42,6 +42,13 @@ public:
     // pending. The note head is already judged (and possibly hidden), but the
     // body must keep rendering as the player holds it down.
     [[nodiscard]] bool is_hold_in_progress(int note_index) const;
+    // True once a hold/roll head has been graded as hit (even after OK/NG).
+    [[nodiscard]] bool is_hold_head_hit(int note_index) const;
+    // Hold/roll outcome; Num while pending or for non-hold notes.
+    [[nodiscard]] HoldJudgment hold_judgment(int note_index) const;
+    // Music time the hold was last held (a roll: last re-hit); where a let-go
+    // hold's body is drawn from. Only meaningful once the head was hit.
+    [[nodiscard]] double hold_last_held_seconds(int note_index) const;
     [[nodiscard]] const JudgmentEvent* latest_event() const;
 
 private:

@@ -20,6 +20,7 @@ compile_commands.json
 
 # Simfiles
 .songs/
+songs/
 
 # Temporary files
 todo.txt

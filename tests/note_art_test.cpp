@@ -63,6 +63,10 @@ void test_buffer_shape_and_channels() {
     check_buffer(td::make_roll_head_rgba(kSize, ArrowDirection::Up), true);
     check_buffer(td::make_mine_rgba(kSize), true);
     check_buffer(td::make_body_rgba(kSize), true);
+    const std::vector<std::uint8_t> disc = td::make_disc_rgba(kSize);
+    check_buffer(disc, true);
+    TEST_CHECK(alpha_at(disc, kSize / 2, kSize / 2) == 255);
+    TEST_CHECK(alpha_at(disc, 0, 0) == 0); // corners lie outside the circle
     // Receptors are hollow: centre must be empty, but coverage exists.
     const std::vector<std::uint8_t> receptor = td::make_receptor_rgba(kSize, ArrowDirection::Up);
     check_buffer(receptor, false);

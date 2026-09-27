@@ -82,6 +82,7 @@ int main() {
         TEST_CHECK(defaults.gameplay.speed_mod == "1x");
         TEST_CHECK(defaults.gameplay.scroll == "up");
         TEST_CHECK(defaults.gameplay.fail_enabled);
+        TEST_CHECK(!defaults.gameplay.assist_tick);
         TEST_CHECK(defaults.input.key_bindings.size() == 7);
         TEST_CHECK(defaults.input.gamepad_bindings.size() == 7);
 
@@ -128,6 +129,7 @@ int main() {
         config.gameplay.speed_mod = "C400";
         config.gameplay.scroll = "down";
         config.gameplay.fail_enabled = false;
+        config.gameplay.assist_tick = true;
         config.input.key_bindings = {{"Left", {"A", "Left"}}, {"Confirm", {"Space"}}};
         config.input.gamepad_bindings = {{"Confirm", {"South", "North"}}};
 
@@ -149,6 +151,7 @@ int main() {
         TEST_CHECK(loaded.gameplay.speed_mod == "C400");
         TEST_CHECK(loaded.gameplay.scroll == "down");
         TEST_CHECK(!loaded.gameplay.fail_enabled);
+        TEST_CHECK(loaded.gameplay.assist_tick);
         TEST_CHECK(to_map(loaded.input.key_bindings) == to_map(config.input.key_bindings));
         TEST_CHECK(to_map(loaded.input.gamepad_bindings) == to_map(config.input.gamepad_bindings));
         std::cout << "  - 2. config round-trip ok.\n";
