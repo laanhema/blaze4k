@@ -17,6 +17,7 @@ struct HighScores;
 class SongLibrary;
 struct JudgmentConstants;
 struct PlayRequest;
+struct ResultsSummary;
 
 // Stable identity of every arcade screen (PRD section 6/7.3). C1 implements
 // Title/Attract and a Select placeholder; C3/C4/C5/C7 replace/extend the rest.
@@ -39,6 +40,9 @@ struct ScreenContext {
     const SongLibrary* library = nullptr;         // C3 reads; owned by main
     const JudgmentConstants* constants = nullptr; // GameplayScreen init; owned by App
     PlayRequest* play_request = nullptr;          // C3 writes; GameplayScreen reads
+    // C7: GameplayScreen writes the finished run's snapshot on end; ResultsScreen
+    // reads and submits it. Owned by main, like play_request.
+    ResultsSummary* results = nullptr;
     std::uint64_t input_reference_ns = 0;         // set by main each tick (input aging)
 
     // Authoritative per-action down-state, wired by main to

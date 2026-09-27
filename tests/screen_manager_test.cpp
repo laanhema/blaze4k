@@ -307,6 +307,19 @@ void test_input_remap_back_navigation() {
     std::cout << "  - InputRemap Back -> Select ok.\n";
 }
 
+void test_results_back_navigation() {
+    td::ScreenManager manager(0.0);
+    add_spy(manager, ScreenId::Title);
+    add_spy(manager, ScreenId::Results);
+    add_spy(manager, ScreenId::Select);
+
+    manager.start(ScreenId::Results);
+    TEST_CHECK(manager.back_navigates()); // Results is in the default set
+    manager.update(kDt, {press(GameAction::Back)});
+    TEST_CHECK(manager.active_id() == ScreenId::Select);
+    std::cout << "  - Results Back -> Select ok.\n";
+}
+
 void test_render_dispatch_headless() {
     td::GlQuadRenderer renderer; // uninitialized: draws are no-ops
     td::ScreenManager manager;
@@ -412,6 +425,7 @@ int main() {
     test_back_navigation();
     test_calibration_back_navigation();
     test_input_remap_back_navigation();
+    test_results_back_navigation();
     test_render_dispatch_headless();
     test_real_screens();
     test_font_sanity();

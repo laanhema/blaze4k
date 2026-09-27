@@ -5,6 +5,7 @@
 #include "chart/chart.hpp"
 #include "chart/song.hpp"
 #include "screens/play_request.hpp"
+#include "screens/results.hpp"
 #include "screens/screen_manager.hpp"
 #include "timing/judgment_constants.hpp"
 
@@ -12,6 +13,7 @@ namespace td {
 
 void GameplayScreen::enter(ScreenContext& ctx) {
     active_ = false;
+    end_reported_ = false;
     held_ = {false, false, false, false};
 
     if (ctx.play_request == nullptr || ctx.play_request->song == nullptr ||
@@ -71,7 +73,18 @@ void GameplayScreen::update(ScreenContext& ctx, double fixed_dt,
     view_.update(fixed_dt, held_);
 
     if (view_.outcome() != GameplayOutcome::InProgress && ctx.manager != nullptr) {
-        ctx.manager->transition_to(ScreenId::Select);
+        if (!end_reported_) {
+            end_reported_ = true;
+            if (ctx.results != nullptr && ctx.play_request != nullptr) {
+                *ctx.results = results_summary_from(view_.score_state(), view_.has_failed(),
+                                                    ctx.play_request->song, ctx.play_request->chart);
+            }
+            // The real app registers Results; tests/older wiring fall back to
+            // Select so a run can never strand on Gameplay when Results is absent.
+            ctx.manager->transition_to(ctx.manager->has_screen(ScreenId::Results)
+                                           ? ScreenId::Results
+                                           : ScreenId::Select);
+        }
     }
 }
 
