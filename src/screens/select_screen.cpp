@@ -234,8 +234,12 @@ void SelectScreen::update(ScreenContext& ctx, double fixed_dt,
                           const std::vector<InputEvent>& events) {
     preview_.update(fixed_dt);
 
+    // Set once an event closes the overlay or launches a screen this tick, so a
+    // second qualifying press in the same batch cannot fall through to the wheel
+    // switch (e.g. an accidental Confirm right after launching the wizard).
+    bool options_consumed = false;
     for (const InputEvent& event : events) {
-        if (!event.pressed) {
+        if (!event.pressed || options_consumed) {
             continue;
         }
 
@@ -245,6 +249,39 @@ void SelectScreen::update(ScreenContext& ctx, double fixed_dt,
             // Back is intentionally not handled here: Screen::handle_back() owns
             // it so the manager can consult post-update state (see
             // ScreenManager::update).
+            // C5 seam: the calibration row is an action, not a value. Confirm or
+            // Right opens the wizard; Up/Down still move the highlight and every
+            // other action is a no-op (so it cannot be confused with a value row).
+            if (options_.row == static_cast<int>(OptionsRow::CalibrateOffset)) {
+                if (event.action == GameAction::Up) {
+                    options_menu_move_row(options_, -1);
+                    continue;
+                }
+                if (event.action == GameAction::Down) {
+                    options_menu_move_row(options_, +1);
+                    continue;
+                }
+                // Options (Tab/shoulder) remains the documented overlay toggle on
+                // this row too; it must not be swallowed by the catch-all below.
+                if (event.action == GameAction::Options) {
+                    if (ctx.config != nullptr) {
+                        options_menu_apply(options_, *ctx.config);
+                    }
+                    options_open_ = false;
+                    options_consumed = true;
+                    continue;
+                }
+                if (event.action == GameAction::Confirm || event.action == GameAction::Right) {
+                    options_open_ = false;
+                    options_consumed = true;
+                    if (ctx.manager != nullptr) {
+                        ctx.manager->transition_to(ScreenId::Calibration);
+                    }
+                    continue;
+                }
+                continue; // Left and unrelated actions: no-op
+            }
+
             bool changed = false;
             bool close = false;
             switch (event.action) {
@@ -274,6 +311,7 @@ void SelectScreen::update(ScreenContext& ctx, double fixed_dt,
             }
             if (close) {
                 options_open_ = false;
+                options_consumed = true;
             }
             continue;
         }

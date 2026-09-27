@@ -27,6 +27,7 @@ constexpr int kSpeedTypeRow = static_cast<int>(OptionsRow::SpeedType);
 constexpr int kSpeedValueRow = static_cast<int>(OptionsRow::SpeedValue);
 constexpr int kScrollRow = static_cast<int>(OptionsRow::Scroll);
 constexpr int kFailRow = static_cast<int>(OptionsRow::Fail);
+constexpr int kCalibrateRow = static_cast<int>(OptionsRow::CalibrateOffset);
 
 bool near(double a, double b) { return std::abs(a - b) < 1e-9; }
 
@@ -75,9 +76,11 @@ void test_row_navigation() {
     td::options_menu_move_row(menu, +1);
     TEST_CHECK(menu.row == 3);
     td::options_menu_move_row(menu, +1);
-    TEST_CHECK(menu.row == 3); // clamped
+    TEST_CHECK(menu.row == kCalibrateRow); // row 4
+    td::options_menu_move_row(menu, +1);
+    TEST_CHECK(menu.row == kCalibrateRow); // clamped
     td::options_menu_move_row(menu, -1);
-    TEST_CHECK(menu.row == 2);
+    TEST_CHECK(menu.row == 3);
     td::options_menu_move_row(menu, -5);
     TEST_CHECK(menu.row == 0); // clamped
     std::cout << "  - row navigation clamps at both ends ok.\n";
@@ -201,7 +204,33 @@ void test_formatting() {
 
     TEST_CHECK(td::options_row_name(kSpeedTypeRow) == "SPEED TYPE");
     TEST_CHECK(td::options_row_name(kFailRow) == "FAIL");
+    TEST_CHECK(td::options_row_name(kCalibrateRow) == "CALIBRATE OFFSET");
+
+    menu.offset_seconds = 0.023;
+    TEST_CHECK(td::options_row_value_text(menu, kCalibrateRow) == td::format_offset(0.023));
+    TEST_CHECK(td::format_offset(0.023).find("+0.023") != std::string::npos);
+    TEST_CHECK(td::format_offset(-0.011).find("-0.011") != std::string::npos);
     std::cout << "  - display text ok.\n";
+}
+
+void test_calibration_row_is_action_only() {
+    td::GameConfig config;
+    config.offset.global_offset_seconds = 0.023;
+    OptionsMenu menu = td::options_menu_from_config(config);
+    TEST_CHECK(near(menu.offset_seconds, 0.023)); // seeded from config for display
+
+    menu.row = kCalibrateRow;
+    const OptionsMenu before = menu;
+    td::options_menu_adjust(menu, +1);
+    td::options_menu_adjust(menu, -1);
+    TEST_CHECK(menu.offset_seconds == before.offset_seconds);
+    TEST_CHECK(menu.speed_type == before.speed_type);
+    TEST_CHECK(menu.scroll_down == before.scroll_down);
+
+    // options_menu_apply must never clobber the wizard-owned offset.
+    td::options_menu_apply(menu, config);
+    TEST_CHECK(near(config.offset.global_offset_seconds, 0.023));
+    std::cout << "  - calibration row is a display-only action ok.\n";
 }
 
 void test_apply_and_round_trip() {
@@ -259,6 +288,7 @@ int main() {
     test_speed_value_step_clamp();
     test_toggles();
     test_formatting();
+    test_calibration_row_is_action_only();
     test_apply_and_round_trip();
     std::cout << "[options_menu_test] All tests passed!\n";
     return 0;

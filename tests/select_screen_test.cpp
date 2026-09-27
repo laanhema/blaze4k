@@ -17,7 +17,9 @@
 #include "data/high_scores.hpp"
 #include "gameplay/gameplay_options.hpp"
 #include "render/gl_quad_renderer.hpp"
+#include "screens/calibration_screen.hpp"
 #include "screens/gameplay_screen.hpp"
+#include "screens/options_menu.hpp"
 #include "screens/play_request.hpp"
 #include "screens/select_screen.hpp"
 #include "screens/screen_manager.hpp"
@@ -404,6 +406,55 @@ void test_options_overlay(td::ScreenManager& manager, td::SelectScreen* select,
     std::cout << "  - options overlay open/adjust/close + gameplay + persistence ok.\n";
 }
 
+// The only production path that launches the wizard: Select's options overlay ->
+// CalibrateOffset row -> Confirm/Right -> transition_to(Calibration). Also pins
+// that Options (Tab) still closes the overlay while that action row is
+// highlighted, and that Back aborts the wizard without touching the offset.
+void test_calibration_launch_from_options(td::ScreenManager& manager, td::SelectScreen* select,
+                                          td::GameConfig& config) {
+    manager.add_screen(std::make_unique<td::CalibrationScreen>());
+    manager.start(ScreenId::Select);
+    TEST_CHECK(manager.active_id() == ScreenId::Select);
+
+    const auto move_to_calibrate_row = [&] {
+        for (int i = 0; i < static_cast<int>(td::OptionsRow::CalibrateOffset); ++i) {
+            manager.update(kDt, {press(GameAction::Down)});
+        }
+        TEST_CHECK(select->options_menu().row ==
+                   static_cast<int>(td::OptionsRow::CalibrateOffset));
+    };
+
+    // Confirm launches the wizard.
+    manager.update(kDt, {press(GameAction::Options)});
+    TEST_CHECK(select->options_open());
+    move_to_calibrate_row();
+    manager.update(kDt, {press(GameAction::Confirm)});
+    TEST_CHECK(!select->options_open());
+    TEST_CHECK(manager.active_id() == ScreenId::Calibration);
+
+    // Back aborts the wizard to Select with the persisted offset untouched.
+    const double offset_before = config.offset.global_offset_seconds;
+    manager.update(kDt, {press(GameAction::Back)});
+    TEST_CHECK(manager.active_id() == ScreenId::Select);
+    TEST_CHECK(config.offset.global_offset_seconds == offset_before);
+
+    // Right launches it as well.
+    manager.update(kDt, {press(GameAction::Options)});
+    move_to_calibrate_row();
+    manager.update(kDt, {press(GameAction::Right)});
+    TEST_CHECK(manager.active_id() == ScreenId::Calibration);
+    manager.update(kDt, {press(GameAction::Back)});
+    TEST_CHECK(manager.active_id() == ScreenId::Select);
+
+    // Options (Tab/shoulder) closes the overlay on the calibration row too.
+    manager.update(kDt, {press(GameAction::Options)});
+    move_to_calibrate_row();
+    manager.update(kDt, {press(GameAction::Options)});
+    TEST_CHECK(!select->options_open());
+    TEST_CHECK(manager.active_id() == ScreenId::Select);
+    std::cout << "  - options -> Calibration launch seam + row toggle ok.\n";
+}
+
 // A same-tick [Options, Back] pair must not navigate on the pre-update modal
 // state (the manager must not act on state update() is about to create).
 void test_same_tick_options_back(td::ScreenManager& manager, td::SelectScreen* select) {
@@ -460,6 +511,7 @@ int main() {
     test_gameplay_held_state(manager, gameplay_ptr);
     test_empty_library();
     test_options_overlay(manager, select_ptr, config, request);
+    test_calibration_launch_from_options(manager, select_ptr, config);
     test_same_tick_options_back(manager, select_ptr);
 
     td::GlQuadRenderer renderer; // populated-screen render smoke

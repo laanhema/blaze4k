@@ -16,6 +16,7 @@
 #include "gameplay/gameplay_view.hpp"
 #include "render/gl_quad_renderer.hpp"
 #include "screens/attract_screen.hpp"
+#include "screens/calibration_screen.hpp"
 #include "screens/gameplay_screen.hpp"
 #include "screens/play_request.hpp"
 #include "screens/select_screen.hpp"
@@ -289,6 +290,8 @@ int main(int argc, char* argv[]) {
         shell->add_screen(std::make_unique<td::AttractScreen>());
         shell->add_screen(std::make_unique<td::SelectScreen>());
         shell->add_screen(std::make_unique<td::GameplayScreen>());
+        shell->add_screen(
+            std::make_unique<td::CalibrationScreen>(paths.data_dir / "calibration_click.wav"));
         shell->context().config = &game_config;
         shell->context().scores = &high_scores;
         shell->context().library = &library;
