@@ -213,6 +213,10 @@ void options_menu_adjust(OptionsMenu& menu, int delta) {
             // Action row: activation lives in SelectScreen (opens the C5 wizard).
             // Left/Right/Confirm must not mutate the menu.
             break;
+        case OptionsRow::RemapInput:
+            // Action row: activation lives in SelectScreen (opens the C6 remap
+            // screen). Left/Right/Confirm must not mutate the menu.
+            break;
         case OptionsRow::Count:
             break;
     }
@@ -230,6 +234,8 @@ std::string options_row_name(int row) {
             return "FAIL";
         case OptionsRow::CalibrateOffset:
             return "CALIBRATE OFFSET";
+        case OptionsRow::RemapInput:
+            return "REMAP INPUT";
         case OptionsRow::Count:
             break;
     }
@@ -248,6 +254,8 @@ std::string options_row_value_text(const OptionsMenu& menu, int row) {
             return menu.fail_enabled ? "ON" : "OFF";
         case OptionsRow::CalibrateOffset:
             return format_offset(menu.offset_seconds);
+        case OptionsRow::RemapInput:
+            return ">"; // action row: opens the C6 remapping screen
         case OptionsRow::Count:
             break;
     }

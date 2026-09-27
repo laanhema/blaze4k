@@ -18,6 +18,7 @@
 #include "screens/attract_screen.hpp"
 #include "screens/calibration_screen.hpp"
 #include "screens/gameplay_screen.hpp"
+#include "screens/input_remap_screen.hpp"
 #include "screens/play_request.hpp"
 #include "screens/select_screen.hpp"
 #include "screens/screen_manager.hpp"
@@ -216,6 +217,10 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    // C6: honor a saved remap from boot. Safe when the config was missing (the
+    // defaults are applied). Reserved Escape/pad-Back are always re-installed.
+    app.input_manager().apply_bindings(game_config.input);
+
     td::GlQuadRenderer quad_renderer;
     td::GameplayView gameplay;
     std::unique_ptr<td::ScreenManager> shell;
@@ -292,6 +297,7 @@ int main(int argc, char* argv[]) {
         shell->add_screen(std::make_unique<td::GameplayScreen>());
         shell->add_screen(
             std::make_unique<td::CalibrationScreen>(paths.data_dir / "calibration_click.wav"));
+        shell->add_screen(std::make_unique<td::InputRemapScreen>());
         shell->context().config = &game_config;
         shell->context().scores = &high_scores;
         shell->context().library = &library;
@@ -300,6 +306,7 @@ int main(int argc, char* argv[]) {
         shell->context().action_down = [&app](td::GameAction action) {
             return app.input_manager().is_action_down(action);
         };
+        shell->context().input = &app.input_manager();
 
         td::ScreenId start_screen = td::ScreenId::Title;
         if (!start_screen_text.empty()) {

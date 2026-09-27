@@ -120,6 +120,8 @@ add_library(tundra_core STATIC
     src/screens/options_menu.cpp
     src/screens/gameplay_screen.cpp
     src/screens/calibration_screen.cpp
+    src/screens/input_remap.cpp
+    src/screens/input_remap_screen.cpp
     src/screens/select_placeholder_screen.cpp
 )
 

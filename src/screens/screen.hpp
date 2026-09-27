@@ -11,6 +11,7 @@
 namespace td {
 class ScreenManager;
 class GlQuadRenderer;
+class InputManager;
 struct GameConfig;
 struct HighScores;
 class SongLibrary;
@@ -19,8 +20,9 @@ struct PlayRequest;
 
 // Stable identity of every arcade screen (PRD section 6/7.3). C1 implements
 // Title/Attract and a Select placeholder; C3/C4/C5/C7 replace/extend the rest.
-// Calibration (C5) is a first-class screen entered from Select's options menu.
-enum class ScreenId { Title, Attract, Select, Gameplay, Results, Calibration };
+// Calibration (C5) and InputRemap (C6) are first-class screens entered from
+// Select's options menu.
+enum class ScreenId { Title, Attract, Select, Gameplay, Results, Calibration, InputRemap };
 
 [[nodiscard]] std::string_view screen_id_name(ScreenId id);
 
@@ -44,6 +46,11 @@ struct ScreenContext {
     // instead of replaying press/release events. Null in headless/unit tests,
     // where callers fall back to event-derived state.
     std::function<bool(GameAction)> action_down;
+
+    // C6: the input layer, wired by main, used by InputRemapScreen to rebuild
+    // runtime bindings and toggle raw capture mode. Forward-declared so screens
+    // stay free of SDL; null in headless/unit tests.
+    InputManager* input = nullptr;
 };
 
 // A screen is an object with explicit enter/update/render/exit (PRD section 6

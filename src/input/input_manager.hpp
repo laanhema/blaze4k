@@ -7,6 +7,8 @@
 
 namespace td {
 
+struct InputSettings;
+
 class InputManager {
 public:
     InputManager();
@@ -33,6 +35,20 @@ public:
     void bind_gamepad_button(uint8_t button, GameAction action);
     void reset_to_defaults();
 
+    // C6: rebuild both runtime maps from the persisted binding names (the C2
+    // default lists are the single default authority). Names that do not parse
+    // are skipped with a warning; an action left with no valid name falls back
+    // to its compiled default. Always ends by force-mapping the reserved safety
+    // keys (Escape / pad-Back -> Back) so no remap can soft-lock the shell.
+    void apply_bindings(const InputSettings& settings);
+
+    // C6: opt-in raw capture. While on, handle_sdl_event emits one raw
+    // InputEvent per physical key/button down/up (action = None, raw_code set,
+    // SDL nanosecond timestamp preserved verbatim) and bypasses the mapped path
+    // and the pad-Back hold synthesis.
+    void set_capture_mode(bool on) { capture_mode_ = on; }
+    [[nodiscard]] bool capture_mode() const { return capture_mode_; }
+
     void shutdown();
 
 private:
@@ -48,6 +64,7 @@ private:
     std::unordered_map<GameAction, bool> action_states_;
     std::unordered_map<int, uint64_t> gamepad_back_hold_ns_; // key: device_id
     std::vector<InputEvent> event_queue_;
+    bool capture_mode_ = false;
 };
 
 } // namespace td

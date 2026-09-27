@@ -243,21 +243,31 @@ void read_input(const json& document, InputSettings& target, std::string& warnin
 
 } // namespace
 
+// C6: these lists are the single default-binding authority. The names are the
+// canonical strings SDL 3.2.8 round-trips (SDL_GetKeyName/SDL_GetKeyFromName and
+// SDL_GetGamepadStringForButton/SDL_GetGamepadButtonFromString), so InputManager
+// derives its runtime tables from the same set it persists.
 std::vector<InputBinding> default_key_bindings() {
     return {
-        {"Left", {"Left"}},
-        {"Down", {"Down"}},
-        {"Up", {"Up"}},
-        {"Right", {"Right"}},
-        {"Confirm", {"Return"}},
+        {"Left", {"Left", "D"}},
+        {"Down", {"Down", "F"}},
+        {"Up", {"Up", "J"}},
+        {"Right", {"Right", "K"}},
+        {"Confirm", {"Return", "Keypad Enter"}},
         {"Back", {"Escape"}},
+        {"Options", {"Tab"}},
     };
 }
 
 std::vector<InputBinding> default_gamepad_bindings() {
     return {
-        {"Confirm", {"South"}},
-        {"Back", {"East"}},
+        {"Left", {"dpleft", "x"}},
+        {"Down", {"dpdown", "a"}},
+        {"Up", {"dpup", "y"}},
+        {"Right", {"dpright", "b"}},
+        {"Confirm", {"start"}},
+        {"Back", {"back"}},
+        {"Options", {"leftshoulder", "rightshoulder"}},
     };
 }
 

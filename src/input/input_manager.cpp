@@ -1,7 +1,112 @@
 #include "input/input_manager.hpp"
 #include <iostream>
 
+#include "data/config.hpp"
+#include "data/config_loader.hpp"
+
 namespace td {
+
+namespace {
+
+// Config action names mirror action_to_string(); resolve a persisted action name
+// back to its enum. Unknown names are ignored (never throw).
+bool action_from_name(const std::string& name, GameAction& out) {
+    const GameAction actions[] = {
+        GameAction::Left,  GameAction::Down,    GameAction::Up,     GameAction::Right,
+        GameAction::Confirm, GameAction::Back,  GameAction::Options,
+    };
+    for (GameAction action : actions) {
+        if (action_to_string(action) == name) {
+            out = action;
+            return true;
+        }
+    }
+    return false;
+}
+
+SDL_Keycode key_from_name(const std::string& name, bool& ok) {
+    const SDL_Keycode key = SDL_GetKeyFromName(name.c_str());
+    ok = key != SDLK_UNKNOWN;
+    return key;
+}
+
+SDL_GamepadButton button_from_name(const std::string& name, bool& ok) {
+    const SDL_GamepadButton button = SDL_GetGamepadButtonFromString(name.c_str());
+    ok = button != SDL_GAMEPAD_BUTTON_INVALID;
+    return button;
+}
+
+// Merge `bindings` (persisted per-action overrides) over `defaults` for one
+// device. Iterating the compiled defaults is what makes a missing action fall
+// back: an action absent from `bindings`, or present with no parseable name,
+// keeps its compiled default bindings. input_remap_from_config() uses the same
+// absent/empty-override fallback, so the screen and the runtime agree for every
+// config written through the UI. They differ only for a hand-edited override
+// whose names all fail to parse: the screen lists those names, the runtime
+// ignores them and keeps the defaults (see the C6 remap screen).
+template <typename Code, typename FromName>
+void apply_bindings_impl(std::unordered_map<Code, GameAction>& map,
+                         const std::vector<InputBinding>& bindings,
+                         const std::vector<InputBinding>& defaults, const char* device_label,
+                         FromName from_name) {
+    const auto is_default_action = [&defaults](const std::string& name) {
+        for (const InputBinding& def : defaults) {
+            if (def.first == name) {
+                return true;
+            }
+        }
+        return false;
+    };
+    // A persisted action that matches no compiled default action is unknown and
+    // ignored (logged once), never bound.
+    for (const InputBinding& binding : bindings) {
+        if (!is_default_action(binding.first)) {
+            std::cout << "[InputManager] unknown input action '" << binding.first << "'\n";
+        }
+    }
+
+    for (const InputBinding& def : defaults) {
+        GameAction action = GameAction::None;
+        if (!action_from_name(def.first, action)) {
+            continue;
+        }
+
+        const InputBinding* chosen = &def;
+        for (const InputBinding& binding : bindings) {
+            if (binding.first == def.first) {
+                chosen = &binding;
+                break;
+            }
+        }
+
+        bool any_valid = false;
+        for (const std::string& name : chosen->second) {
+            bool ok = false;
+            const Code code = from_name(name, ok);
+            if (!ok) {
+                std::cout << "[InputManager] unknown " << device_label << " binding name '" << name
+                          << "' for action '" << def.first << "'\n";
+                continue;
+            }
+            map[code] = action;
+            any_valid = true;
+        }
+        if (any_valid) {
+            continue;
+        }
+
+        // Absent override, or every name failed to parse: keep the defaults.
+        for (const std::string& name : def.second) {
+            bool ok = false;
+            const Code code = from_name(name, ok);
+            if (ok) {
+                map[code] = action;
+            }
+        }
+    }
+}
+
+} // namespace
 
 InputManager::InputManager() {
     setup_default_mappings();
@@ -17,7 +122,8 @@ InputManager::InputManager(InputManager&& other) noexcept
       gamepads_(std::move(other.gamepads_)),
       action_states_(std::move(other.action_states_)),
       gamepad_back_hold_ns_(std::move(other.gamepad_back_hold_ns_)),
-      event_queue_(std::move(other.event_queue_)) {
+      event_queue_(std::move(other.event_queue_)),
+      capture_mode_(other.capture_mode_) {
     other.gamepads_.clear();
     other.gamepad_back_hold_ns_.clear();
 }
@@ -31,58 +137,34 @@ InputManager& InputManager::operator=(InputManager&& other) noexcept {
         action_states_ = std::move(other.action_states_);
         gamepad_back_hold_ns_ = std::move(other.gamepad_back_hold_ns_);
         event_queue_ = std::move(other.event_queue_);
+        capture_mode_ = other.capture_mode_;
         other.gamepads_.clear();
         other.gamepad_back_hold_ns_.clear();
     }
     return *this;
 }
 
-void InputManager::setup_default_mappings() {
+void InputManager::apply_bindings(const InputSettings& settings) {
     key_map_.clear();
     gamepad_button_map_.clear();
 
-    // Keyboard defaults: Arrow keys
-    key_map_[SDLK_LEFT] = GameAction::Left;
-    key_map_[SDLK_DOWN] = GameAction::Down;
-    key_map_[SDLK_UP] = GameAction::Up;
-    key_map_[SDLK_RIGHT] = GameAction::Right;
+    apply_bindings_impl(key_map_, settings.key_bindings, default_key_bindings(), "key",
+                        key_from_name);
+    apply_bindings_impl(gamepad_button_map_, settings.gamepad_bindings,
+                        default_gamepad_bindings(), "gamepad", button_from_name);
 
-    // Keyboard defaults: DFJK (standard 4-panel spread keys)
-    key_map_[SDLK_D] = GameAction::Left;
-    key_map_[SDLK_F] = GameAction::Down;
-    key_map_[SDLK_J] = GameAction::Up;
-    key_map_[SDLK_K] = GameAction::Right;
-
-    // Keyboard defaults: Menu navigation
-    key_map_[SDLK_RETURN] = GameAction::Confirm;
-    key_map_[SDLK_KP_ENTER] = GameAction::Confirm;
+    // Reserved safety bindings: no remap can ever remove the escape hatch, so a
+    // bad binding can never soft-lock the shell (see the C6 screen).
     key_map_[SDLK_ESCAPE] = GameAction::Back;
-    key_map_[SDLK_TAB] = GameAction::Options; // C4: open/close the options overlay
-
-    // Gamepad defaults: D-pad
-    gamepad_button_map_[SDL_GAMEPAD_BUTTON_DPAD_LEFT] = GameAction::Left;
-    gamepad_button_map_[SDL_GAMEPAD_BUTTON_DPAD_DOWN] = GameAction::Down;
-    gamepad_button_map_[SDL_GAMEPAD_BUTTON_DPAD_UP] = GameAction::Up;
-    gamepad_button_map_[SDL_GAMEPAD_BUTTON_DPAD_RIGHT] = GameAction::Right;
-
-    // Gamepad defaults: Face buttons for dance pads (X, A, Y, B)
-    gamepad_button_map_[SDL_GAMEPAD_BUTTON_WEST] = GameAction::Left;
-    gamepad_button_map_[SDL_GAMEPAD_BUTTON_SOUTH] = GameAction::Down;
-    gamepad_button_map_[SDL_GAMEPAD_BUTTON_NORTH] = GameAction::Up;
-    gamepad_button_map_[SDL_GAMEPAD_BUTTON_EAST] = GameAction::Right;
-
-    // Gamepad defaults: Start / Back
-    gamepad_button_map_[SDL_GAMEPAD_BUTTON_START] = GameAction::Confirm;
     gamepad_button_map_[SDL_GAMEPAD_BUTTON_BACK] = GameAction::Back;
+}
 
-    // Gamepad defaults: shoulders open/close the options overlay (C4). All
-    // in-menu navigation reuses the directions/Confirm/Back above.
-    gamepad_button_map_[SDL_GAMEPAD_BUTTON_LEFT_SHOULDER] = GameAction::Options;
-    gamepad_button_map_[SDL_GAMEPAD_BUTTON_RIGHT_SHOULDER] = GameAction::Options;
+void InputManager::setup_default_mappings() {
+    apply_bindings(InputSettings{});
 }
 
 void InputManager::reset_to_defaults() {
-    setup_default_mappings();
+    apply_bindings(InputSettings{});
 }
 
 void InputManager::bind_key(SDL_Keycode key, GameAction action) {
@@ -187,6 +269,18 @@ void InputManager::handle_sdl_event(const SDL_Event& event) {
             return;
         }
 
+        if (capture_mode_) {
+            InputEvent ie;
+            ie.action = GameAction::None;
+            ie.pressed = (event.type == SDL_EVENT_KEY_DOWN);
+            ie.timestamp_ns = event.key.timestamp;
+            ie.device = DeviceType::Keyboard;
+            ie.device_id = 0;
+            ie.raw_code = static_cast<uint32_t>(event.key.key);
+            event_queue_.push_back(ie);
+            return;
+        }
+
         auto it = key_map_.find(event.key.key);
         if (it != key_map_.end()) {
             GameAction action = it->second;
@@ -204,6 +298,18 @@ void InputManager::handle_sdl_event(const SDL_Event& event) {
             event_queue_.push_back(ie);
         }
     } else if (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN || event.type == SDL_EVENT_GAMEPAD_BUTTON_UP) {
+        if (capture_mode_) {
+            InputEvent ie;
+            ie.action = GameAction::None;
+            ie.pressed = (event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN);
+            ie.timestamp_ns = event.gbutton.timestamp;
+            ie.device = DeviceType::Gamepad;
+            ie.device_id = static_cast<int>(event.gbutton.which);
+            ie.raw_code = event.gbutton.button;
+            event_queue_.push_back(ie);
+            return;
+        }
+
         auto it = gamepad_button_map_.find(event.gbutton.button);
         if (it != gamepad_button_map_.end()) {
             GameAction action = it->second;
