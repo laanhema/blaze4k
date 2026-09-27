@@ -20,6 +20,8 @@
 #include "screens/gameplay_screen.hpp"
 #include "screens/input_remap_screen.hpp"
 #include "screens/play_request.hpp"
+#include "screens/results.hpp"
+#include "screens/results_screen.hpp"
 #include "screens/select_screen.hpp"
 #include "screens/screen_manager.hpp"
 #include "screens/title_screen.hpp"
@@ -210,6 +212,7 @@ int main(int argc, char* argv[]) {
     }
 
     td::PlayRequest play_request;
+    td::ResultsSummary results_summary;
 
     td::App app(config);
     if (!app.init()) {
@@ -295,6 +298,7 @@ int main(int argc, char* argv[]) {
         shell->add_screen(std::make_unique<td::AttractScreen>());
         shell->add_screen(std::make_unique<td::SelectScreen>());
         shell->add_screen(std::make_unique<td::GameplayScreen>());
+        shell->add_screen(std::make_unique<td::ResultsScreen>());
         shell->add_screen(
             std::make_unique<td::CalibrationScreen>(paths.data_dir / "calibration_click.wav"));
         shell->add_screen(std::make_unique<td::InputRemapScreen>());
@@ -303,6 +307,7 @@ int main(int argc, char* argv[]) {
         shell->context().library = &library;
         shell->context().constants = &app.judgment_constants();
         shell->context().play_request = &play_request;
+        shell->context().results = &results_summary;
         shell->context().action_down = [&app](td::GameAction action) {
             return app.input_manager().is_action_down(action);
         };

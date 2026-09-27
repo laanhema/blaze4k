@@ -14,10 +14,11 @@ namespace td {
 // to Attract, remembering the origin so a Confirm press returns there.
 //
 // Back-navigation contract: Back from Attract -> its origin, Select -> Title,
-// Gameplay -> Select (abort), and Calibration -> Select (abort; never writes the
-// offset). Title/Results do not consume Back. Before any
-// of this, the active screen's handle_back() hook is consulted; if it returns
-// true (e.g. C4's options overlay closing), the default navigation is skipped.
+// Gameplay -> Select (abort), Results -> Select, Calibration -> Select (abort;
+// never writes the offset), and InputRemap -> Select. Only Title does not
+// consume Back (the App handles Escape-quit there). Before any of this, the
+// active screen's handle_back() hook is consulted; if it returns true (e.g.
+// C4's options overlay closing), the default navigation is skipped.
 class ScreenManager {
 public:
     explicit ScreenManager(double idle_timeout_seconds = 30.0);

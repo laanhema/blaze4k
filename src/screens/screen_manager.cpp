@@ -8,11 +8,11 @@ namespace td {
 
 namespace {
 
-// The manager's default Back-navigation set. Title/Results fall through to the
-// App's Escape-quit. Shared with back_navigates() so the two cannot desync.
+// The manager's default Back-navigation set. Title falls through to the App's
+// Escape-quit. Shared with back_navigates() so the two cannot desync.
 bool default_back_navigates(ScreenId id) {
     return id == ScreenId::Attract || id == ScreenId::Select || id == ScreenId::Gameplay ||
-           id == ScreenId::Calibration || id == ScreenId::InputRemap;
+           id == ScreenId::Results || id == ScreenId::Calibration || id == ScreenId::InputRemap;
 }
 
 } // namespace
@@ -139,14 +139,16 @@ void ScreenManager::handle_back() {
         return;
     }
     if (!default_back_navigates(active_id_)) {
-        return; // Title/Results: no-op. The App handles Escape-quit on Title.
+        return; // Title: no-op. The App handles Escape-quit on Title.
     }
     if (active_id_ == ScreenId::Attract) {
         transition_to(attract_return_);
     } else if (active_id_ == ScreenId::Select) {
         transition_to(ScreenId::Title);
     } else if (active_id_ == ScreenId::Gameplay) {
-        transition_to(ScreenId::Select); // abort the run; Results/pause are C7
+        transition_to(ScreenId::Select); // abort the run; no result is reported
+    } else if (active_id_ == ScreenId::Results) {
+        transition_to(ScreenId::Select); // leave the results screen for the wheel
     } else if (active_id_ == ScreenId::Calibration) {
         transition_to(ScreenId::Select); // abort the wizard; never writes config
     } else if (active_id_ == ScreenId::InputRemap) {

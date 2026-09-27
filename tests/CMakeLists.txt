@@ -252,3 +252,23 @@ target_link_libraries(input_remap_screen_test PRIVATE
 )
 
 add_test(NAME input_remap_screen_test COMMAND input_remap_screen_test)
+
+add_executable(results_test
+    results_test.cpp
+)
+
+target_link_libraries(results_test PRIVATE
+    tundra_core
+)
+
+add_test(NAME results_test COMMAND results_test)
+
+add_executable(results_screen_test
+    results_screen_test.cpp
+)
+
+target_link_libraries(results_screen_test PRIVATE
+    tundra_core
+)
+
+add_test(NAME results_screen_test COMMAND results_screen_test)
