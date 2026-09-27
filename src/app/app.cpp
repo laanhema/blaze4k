@@ -2,6 +2,7 @@
 #include "data/judgment_constants_loader.hpp"
 #include <iostream>
 #include <algorithm>
+#include <iomanip>
 
 namespace td {
 
@@ -24,6 +25,7 @@ bool App::init() {
     last_time_ = SDL_GetPerformanceCounter();
     accumulator_ = 0.0;
     frames_rendered_ = 0;
+    frame_stats_.reset();
     is_running_ = true;
 
     std::string constants_message;
@@ -68,6 +70,8 @@ void App::run() {
 
         // Prevent accumulator spiral of death
         frame_dt = std::min(frame_dt, config_.max_frame_dt);
+        // Presentation-only sample; never consulted by the judgment path.
+        frame_stats_.add(frame_dt * 1000.0);
         accumulator_ += frame_dt;
 
         // Fixed-timestep physics/screen updates
@@ -88,6 +92,35 @@ void App::run() {
             stop();
         }
     }
+
+    if (config_.perf_report) {
+        print_perf_report();
+    }
+}
+
+void App::print_perf_report() const {
+    // One stdout block (OQ6): frames, min/median/p95/p99/max ms, mean, hitches,
+    // and a PASS/FAIL verdict. The first frame includes startup and is included
+    // as-is. p99 is compared against `perf_budget_ms`; on real hardware that is
+    // the vsync period, so a PASS means the frame-time distribution stayed under
+    // budget for 99% of frames.
+    const std::size_t hitches = frame_stats_.over_budget(config_.perf_budget_ms);
+    const bool pass = frame_stats_.empty() ||
+                      frame_stats_.percentile_ms(99.0) < config_.perf_budget_ms;
+    const std::ios::fmtflags saved_flags = std::cout.flags();
+    const std::streamsize saved_precision = std::cout.precision();
+    std::cout << "[perf] frames=" << frame_stats_.count()
+              << " min=" << std::fixed << std::setprecision(3) << frame_stats_.min_ms() << "ms"
+              << " median=" << frame_stats_.median_ms() << "ms"
+              << " p95=" << frame_stats_.percentile_ms(95.0) << "ms"
+              << " p99=" << frame_stats_.percentile_ms(99.0) << "ms"
+              << " max=" << frame_stats_.max_ms() << "ms"
+              << " mean=" << frame_stats_.mean_ms() << "ms"
+              << " hitches=" << hitches
+              << " budget=" << config_.perf_budget_ms << "ms"
+              << " (" << (pass ? "PASS" : "FAIL") << "; first frame includes startup)\n";
+    std::cout.flags(saved_flags);
+    std::cout.precision(saved_precision);
 }
 
 void App::process_events() {

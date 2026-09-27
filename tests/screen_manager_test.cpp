@@ -410,6 +410,68 @@ void test_app_shell_smoke() {
     std::cout << "  - App + shell headless smoke ok.\n";
 }
 
+// AC3 (logic level): the arcade loop must have no dead ends. Every canonical
+// screen is registered and leaves on a documented edge; the forward chain
+// Title -> Select -> Gameplay -> Results -> Select -> Title traverses cleanly.
+// Real Title/Attract/SelectPlaceholder screens supply the Title->Select edge;
+// Gameplay/Results are spies so the test needs no audio device or play request.
+void test_arcade_loop_no_dead_ends() {
+    td::ScreenManager manager(0.0);
+    manager.add_screen(std::make_unique<td::TitleScreen>());
+    manager.add_screen(std::make_unique<td::AttractScreen>());
+    manager.add_screen(std::make_unique<td::SelectPlaceholderScreen>());
+    SpyRef gameplay = add_spy(manager, ScreenId::Gameplay);
+    SpyRef results = add_spy(manager, ScreenId::Results);
+
+    const ScreenId canonical[] = {ScreenId::Title, ScreenId::Attract, ScreenId::Select,
+                                  ScreenId::Gameplay, ScreenId::Results};
+    for (ScreenId id : canonical) {
+        TEST_CHECK(manager.has_screen(id));
+    }
+
+    // Title --Confirm--> Select (real TitleScreen edge).
+    manager.start(ScreenId::Title);
+    manager.update(kDt, {press(GameAction::Confirm)});
+    TEST_CHECK(manager.active_id() == ScreenId::Select);
+
+    // Select --(Confirm handoff)--> Gameplay. The real SelectScreen publishes the
+    // request edge; the placeholder has no library here, so drive the documented
+    // transition and prove the manager lands on the real Gameplay id.
+    manager.transition_to(ScreenId::Gameplay);
+    manager.update(kDt, {});
+    TEST_CHECK(manager.active_id() == ScreenId::Gameplay);
+    TEST_CHECK(gameplay.ptr->enter_count == 1);
+
+    // A finished run --transition--> Results (GameplayScreen's documented edge).
+    gameplay.ptr->transition_on_update = true;
+    gameplay.ptr->transition_target = ScreenId::Results;
+    manager.update(kDt, {});
+    TEST_CHECK(manager.active_id() == ScreenId::Results);
+    TEST_CHECK(results.ptr->enter_count == 1);
+
+    // Results --Back--> Select; Select --Back--> Title. No dead end.
+    manager.update(kDt, {press(GameAction::Back)});
+    TEST_CHECK(manager.active_id() == ScreenId::Select);
+    manager.update(kDt, {press(GameAction::Back)});
+    TEST_CHECK(manager.active_id() == ScreenId::Title);
+
+    // Every non-Title canonical screen consumes Back (an exit edge); Title's
+    // exit edges are Confirm -> Select (above) and the App-level Escape-quit.
+    manager.start(ScreenId::Attract);
+    TEST_CHECK(manager.back_navigates());
+    manager.update(kDt, {press(GameAction::Back)});
+    TEST_CHECK(manager.active_id() != ScreenId::Attract);
+
+    manager.start(ScreenId::Select);
+    TEST_CHECK(manager.back_navigates());
+    manager.start(ScreenId::Gameplay);
+    TEST_CHECK(manager.back_navigates());
+    manager.start(ScreenId::Results);
+    TEST_CHECK(manager.back_navigates());
+
+    std::cout << "  - arcade loop has no dead ends ok.\n";
+}
+
 } // namespace
 
 int main() {
@@ -430,6 +492,7 @@ int main() {
     test_real_screens();
     test_font_sanity();
     test_app_shell_smoke();
+    test_arcade_loop_no_dead_ends();
     std::cout << "[screen_manager_test] All tests passed!\n";
     return 0;
 }

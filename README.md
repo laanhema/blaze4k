@@ -2,7 +2,7 @@
 
 A modern 4-panel arrow rhythm game for desktop (Windows, macOS, Linux) — a faithful homage to _In The Groove_, _Mungyodance_, and _StepMania_. Hit scrolling arrows in time with music using a keyboard or USB dance pad, judged with ITG-tight timing windows and scored with the OpenITG dance-point/grade system.
 
-**Status: pre-implementation.** The full specification lives in the [PRD](.agents/PRDs/PRD.md).
+**Status: v1 feature-complete; D4 cross-platform verification owner steps pending.** The full specification lives in the [PRD](.agents/PRDs/PRD.md). See [Building](docs/BUILDING.md) for per-OS prerequisites and presets, and [Cross-platform verification](docs/CROSS_PLATFORM_VERIFICATION.md) for the D4 verification record and owner checklist.
 
 ## Highlights
 
@@ -35,7 +35,7 @@ cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
 ```
 
-The build produces a native, portable binary — no installer required. Dependencies are fetched via CMake FetchContent.
+The build produces a native, portable binary — no installer required. Dependencies are fetched via CMake FetchContent. Per-OS prerequisites, the `CMakePresets.json` preset matrix, and the fresh-clone check are documented in [docs/BUILDING.md](docs/BUILDING.md).
 
 ## Running
 
@@ -78,4 +78,6 @@ tundra-dance/
 ## Documentation
 
 - [Product Requirements Document](.agents/PRDs/PRD.md) — full spec, scope, and locked decisions
+- [Building](docs/BUILDING.md) — per-OS prerequisites, presets, testing, portable data layout
+- [Cross-platform verification](docs/CROSS_PLATFORM_VERIFICATION.md) — D4 verification record + owner checklist
 - [AGENTS.md](AGENTS.md) — contributor/agent guidance
