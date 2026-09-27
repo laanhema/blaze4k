@@ -328,3 +328,29 @@ target_link_libraries(ui_sounds_test PRIVATE
 )
 
 add_test(NAME ui_sounds_test COMMAND ui_sounds_test)
+
+add_executable(frame_stats_test
+    frame_stats_test.cpp
+)
+
+target_link_libraries(frame_stats_test PRIVATE
+    tundra_core
+)
+
+add_test(NAME frame_stats_test COMMAND frame_stats_test)
+
+add_executable(perf_loop_test
+    perf_loop_test.cpp
+)
+
+target_link_libraries(perf_loop_test PRIVATE
+    tundra_core
+)
+
+# Locate the reference-pack chart from out-of-tree test runs (cwd is the tests
+# build dir), mirroring background_test's TUNDRA_ASSETS_DIR seam.
+target_compile_definitions(perf_loop_test PRIVATE
+    TUNDRA_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+)
+
+add_test(NAME perf_loop_test COMMAND perf_loop_test)

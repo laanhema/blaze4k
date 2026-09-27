@@ -103,6 +103,23 @@ int main() {
     std::cout << "  - Headless App smoke test passed (" << render_count << " render frames, "
               << update_count << " update ticks).\n";
 
+    // 5. Perf-report instrumentation: one sample per rendered frame, and the
+    //    mean is finite. Presentation-only; nothing here touches gameplay.
+    td::AppConfig perf_cfg;
+    perf_cfg.window.headless = true;
+    perf_cfg.smoke_test_frames = 60;
+    perf_cfg.perf_report = true;
+
+    td::App perf_app(perf_cfg);
+    TEST_CHECK(perf_app.init());
+    perf_app.run();
+
+    TEST_CHECK(!perf_app.frame_stats().empty());
+    TEST_CHECK(perf_app.frame_stats().count() == 60);
+    TEST_CHECK(std::isfinite(perf_app.frame_stats().mean_ms()));
+    std::cout << "  - Perf-report smoke run recorded " << perf_app.frame_stats().count()
+              << " frame samples (mean " << perf_app.frame_stats().mean_ms() << " ms).\n";
+
     std::cout << "[app_test] All tests passed!\n";
     return 0;
 }

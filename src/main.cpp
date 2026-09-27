@@ -4,6 +4,7 @@
 #include <vector>
 #include <array>
 #include <cstdlib>
+#include <cmath>
 #include <exception>
 #include <filesystem>
 #include "app/app.hpp"
@@ -42,6 +43,8 @@ void print_help() {
               << "  --data-dir <path>       Override the data directory (config.json/scores.json)\n"
               << "  --xdg                   Use the Linux XDG data directory instead of ./data\n"
               << "                          (also enabled by the TUNDRA_XDG=1 environment variable)\n"
+              << "  --perf-report           Print a frame-time report (min/median/p95/p99/max) on exit\n"
+              << "  --perf-budget-ms <ms>   Frame budget for the perf report verdict (default 16.67)\n"
               << "  --gameplay-demo <file>  TEMPORARY: render a simfile's first chart (.sm/.ssc)\n"
               << "  --speed <mod>           Speed mod for the demo: Nx / Xn, cN, or mN (default 1x)\n"
               << "  --downscroll            Mirror the demo field for downscroll\n"
@@ -134,6 +137,27 @@ int main(int argc, char* argv[]) {
             } else {
                 std::cerr << "[main] --data-dir requires a path; ignoring the flag and using "
                              "the default data directory\n";
+            }
+        } else if (arg == "--perf-report") {
+            config.perf_report = true;
+        } else if (arg == "--perf-budget-ms") {
+            if (i + 1 < argc) {
+                const std::string value = argv[++i];
+                try {
+                    std::size_t consumed = 0;
+                    const double parsed = std::stod(value, &consumed);
+                    if (std::isfinite(parsed) && parsed > 0.0 && consumed == value.size()) {
+                        config.perf_budget_ms = parsed;
+                    } else {
+                        std::cerr << "[main] Invalid --perf-budget-ms '" << value
+                                  << "'; using default " << config.perf_budget_ms << "ms\n";
+                    }
+                } catch (const std::exception&) {
+                    std::cerr << "[main] Invalid --perf-budget-ms '" << value
+                              << "'; using default " << config.perf_budget_ms << "ms\n";
+                }
+            } else {
+                std::cerr << "[main] --perf-budget-ms requires a value in milliseconds\n";
             }
         } else if (arg == "--help" || arg == "-h") {
             print_help();
