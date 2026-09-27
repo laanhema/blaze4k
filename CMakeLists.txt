@@ -96,6 +96,7 @@ add_library(tundra_core STATIC
     src/render/stb_image_impl.cpp
     src/render/texture_cache.cpp
     src/render/gl_quad_renderer.cpp
+    src/render/background_renderer.cpp
     src/render/bitmap_font.cpp
     src/audio/preview_player.cpp
     src/audio/metronome.cpp
@@ -147,6 +148,15 @@ add_executable(tundra-dance
 
 target_link_libraries(tundra-dance PRIVATE
     tundra_core
+)
+
+# Copy bundled assets (fallback background, judgment constants) next to the
+# binary so a fresh `build/` run finds them via the runtime candidate paths.
+add_custom_command(TARGET tundra-dance POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_CURRENT_SOURCE_DIR}/assets
+            $<TARGET_FILE_DIR:tundra-dance>/assets
+    COMMENT "Copying bundled assets next to tundra-dance"
 )
 
 # Testing

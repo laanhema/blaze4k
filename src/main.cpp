@@ -182,15 +182,30 @@ int main(int argc, char* argv[]) {
         }
     }
 
+    // D1: resolve the committed fallback background asset and register it with
+    // the scanner BEFORE scanning, so songs lacking their own art resolve to it
+    // (process_song_folder reads fallback_background_ during the scan).
+    const fs::path exe_dir = td::default_executable_dir();
+    const fs::path fallback_background = td::resolve_first_existing({
+        fs::path("assets") / "backgrounds" / "fallback.png",
+        exe_dir / "assets" / "backgrounds" / "fallback.png",
+    });
+    if (!fallback_background.empty()) {
+        std::cout << "[main] Fallback background: " << fallback_background.string() << "\n";
+    } else {
+        std::cerr << "[main] Fallback background asset not found; songs without art will be "
+                     "scrim-only\n";
+    }
+
     // C3: resolve and scan the songs directory. Non-fatal: a missing/empty
     // library is a valid wheel with zero entries.
     td::SongLibrary library;
+    library.set_fallback_background(fallback_background);
     {
         fs::path songs_dir;
         if (!songs_dir_text.empty()) {
             songs_dir = fs::path(songs_dir_text);
         } else {
-            const fs::path exe_dir = td::default_executable_dir();
             const fs::path candidates[] = {fs::path("songs"), fs::path("data") / "songs",
                                            exe_dir / "songs"};
             for (const fs::path& candidate : candidates) {
@@ -249,6 +264,21 @@ int main(int argc, char* argv[]) {
             }
         }
 
+        // D1 parity: the demo resolves its own bg tag, else the committed fallback.
+        std::string background_path;
+        if (!parser.metadata().background_path.empty()) {
+            const fs::path resolved =
+                fs::path(demo_path).parent_path() / parser.metadata().background_path;
+            if (fs::exists(resolved)) {
+                background_path = resolved.string();
+            } else {
+                std::cerr << "[main] Background file not found: " << resolved.string() << "\n";
+            }
+        }
+        if (background_path.empty() && !fallback_background.empty()) {
+            background_path = fallback_background.string();
+        }
+
         td::GameplayOptions options;
         if (!speed_text.empty()) {
             if (!td::parse_speed_mod(speed_text, options.speed)) {
@@ -260,7 +290,8 @@ int main(int argc, char* argv[]) {
         options.scroll = downscroll ? td::ScrollDirection::Down : td::ScrollDirection::Up;
         options.fail_enabled = !fail_off;
 
-        if (!gameplay.init(parser.charts().front(), app.judgment_constants(), audio_path, options)) {
+        if (!gameplay.init(parser.charts().front(), app.judgment_constants(), audio_path, options,
+                           background_path)) {
             std::cerr << "[main] Failed to initialize gameplay demo\n";
             return 1;
         }

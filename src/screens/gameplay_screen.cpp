@@ -33,7 +33,8 @@ void GameplayScreen::enter(ScreenContext& ctx) {
     const JudgmentConstants& constants =
         ctx.constants != nullptr ? *ctx.constants : JudgmentConstants::compiled_defaults();
 
-    active_ = view_.init(chart, constants, audio_path, ctx.play_request->options);
+    active_ = view_.init(chart, constants, audio_path, ctx.play_request->options,
+                         song.resolved_background_path);
     std::cout << "[GameplayScreen] started '" << song.metadata.title << "' " << chart.difficulty
               << " " << chart.meter << "\n";
 }

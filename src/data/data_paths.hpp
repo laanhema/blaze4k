@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <string>
+#include <vector>
 
 namespace td {
 
@@ -28,5 +29,12 @@ struct ResolvedDataPaths {
 // This is the only SDL touchpoint in src/data. Falls back to the current working
 // directory when SDL cannot report the base path.
 [[nodiscard]] std::filesystem::path default_executable_dir();
+
+// Returns the first candidate that exists as a regular file, else an empty
+// path. Mirrors the startup candidate resolution used for data assets:
+// candidates are probed in order, so callers can list cwd-relative paths first
+// and an executable-relative path last.
+[[nodiscard]] std::filesystem::path resolve_first_existing(
+    const std::vector<std::filesystem::path>& candidates);
 
 } // namespace td
