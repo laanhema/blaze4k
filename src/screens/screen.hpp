@@ -18,8 +18,9 @@ struct JudgmentConstants;
 struct PlayRequest;
 
 // Stable identity of every arcade screen (PRD section 6/7.3). C1 implements
-// Title/Attract and a Select placeholder; C3/C4/C7 replace/extend the rest.
-enum class ScreenId { Title, Attract, Select, Gameplay, Results };
+// Title/Attract and a Select placeholder; C3/C4/C5/C7 replace/extend the rest.
+// Calibration (C5) is a first-class screen entered from Select's options menu.
+enum class ScreenId { Title, Attract, Select, Gameplay, Results, Calibration };
 
 [[nodiscard]] std::string_view screen_id_name(ScreenId id);
 

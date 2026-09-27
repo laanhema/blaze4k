@@ -11,7 +11,8 @@ namespace {
 // The manager's default Back-navigation set. Title/Results fall through to the
 // App's Escape-quit. Shared with back_navigates() so the two cannot desync.
 bool default_back_navigates(ScreenId id) {
-    return id == ScreenId::Attract || id == ScreenId::Select || id == ScreenId::Gameplay;
+    return id == ScreenId::Attract || id == ScreenId::Select || id == ScreenId::Gameplay ||
+           id == ScreenId::Calibration;
 }
 
 } // namespace
@@ -23,6 +24,7 @@ std::string_view screen_id_name(ScreenId id) {
         case ScreenId::Select: return "Select";
         case ScreenId::Gameplay: return "Gameplay";
         case ScreenId::Results: return "Results";
+        case ScreenId::Calibration: return "Calibration";
     }
     return "Unknown";
 }
@@ -144,6 +146,8 @@ void ScreenManager::handle_back() {
         transition_to(ScreenId::Title);
     } else if (active_id_ == ScreenId::Gameplay) {
         transition_to(ScreenId::Select); // abort the run; Results/pause are C7
+    } else if (active_id_ == ScreenId::Calibration) {
+        transition_to(ScreenId::Select); // abort the wizard; never writes config
     }
 }
 

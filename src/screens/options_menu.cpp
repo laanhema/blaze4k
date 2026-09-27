@@ -148,6 +148,7 @@ OptionsMenu options_menu_from_config(const GameConfig& config) {
 
     menu.scroll_down = config.gameplay.scroll == "down";
     menu.fail_enabled = config.gameplay.fail_enabled;
+    menu.offset_seconds = config.offset.global_offset_seconds;
     menu.row = static_cast<int>(OptionsRow::SpeedType);
     return menu;
 }
@@ -208,6 +209,10 @@ void options_menu_adjust(OptionsMenu& menu, int delta) {
         case OptionsRow::Fail:
             menu.fail_enabled = !menu.fail_enabled;
             break;
+        case OptionsRow::CalibrateOffset:
+            // Action row: activation lives in SelectScreen (opens the C5 wizard).
+            // Left/Right/Confirm must not mutate the menu.
+            break;
         case OptionsRow::Count:
             break;
     }
@@ -223,6 +228,8 @@ std::string options_row_name(int row) {
             return "SCROLL";
         case OptionsRow::Fail:
             return "FAIL";
+        case OptionsRow::CalibrateOffset:
+            return "CALIBRATE OFFSET";
         case OptionsRow::Count:
             break;
     }
@@ -239,10 +246,19 @@ std::string options_row_value_text(const OptionsMenu& menu, int row) {
             return menu.scroll_down ? "DOWN" : "UP";
         case OptionsRow::Fail:
             return menu.fail_enabled ? "ON" : "OFF";
+        case OptionsRow::CalibrateOffset:
+            return format_offset(menu.offset_seconds);
         case OptionsRow::Count:
             break;
     }
     return "";
+}
+
+std::string format_offset(double seconds) {
+    std::ostringstream out;
+    out << (seconds < 0.0 ? '-' : '+') << std::fixed << std::setprecision(3)
+        << std::fabs(seconds) << " s";
+    return out.str();
 }
 
 } // namespace td

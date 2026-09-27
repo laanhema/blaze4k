@@ -17,6 +17,7 @@ enum class OptionsRow : int {
     SpeedValue,    // numeric, type-specific
     Scroll,        // UP / DOWN
     Fail,          // ON / OFF
+    CalibrateOffset, // action row: opens the C5 calibration wizard
     Count,
 };
 
@@ -33,6 +34,10 @@ struct OptionsMenu {
     bool scroll_down = false;
     bool fail_enabled = true;
     int row = static_cast<int>(OptionsRow::SpeedType);
+
+    // Display-only mirror of the persisted offset. `options_menu_apply` must NOT
+    // write this back; the C5 wizard owns the config offset field.
+    double offset_seconds = 0.0;
 
     // Active type's slot.
     [[nodiscard]] double speed_value() const;
@@ -65,5 +70,8 @@ void options_menu_adjust(OptionsMenu& menu, int delta);
 [[nodiscard]] std::string options_speed_type_name(SpeedModType type);
 [[nodiscard]] std::string options_row_name(int row);
 [[nodiscard]] std::string options_row_value_text(const OptionsMenu& menu, int row);
+
+// Signed seconds, e.g. "+0.023 s" / "-0.011 s". Pure.
+[[nodiscard]] std::string format_offset(double seconds);
 
 } // namespace td

@@ -91,12 +91,14 @@ add_library(tundra_core STATIC
     src/chart/song_library.cpp
     src/timing/music_clock.cpp
     src/timing/judgment_constants.cpp
+    src/timing/offset_calibration.cpp
     src/render/texture.cpp
     src/render/stb_image_impl.cpp
     src/render/texture_cache.cpp
     src/render/gl_quad_renderer.cpp
     src/render/bitmap_font.cpp
     src/audio/preview_player.cpp
+    src/audio/metronome.cpp
     src/gameplay/speed_mod.cpp
     src/gameplay/gameplay_options.cpp
     src/gameplay/note_field.cpp
@@ -117,6 +119,7 @@ add_library(tundra_core STATIC
     src/screens/select_screen.cpp
     src/screens/options_menu.cpp
     src/screens/gameplay_screen.cpp
+    src/screens/calibration_screen.cpp
     src/screens/select_placeholder_screen.cpp
 )
 

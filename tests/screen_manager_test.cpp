@@ -281,6 +281,19 @@ void test_back_navigation() {
     std::cout << "  - back navigation ok.\n";
 }
 
+void test_calibration_back_navigation() {
+    td::ScreenManager manager(0.0);
+    add_spy(manager, ScreenId::Title);
+    add_spy(manager, ScreenId::Calibration);
+    add_spy(manager, ScreenId::Select);
+
+    manager.start(ScreenId::Calibration);
+    TEST_CHECK(manager.back_navigates()); // Calibration is in the default set
+    manager.update(kDt, {press(GameAction::Back)});
+    TEST_CHECK(manager.active_id() == ScreenId::Select);
+    std::cout << "  - Calibration Back -> Select (abort) ok.\n";
+}
+
 void test_render_dispatch_headless() {
     td::GlQuadRenderer renderer; // uninitialized: draws are no-ops
     td::ScreenManager manager;
@@ -384,6 +397,7 @@ int main() {
     test_idle_disable();
     test_attract_return();
     test_back_navigation();
+    test_calibration_back_navigation();
     test_render_dispatch_headless();
     test_real_screens();
     test_font_sanity();

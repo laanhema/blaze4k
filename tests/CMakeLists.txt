@@ -193,6 +193,26 @@ target_link_libraries(options_menu_test PRIVATE
 
 add_test(NAME options_menu_test COMMAND options_menu_test)
 
+add_executable(offset_calibration_test
+    offset_calibration_test.cpp
+)
+
+target_link_libraries(offset_calibration_test PRIVATE
+    tundra_core
+)
+
+add_test(NAME offset_calibration_test COMMAND offset_calibration_test)
+
+add_executable(calibration_screen_test
+    calibration_screen_test.cpp
+)
+
+target_link_libraries(calibration_screen_test PRIVATE
+    tundra_core
+)
+
+add_test(NAME calibration_screen_test COMMAND calibration_screen_test)
+
 add_executable(preview_player_test
     preview_player_test.cpp
 )
