@@ -50,6 +50,7 @@ void ResultsScreen::enter(ScreenContext& ctx) {
     submitted_ = false;
 
     if (!summary_.valid) {
+        animator_.reset(false, false, false);
         std::cout << "[ResultsScreen] no result\n";
         return;
     }
@@ -64,6 +65,8 @@ void ResultsScreen::enter(ScreenContext& ctx) {
                                            static_cast<std::int64_t>(std::time(nullptr)));
     }
 
+    animator_.reset(summary_.valid, new_record_, summary_.failed);
+
     const std::string title = summary_.song != nullptr ? summary_.song->metadata.title : "";
     const std::string difficulty = summary_.chart != nullptr ? summary_.chart->difficulty : "";
     const int meter = summary_.chart != nullptr ? summary_.chart->meter : 0;
@@ -74,14 +77,25 @@ void ResultsScreen::enter(ScreenContext& ctx) {
               << "\n";
 }
 
-void ResultsScreen::update(ScreenContext& ctx, double /*fixed_dt*/,
+void ResultsScreen::update(ScreenContext& ctx, double fixed_dt,
                            const std::vector<InputEvent>& events) {
+    animator_.update(fixed_dt);
+
     for (const InputEvent& event : events) {
         if (!event.pressed) {
             continue;
         }
         if (event.action == GameAction::Confirm || event.action == GameAction::Options ||
             event.action == GameAction::Right) {
+            // AC3: while the reveal is running a press skips to the final frame
+            // without navigating; once it has settled the same press exits to the
+            // wheel (C7 behavior). A NO RESULT screen has no reveal, so a press
+            // exits immediately -- exactly C7. Back stays manager-owned and exits
+            // immediately.
+            if (has_reveal() && !animator_.finished()) {
+                animator_.skip();
+                return;
+            }
             if (ctx.manager != nullptr) {
                 ctx.manager->transition_to(ScreenId::Select);
             }
@@ -102,7 +116,7 @@ void ResultsScreen::render(ScreenContext& /*ctx*/, GlQuadRenderer& renderer, int
     draw_text(renderer, "RESULTS", width * 0.05f, height * 0.06f, std::max(2.5f, width * 0.0045f),
               kTitleColor);
 
-    if (!summary_.valid) {
+    if (!has_reveal()) {
         draw_text_centered(renderer, "NO RESULT", width * 0.5f, height * 0.42f,
                            std::max(3.0f, width * 0.006f), kDimColor);
         draw_text_centered(renderer, "[ENTER] CONTINUE", width * 0.5f, height * 0.85f, 2.0f,
@@ -110,32 +124,55 @@ void ResultsScreen::render(ScreenContext& /*ctx*/, GlQuadRenderer& renderer, int
         return;
     }
 
+    const double elapsed = animator_.elapsed();
+    const float title_alpha = ResultsAnimator::title_alpha(elapsed);
+    const float stats_alpha = ResultsAnimator::stats_alpha(elapsed);
+
+    // Full-screen accent flash behind the text, only on a NEW RECORD finale.
+    if (shows_record_finale()) {
+        const float flash = ResultsAnimator::record_flash(elapsed);
+        if (flash > 0.0f) {
+            renderer.draw_quad(Rect{0.0f, 0.0f, width, height},
+                               with_alpha(kAccentColor, flash));
+        }
+    }
+
     const std::string title = summary_.song != nullptr ? summary_.song->metadata.title : "UNKNOWN";
     const std::string artist = summary_.song != nullptr ? summary_.song->metadata.artist : "";
     draw_text_centered(renderer, title, width * 0.5f, height * 0.12f,
-                       std::max(2.5f, width * 0.004f), kTitleColor);
+                       std::max(2.5f, width * 0.004f), with_alpha(kTitleColor, title_alpha));
     if (!artist.empty()) {
-        draw_text_centered(renderer, artist, width * 0.5f, height * 0.19f, 2.0f, kDimColor);
+        draw_text_centered(renderer, artist, width * 0.5f, height * 0.19f, 2.0f,
+                           with_alpha(kDimColor, title_alpha));
     }
 
     const std::string diff_line =
         summary_.chart != nullptr
             ? summary_.chart->difficulty + " " + std::to_string(summary_.chart->meter)
             : std::string("UNKNOWN");
-    draw_text_centered(renderer, diff_line, width * 0.5f, height * 0.25f, 2.0f, kHintColor);
+    draw_text_centered(renderer, diff_line, width * 0.5f, height * 0.25f, 2.0f,
+                       with_alpha(kHintColor, title_alpha));
 
-    // Large, tier-colored grade.
-    const GradeTier tier{0.0, summary_.grade_label.c_str()};
-    draw_text_centered(renderer, format_grade(tier), width * 0.5f, height * 0.31f,
-                       std::max(4.0f, width * 0.008f), grade_color(summary_.percent));
+    // Large, tier-colored grade: fades in as it slams from 2.4x to 1.0x.
+    const float grade_alpha = ResultsAnimator::grade_alpha(elapsed);
+    if (grade_alpha > 0.0f) {
+        const GradeTier tier{0.0, summary_.grade_label.c_str()};
+        draw_text_centered(renderer, format_grade(tier), width * 0.5f, height * 0.31f,
+                           std::max(4.0f, width * 0.008f) *
+                               ResultsAnimator::grade_scale(elapsed),
+                           with_alpha(grade_color(summary_.percent), grade_alpha));
+    }
 
-    draw_text_centered(renderer, format_percent(summary_.percent), width * 0.5f, height * 0.44f,
-                       3.0f, kAccentColor);
+    // Percent counts up to (and never past) the exact C7 value.
+    draw_text_centered(renderer,
+                       format_percent(summary_.percent *
+                                      ResultsAnimator::percent_progress(elapsed)),
+                       width * 0.5f, height * 0.44f, 3.0f, kAccentColor);
     draw_text_centered(renderer, "DP " + std::to_string(summary_.actual_dp) + "/" +
                                      std::to_string(summary_.possible_dp),
-                       width * 0.5f, height * 0.50f, 2.5f, kDimColor);
+                       width * 0.5f, height * 0.50f, 2.5f, with_alpha(kDimColor, stats_alpha));
     draw_text_centered(renderer, "MAX COMBO " + std::to_string(summary_.max_combo), width * 0.5f,
-                       height * 0.55f, 2.5f, kDimColor);
+                       height * 0.55f, 2.5f, with_alpha(kDimColor, stats_alpha));
 
     const auto tap_count = [this](TapJudgment j) {
         return summary_.tap_counts[static_cast<std::size_t>(j)];
@@ -148,24 +185,35 @@ void ResultsScreen::render(ScreenContext& /*ctx*/, GlQuadRenderer& renderer, int
         std::to_string(tap_count(TapJudgment::WayOff)) + "  M " +
         std::to_string(tap_count(TapJudgment::Miss)) + "  MINE " +
         std::to_string(tap_count(TapJudgment::HitMine));
-    draw_text_centered(renderer, windows, width * 0.5f, height * 0.62f, 2.0f, kDimColor);
+    draw_text_centered(renderer, windows, width * 0.5f, height * 0.62f, 2.0f,
+                       with_alpha(kDimColor, stats_alpha));
 
     const std::string holds =
         "HOLD OK " +
         std::to_string(summary_.hold_counts[static_cast<std::size_t>(HoldJudgment::Ok)]) +
         "  NG " + std::to_string(summary_.hold_counts[static_cast<std::size_t>(HoldJudgment::Ng)]);
-    draw_text_centered(renderer, holds, width * 0.5f, height * 0.67f, 2.0f, kDimColor);
+    draw_text_centered(renderer, holds, width * 0.5f, height * 0.67f, 2.0f,
+                       with_alpha(kDimColor, stats_alpha));
 
-    if (summary_.failed) {
-        draw_text_centered(renderer, "FAILED", width * 0.5f, height * 0.75f,
-                           std::max(3.0f, width * 0.006f), kFailedColor);
+    const float hint_scale = std::max(3.0f, width * 0.006f);
+    if (shows_record_finale()) {
+        const float record_alpha = ResultsAnimator::record_alpha(elapsed);
+        if (record_alpha > 0.0f) {
+            draw_text_centered(renderer, "NEW RECORD", width * 0.5f, height * 0.75f,
+                               hint_scale * ResultsAnimator::record_scale(elapsed),
+                               with_alpha(kAccentColor, record_alpha));
+        }
+    } else if (summary_.failed) {
+        draw_text_centered(renderer, "FAILED", width * 0.5f, height * 0.75f, hint_scale,
+                           with_alpha(kFailedColor, ResultsAnimator::failed_alpha(elapsed)));
+    }
+
+    if (!animator_.finished()) {
+        draw_text_centered(renderer, "[ENTER] SKIP", width * 0.5f, height * 0.87f, 2.0f, kHintColor);
+    } else if (summary_.failed) {
         draw_text_centered(renderer, "[ENTER] RETURN TO WHEEL", width * 0.5f, height * 0.87f, 2.0f,
                            kHintColor);
     } else {
-        if (new_record_) {
-            draw_text_centered(renderer, "NEW RECORD", width * 0.5f, height * 0.75f,
-                               std::max(3.0f, width * 0.006f), kAccentColor);
-        }
         draw_text_centered(renderer, "[ENTER] CONTINUE", width * 0.5f, height * 0.87f, 2.0f,
                            kHintColor);
     }

@@ -125,6 +125,7 @@ add_library(tundra_core STATIC
     src/screens/gameplay_screen.cpp
     src/screens/results.cpp
     src/screens/results_screen.cpp
+    src/screens/results_anim.cpp
     src/screens/calibration_screen.cpp
     src/screens/input_remap.cpp
     src/screens/input_remap_screen.cpp
