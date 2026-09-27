@@ -232,3 +232,23 @@ target_link_libraries(texture_test PRIVATE
 )
 
 add_test(NAME texture_test COMMAND texture_test)
+
+add_executable(input_remap_test
+    input_remap_test.cpp
+)
+
+target_link_libraries(input_remap_test PRIVATE
+    tundra_core
+)
+
+add_test(NAME input_remap_test COMMAND input_remap_test)
+
+add_executable(input_remap_screen_test
+    input_remap_screen_test.cpp
+)
+
+target_link_libraries(input_remap_screen_test PRIVATE
+    tundra_core
+)
+
+add_test(NAME input_remap_screen_test COMMAND input_remap_screen_test)

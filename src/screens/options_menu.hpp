@@ -18,6 +18,7 @@ enum class OptionsRow : int {
     Scroll,        // UP / DOWN
     Fail,          // ON / OFF
     CalibrateOffset, // action row: opens the C5 calibration wizard
+    RemapInput,      // action row: opens the C6 input remapping screen
     Count,
 };
 

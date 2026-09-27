@@ -82,8 +82,17 @@ int main() {
         TEST_CHECK(defaults.gameplay.speed_mod == "1x");
         TEST_CHECK(defaults.gameplay.scroll == "up");
         TEST_CHECK(defaults.gameplay.fail_enabled);
-        TEST_CHECK(defaults.input.key_bindings.size() == 6);
-        TEST_CHECK(defaults.input.gamepad_bindings.size() == 2);
+        TEST_CHECK(defaults.input.key_bindings.size() == 7);
+        TEST_CHECK(defaults.input.gamepad_bindings.size() == 7);
+
+        // C6: the persisted defaults are the single binding authority and now
+        // carry the full runtime set (Tab -> Options; pad-Back -> Back).
+        const auto default_keys = to_map(td::default_key_bindings());
+        TEST_CHECK(default_keys.count("Options") == 1);
+        TEST_CHECK(default_keys.at("Options") == std::vector<std::string>{"Tab"});
+        const auto default_pads = to_map(td::default_gamepad_bindings());
+        TEST_CHECK(default_pads.count("Back") == 1);
+        TEST_CHECK(default_pads.at("Back") == std::vector<std::string>{"back"});
 
         std::string error;
         TEST_CHECK(td::validate_game_config(defaults, &error));

@@ -28,6 +28,7 @@ constexpr int kSpeedValueRow = static_cast<int>(OptionsRow::SpeedValue);
 constexpr int kScrollRow = static_cast<int>(OptionsRow::Scroll);
 constexpr int kFailRow = static_cast<int>(OptionsRow::Fail);
 constexpr int kCalibrateRow = static_cast<int>(OptionsRow::CalibrateOffset);
+constexpr int kRemapRow = static_cast<int>(OptionsRow::RemapInput);
 
 bool near(double a, double b) { return std::abs(a - b) < 1e-9; }
 
@@ -78,9 +79,11 @@ void test_row_navigation() {
     td::options_menu_move_row(menu, +1);
     TEST_CHECK(menu.row == kCalibrateRow); // row 4
     td::options_menu_move_row(menu, +1);
-    TEST_CHECK(menu.row == kCalibrateRow); // clamped
+    TEST_CHECK(menu.row == kRemapRow); // row 5
+    td::options_menu_move_row(menu, +1);
+    TEST_CHECK(menu.row == kRemapRow); // clamped at the new bottom
     td::options_menu_move_row(menu, -1);
-    TEST_CHECK(menu.row == 3);
+    TEST_CHECK(menu.row == kCalibrateRow);
     td::options_menu_move_row(menu, -5);
     TEST_CHECK(menu.row == 0); // clamped
     std::cout << "  - row navigation clamps at both ends ok.\n";
@@ -233,6 +236,30 @@ void test_calibration_row_is_action_only() {
     std::cout << "  - calibration row is a display-only action ok.\n";
 }
 
+void test_remap_row_is_action_only() {
+    TEST_CHECK(td::options_row_name(kRemapRow) == "REMAP INPUT");
+    TEST_CHECK(td::kOptionsRowCount == 6);
+
+    td::GameConfig config;
+    const std::vector<td::InputBinding> key_before = config.input.key_bindings;
+    const std::vector<td::InputBinding> pad_before = config.input.gamepad_bindings;
+
+    OptionsMenu menu = td::options_menu_from_config(config);
+    menu.row = kRemapRow;
+    const OptionsMenu before = menu;
+    td::options_menu_adjust(menu, +1);
+    td::options_menu_adjust(menu, -1);
+    TEST_CHECK(menu.speed_type == before.speed_type);
+    TEST_CHECK(menu.scroll_down == before.scroll_down);
+    TEST_CHECK(menu.fail_enabled == before.fail_enabled);
+
+    // The remap row must never touch the binding maps.
+    td::options_menu_apply(menu, config);
+    TEST_CHECK(config.input.key_bindings == key_before);
+    TEST_CHECK(config.input.gamepad_bindings == pad_before);
+    std::cout << "  - remap row is an action-only entry ok.\n";
+}
+
 void test_apply_and_round_trip() {
     td::GameConfig config;
     OptionsMenu menu;
@@ -289,6 +316,7 @@ int main() {
     test_toggles();
     test_formatting();
     test_calibration_row_is_action_only();
+    test_remap_row_is_action_only();
     test_apply_and_round_trip();
     std::cout << "[options_menu_test] All tests passed!\n";
     return 0;

@@ -4,6 +4,7 @@
 #include <cstdlib>
 #include <cassert>
 #include "input/input_manager.hpp"
+#include "data/config.hpp"
 
 #define TEST_CHECK(expr) \
     do { \
@@ -212,6 +213,120 @@ int main() {
     TEST_CHECK(!input.is_action_down(td::GameAction::Up));
     TEST_CHECK(!input.is_action_down(td::GameAction::Right));
     std::cout << "  - Focus loss clears held-action state.\n";
+
+    // 8. C6: apply_bindings rebuilds the runtime maps from persisted names and
+    // falls back per action when none of its names parse.
+    td::InputSettings settings;
+    settings.key_bindings = {{"Left", {"A"}}, {"Confirm", {"BogusName"}}};
+    settings.gamepad_bindings = {{"Back", {"back"}}};
+    input.apply_bindings(settings);
+
+    TEST_CHECK(input.action_for_key(SDLK_A) == td::GameAction::Left);
+    TEST_CHECK(input.action_for_key(SDLK_LEFT) == td::GameAction::None); // old default removed
+    // An action whose only name is invalid falls back to its compiled default.
+    TEST_CHECK(input.action_for_key(SDLK_RETURN) == td::GameAction::Confirm);
+    TEST_CHECK(input.action_for_key(SDLK_KP_ENTER) == td::GameAction::Confirm);
+    // Reserved safety: Escape is Back even though the settings omit it.
+    TEST_CHECK(input.action_for_key(SDLK_ESCAPE) == td::GameAction::Back);
+    std::cout << "  - apply_bindings rebuild + fallback + reserved Escape verified.\n";
+
+    // 8b. C6 upgrade regression guard: a partial persisted config (only
+    // Confirm/Back, as written by pre-C6 builds) must leave every other action
+    // on its compiled default, so legacy 6/2 configs keep arrows, DFJK, Tab and
+    // the gamepad panels instead of being silently unbound.
+    td::InputSettings partial;
+    partial.key_bindings = {{"Confirm", {"Space"}}, {"Back", {"Escape"}}};
+    partial.gamepad_bindings = {{"Confirm", {"start"}}, {"Back", {"back"}}};
+    input.apply_bindings(partial);
+
+    TEST_CHECK(input.action_for_key(SDLK_SPACE) == td::GameAction::Confirm);
+    TEST_CHECK(input.action_for_key(SDLK_ESCAPE) == td::GameAction::Back);
+    // Arrows + DFJK fall back to the compiled defaults.
+    TEST_CHECK(input.action_for_key(SDLK_LEFT) == td::GameAction::Left);
+    TEST_CHECK(input.action_for_key(SDLK_D) == td::GameAction::Left);
+    TEST_CHECK(input.action_for_key(SDLK_DOWN) == td::GameAction::Down);
+    TEST_CHECK(input.action_for_key(SDLK_F) == td::GameAction::Down);
+    TEST_CHECK(input.action_for_key(SDLK_UP) == td::GameAction::Up);
+    TEST_CHECK(input.action_for_key(SDLK_J) == td::GameAction::Up);
+    TEST_CHECK(input.action_for_key(SDLK_RIGHT) == td::GameAction::Right);
+    TEST_CHECK(input.action_for_key(SDLK_K) == td::GameAction::Right);
+    // Options (Tab) is restored, so the overlay that hosts this screen is reachable.
+    TEST_CHECK(input.action_for_key(SDLK_TAB) == td::GameAction::Options);
+
+    // Gamepad panels + Options fall back to defaults too. Drain any event left
+    // from earlier steps first (step 7 holds a focused key without polling).
+    (void)input.poll_events();
+    SDL_Event pad_left{};
+    pad_left.type = SDL_EVENT_GAMEPAD_BUTTON_DOWN;
+    pad_left.gbutton.button = SDL_GAMEPAD_BUTTON_DPAD_LEFT;
+    pad_left.gbutton.down = true;
+    pad_left.gbutton.which = 1;
+    pad_left.gbutton.timestamp = 2750000000ULL;
+    input.handle_sdl_event(pad_left);
+    events = input.poll_events();
+    TEST_CHECK(events.size() == 1 && events[0].action == td::GameAction::Left);
+    pad_left.type = SDL_EVENT_GAMEPAD_BUTTON_UP;
+    pad_left.gbutton.down = false;
+    pad_left.gbutton.timestamp = 2750000500ULL;
+    input.handle_sdl_event(pad_left);
+    (void)input.poll_events();
+
+    SDL_Event pad_options{};
+    pad_options.type = SDL_EVENT_GAMEPAD_BUTTON_DOWN;
+    pad_options.gbutton.button = SDL_GAMEPAD_BUTTON_LEFT_SHOULDER;
+    pad_options.gbutton.down = true;
+    pad_options.gbutton.which = 1;
+    pad_options.gbutton.timestamp = 2750001000ULL;
+    input.handle_sdl_event(pad_options);
+    events = input.poll_events();
+    TEST_CHECK(events.size() == 1 && events[0].action == td::GameAction::Options);
+    std::cout << "  - partial config keeps default arrows/DFJK/Tab/panels verified.\n";
+
+    // Restore the test-8 settings for the capture-mode checks below.
+    input.apply_bindings(settings);
+
+    // 9. C6 capture mode: one raw event per physical press with the exact SDL
+    // timestamp; mapping and the pad-Back hold synthesis are bypassed.
+    (void)input.poll_events(); // drain any event left from earlier steps
+    input.set_capture_mode(true);
+    TEST_CHECK(input.capture_mode());
+
+    const uint64_t capture_ts = 5000000000ULL;
+    SDL_Event q_down{};
+    q_down.type = SDL_EVENT_KEY_DOWN;
+    q_down.key.key = SDLK_Q; // unmapped
+    q_down.key.repeat = false;
+    q_down.key.timestamp = capture_ts;
+    input.handle_sdl_event(q_down);
+    events = input.poll_events();
+    TEST_CHECK(events.size() == 1);
+    TEST_CHECK(events[0].action == td::GameAction::None);
+    TEST_CHECK(events[0].raw_code == SDLK_Q);
+    TEST_CHECK(events[0].timestamp_ns == capture_ts);
+    TEST_CHECK(!input.is_action_down(td::GameAction::Left));
+
+    // Repeat keys are still skipped while capturing.
+    q_down.key.repeat = true;
+    input.handle_sdl_event(q_down);
+    TEST_CHECK(input.poll_events().empty());
+
+    // A pad-Back press emits a raw event immediately (no hold->Options deferral).
+    SDL_Event pad_back_capture{};
+    pad_back_capture.type = SDL_EVENT_GAMEPAD_BUTTON_DOWN;
+    pad_back_capture.gbutton.button = SDL_GAMEPAD_BUTTON_BACK;
+    pad_back_capture.gbutton.which = 2;
+    pad_back_capture.gbutton.timestamp = capture_ts + 1;
+    input.handle_sdl_event(pad_back_capture);
+    events = input.poll_events();
+    TEST_CHECK(events.size() == 1);
+    TEST_CHECK(events[0].action == td::GameAction::None);
+    TEST_CHECK(events[0].raw_code == SDL_GAMEPAD_BUTTON_BACK);
+    TEST_CHECK(events[0].timestamp_ns == capture_ts + 1);
+
+    input.set_capture_mode(false);
+    TEST_CHECK(!input.capture_mode());
+    TEST_CHECK(input.action_for_key(SDLK_A) == td::GameAction::Left); // normal mapping restored
+    std::cout << "  - capture mode raw emission + timestamps verified.\n";
 
     std::cout << "[input_test] All input tests passed successfully!\n";
     return 0;

@@ -12,7 +12,7 @@ namespace {
 // App's Escape-quit. Shared with back_navigates() so the two cannot desync.
 bool default_back_navigates(ScreenId id) {
     return id == ScreenId::Attract || id == ScreenId::Select || id == ScreenId::Gameplay ||
-           id == ScreenId::Calibration;
+           id == ScreenId::Calibration || id == ScreenId::InputRemap;
 }
 
 } // namespace
@@ -25,6 +25,7 @@ std::string_view screen_id_name(ScreenId id) {
         case ScreenId::Gameplay: return "Gameplay";
         case ScreenId::Results: return "Results";
         case ScreenId::Calibration: return "Calibration";
+        case ScreenId::InputRemap: return "InputRemap";
     }
     return "Unknown";
 }
@@ -148,6 +149,8 @@ void ScreenManager::handle_back() {
         transition_to(ScreenId::Select); // abort the run; Results/pause are C7
     } else if (active_id_ == ScreenId::Calibration) {
         transition_to(ScreenId::Select); // abort the wizard; never writes config
+    } else if (active_id_ == ScreenId::InputRemap) {
+        transition_to(ScreenId::Select); // leave remapping; committed changes stay
     }
 }
 

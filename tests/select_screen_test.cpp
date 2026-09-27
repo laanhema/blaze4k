@@ -19,6 +19,7 @@
 #include "render/gl_quad_renderer.hpp"
 #include "screens/calibration_screen.hpp"
 #include "screens/gameplay_screen.hpp"
+#include "screens/input_remap_screen.hpp"
 #include "screens/options_menu.hpp"
 #include "screens/play_request.hpp"
 #include "screens/select_screen.hpp"
@@ -455,6 +456,52 @@ void test_calibration_launch_from_options(td::ScreenManager& manager, td::Select
     std::cout << "  - options -> Calibration launch seam + row toggle ok.\n";
 }
 
+// The C6 launch seam: Select's options overlay -> RemapInput row -> Confirm/Right
+// -> transition_to(InputRemap). Mirrors the calibration launch test.
+void test_remap_launch_from_options(td::ScreenManager& manager, td::SelectScreen* select,
+                                    td::GameConfig& config) {
+    manager.add_screen(std::make_unique<td::InputRemapScreen>());
+    manager.start(ScreenId::Select);
+    TEST_CHECK(manager.active_id() == ScreenId::Select);
+
+    const auto move_to_remap_row = [&] {
+        for (int i = 0; i < static_cast<int>(td::OptionsRow::RemapInput); ++i) {
+            manager.update(kDt, {press(GameAction::Down)});
+        }
+        TEST_CHECK(select->options_menu().row == static_cast<int>(td::OptionsRow::RemapInput));
+    };
+
+    // Confirm launches the remap screen.
+    manager.update(kDt, {press(GameAction::Options)});
+    TEST_CHECK(select->options_open());
+    move_to_remap_row();
+    manager.update(kDt, {press(GameAction::Confirm)});
+    TEST_CHECK(!select->options_open());
+    TEST_CHECK(manager.active_id() == ScreenId::InputRemap);
+
+    // Back returns to Select; bindings are untouched by a plain exit.
+    const auto key_bindings_before = config.input.key_bindings;
+    manager.update(kDt, {press(GameAction::Back)});
+    TEST_CHECK(manager.active_id() == ScreenId::Select);
+    TEST_CHECK(config.input.key_bindings == key_bindings_before);
+
+    // Right launches it as well.
+    manager.update(kDt, {press(GameAction::Options)});
+    move_to_remap_row();
+    manager.update(kDt, {press(GameAction::Right)});
+    TEST_CHECK(manager.active_id() == ScreenId::InputRemap);
+    manager.update(kDt, {press(GameAction::Back)});
+    TEST_CHECK(manager.active_id() == ScreenId::Select);
+
+    // Options (Tab/shoulder) closes the overlay on the remap row too.
+    manager.update(kDt, {press(GameAction::Options)});
+    move_to_remap_row();
+    manager.update(kDt, {press(GameAction::Options)});
+    TEST_CHECK(!select->options_open());
+    TEST_CHECK(manager.active_id() == ScreenId::Select);
+    std::cout << "  - options -> InputRemap launch seam + row toggle ok.\n";
+}
+
 // A same-tick [Options, Back] pair must not navigate on the pre-update modal
 // state (the manager must not act on state update() is about to create).
 void test_same_tick_options_back(td::ScreenManager& manager, td::SelectScreen* select) {
@@ -512,6 +559,7 @@ int main() {
     test_empty_library();
     test_options_overlay(manager, select_ptr, config, request);
     test_calibration_launch_from_options(manager, select_ptr, config);
+    test_remap_launch_from_options(manager, select_ptr, config);
     test_same_tick_options_back(manager, select_ptr);
 
     td::GlQuadRenderer renderer; // populated-screen render smoke
