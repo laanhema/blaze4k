@@ -188,16 +188,90 @@ void test_unstorable_run_not_submitted() {
     std::cout << "  - unstorable clear does not report submitted ok.\n";
 }
 
-// 4. Confirm returns to the song wheel (AC3).
+// 4. Confirm skips the reveal, then returns to the song wheel (AC3).
 void test_confirm_returns_to_wheel() {
     ResultsFixture fx;
     fx.start();
     TEST_CHECK(fx.manager.active_id() == ScreenId::Results);
+    TEST_CHECK(!fx.results->reveal_finished());
+
+    // First Confirm skips to the final frame without navigating (AC3).
+    fx.manager.update(kDt, {press(GameAction::Confirm)});
+    TEST_CHECK(fx.manager.active_id() == ScreenId::Results);
+    TEST_CHECK(fx.results->reveal_finished());
+
+    // Second Confirm exits to the wheel (C7 behavior).
+    fx.manager.update(kDt, {press(GameAction::Confirm)});
+    TEST_CHECK(fx.manager.active_id() == ScreenId::Select);
+    TEST_CHECK(fx.select_enters == 1);
+    std::cout << "  - Confirm skips then exits ok.\n";
+}
+
+// 4b. Options/Right also skip while the reveal runs; only a finished reveal navigates.
+void test_reveal_gating_skip_presses() {
+    ResultsFixture fx;
+    fx.start();
+    TEST_CHECK(!fx.results->reveal_finished());
+
+    fx.manager.update(kDt, {press(GameAction::Options)});
+    TEST_CHECK(fx.manager.active_id() == ScreenId::Results);
+    TEST_CHECK(fx.results->reveal_finished());
+
+    fx.manager.update(kDt, {press(GameAction::Right)});
+    TEST_CHECK(fx.manager.active_id() == ScreenId::Select);
+    std::cout << "  - Options skips, Right exits ok.\n";
+}
+
+// 4c. The NEW RECORD finale flag follows C7's best-score rule, and the screen's
+//     single render gate (`shows_record_finale`) is false when it must not draw.
+void test_new_record_finale_flag() {
+    // A first clear plays the full finale.
+    ResultsFixture first;
+    first.start();
+    TEST_CHECK(first.results->animator().new_record());
+    TEST_CHECK(first.results->shows_record_finale());
+
+    // A worse-than-best run does not, so the banner/flash is never drawn.
+    ResultsFixture best;
+    TEST_CHECK(td::results_submit_score(
+        best.scores, make_summary(best.song, best.chart, "quad_star", 1.0), 1));
+    best.start();
+    TEST_CHECK(!best.results->animator().new_record());
+    TEST_CHECK(!best.results->shows_record_finale());
+
+    // A failed run never plays it (nor draws the finale).
+    ResultsFixture failed;
+    failed.summary = make_summary(failed.song, failed.chart, "D", 0.30, true);
+    failed.start();
+    TEST_CHECK(!failed.results->animator().new_record());
+    TEST_CHECK(!failed.results->shows_record_finale());
+    std::cout << "  - NEW RECORD finale flag gating ok.\n";
+}
+
+// 4d. An invalid (NO RESULT) summary has no reveal: a single Confirm/Options/Right
+//     exits immediately (exactly C7) instead of being swallowed as a skip.
+void test_invalid_summary_exits_immediately() {
+    ResultsFixture fx;
+    fx.start(false); // no published result -> invalid summary
+    TEST_CHECK(!fx.results->valid());
+    TEST_CHECK(!fx.results->shows_record_finale());
+    TEST_CHECK(!fx.results->reveal_finished());
 
     fx.manager.update(kDt, {press(GameAction::Confirm)});
     TEST_CHECK(fx.manager.active_id() == ScreenId::Select);
     TEST_CHECK(fx.select_enters == 1);
-    std::cout << "  - Confirm -> Select ok.\n";
+
+    // Options and Right behave the same on a fresh invalid screen.
+    ResultsFixture options;
+    options.start(false);
+    options.manager.update(kDt, {press(GameAction::Options)});
+    TEST_CHECK(options.manager.active_id() == ScreenId::Select);
+
+    ResultsFixture right;
+    right.start(false);
+    right.manager.update(kDt, {press(GameAction::Right)});
+    TEST_CHECK(right.manager.active_id() == ScreenId::Select);
+    std::cout << "  - invalid summary exits on first press ok.\n";
 }
 
 // 5. Back goes through the manager default to the wheel (AC3, no dead end).
@@ -287,6 +361,12 @@ void test_gameplay_to_results_end_to_end() {
     TEST_CHECK(scores.scores.size() == 1);
     TEST_CHECK(gameplay->end_reported());
 
+    // The reveal is running on entry: the first Confirm skips it in place...
+    manager.update(kDt, {press(GameAction::Confirm)});
+    TEST_CHECK(manager.active_id() == ScreenId::Results);
+    TEST_CHECK(results->reveal_finished());
+
+    // ...and the second Confirm returns to the wheel (C7 behavior).
     manager.update(kDt, {press(GameAction::Confirm)});
     TEST_CHECK(manager.active_id() == ScreenId::Select);
 
@@ -308,6 +388,9 @@ int main() {
     test_failed_run_no_submit();
     test_unstorable_run_not_submitted();
     test_confirm_returns_to_wheel();
+    test_reveal_gating_skip_presses();
+    test_new_record_finale_flag();
+    test_invalid_summary_exits_immediately();
     test_back_returns_to_wheel();
     test_render_and_reenter();
     test_gameplay_to_results_end_to_end();

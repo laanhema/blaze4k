@@ -289,6 +289,16 @@ target_link_libraries(results_screen_test PRIVATE
 
 add_test(NAME results_screen_test COMMAND results_screen_test)
 
+add_executable(results_anim_test
+    results_anim_test.cpp
+)
+
+target_link_libraries(results_anim_test PRIVATE
+    tundra_core
+)
+
+add_test(NAME results_anim_test COMMAND results_anim_test)
+
 add_executable(note_art_test
     note_art_test.cpp
 )
