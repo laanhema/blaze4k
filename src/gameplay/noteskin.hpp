@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+
 #include "chart/note.hpp"
 #include "render/geometry.hpp"
 #include "render/texture.hpp"
@@ -14,8 +16,11 @@ struct NoteStyle {
     double height = 56.0;
 };
 
-// Procedural placeholder noteskin: colored textured quads only, no image files.
-// Distinct per note type so taps/holds/rolls/mines read apart until D1/D2.
+// Procedural noteskin: white-alpha arrow/body masks generated at init via
+// `Texture::from_rgba` (render/note_art.*) and tinted at draw time. Direction is
+// baked into per-column textures because a `UVRect` cannot express a 90-degree
+// rotation (it is axis-aligned only). No image files, no GL context required to
+// construct.
 class NoteSkin {
 public:
     NoteSkin();
@@ -23,18 +28,28 @@ public:
     bool init(); // requires a GL context; returns false (and logs) if unavailable
     void shutdown();
 
-    [[nodiscard]] const Texture& receptor_texture() const { return receptor_; }
-    [[nodiscard]] const Texture& quad_texture() const { return white_; }
     [[nodiscard]] const NoteStyle& style_for(NoteType type) const;
     [[nodiscard]] Color column_tint(int column) const;
+    [[nodiscard]] const Texture& quad_texture() const { return white_; }
+    // Direction-aware head art (tap/hold/roll arrows; mine is direction-agnostic).
+    [[nodiscard]] const Texture& head_texture(NoteType type, int column) const;
+    [[nodiscard]] const Texture& receptor_texture(int column) const;
+    [[nodiscard]] const Texture& body_texture() const { return body_; }
 
 private:
+    [[nodiscard]] static const Texture& select(const std::array<Texture, 4>& textures, int column);
+
     Texture white_;
-    Texture receptor_;
-    NoteStyle tap_;
-    NoteStyle hold_;
-    NoteStyle roll_;
-    NoteStyle mine_;
+    std::array<Texture, 4> tap_;
+    std::array<Texture, 4> hold_;
+    std::array<Texture, 4> roll_;
+    std::array<Texture, 4> receptor_;
+    Texture mine_;
+    Texture body_;
+    NoteStyle tap_style_;
+    NoteStyle hold_style_;
+    NoteStyle roll_style_;
+    NoteStyle mine_style_;
 };
 
 } // namespace td

@@ -2,6 +2,7 @@
 
 #include <iostream>
 
+#include "audio/ui_sounds.hpp"
 #include "render/gl_quad_renderer.hpp"
 
 namespace td {
@@ -13,6 +14,14 @@ namespace {
 bool default_back_navigates(ScreenId id) {
     return id == ScreenId::Attract || id == ScreenId::Select || id == ScreenId::Gameplay ||
            id == ScreenId::Results || id == ScreenId::Calibration || id == ScreenId::InputRemap;
+}
+
+// D2: menu screens that play navigation UI sounds. Gameplay (directions are
+// steps), Calibration, and InputRemap (their own navigation semantics) are
+// intentionally excluded.
+bool is_menu_screen(ScreenId id) {
+    return id == ScreenId::Title || id == ScreenId::Attract || id == ScreenId::Select ||
+           id == ScreenId::Results;
 }
 
 } // namespace
@@ -171,6 +180,7 @@ void ScreenManager::update(double fixed_dt, const std::vector<InputEvent>& event
     apply_pending();
 
     bool had_press = false;
+    bool move_pressed = false;
     bool back_pressed = false;
     bool confirm_pressed = false;
     bool options_pressed = false;
@@ -185,11 +195,28 @@ void ScreenManager::update(double fixed_dt, const std::vector<InputEvent>& event
             confirm_pressed = true;
         } else if (event.action == GameAction::Options) {
             options_pressed = true;
+        } else if (event.action == GameAction::Left || event.action == GameAction::Down ||
+                   event.action == GameAction::Up || event.action == GameAction::Right) {
+            move_pressed = true;
         }
     }
 
     if (had_press) {
         idle_seconds_ = 0.0;
+    }
+
+    // D2: fire menu UI sounds for the press that is about to navigate (before
+    // handle_back/update), gated to the menu screen set and a non-null sink.
+    if (ctx_.ui_sounds != nullptr && is_menu_screen(active_id_)) {
+        if (move_pressed) {
+            ctx_.ui_sounds->play(UiSound::Move);
+        }
+        if (confirm_pressed) {
+            ctx_.ui_sounds->play(UiSound::Confirm);
+        }
+        if (back_pressed) {
+            ctx_.ui_sounds->play(UiSound::Back);
+        }
     }
 
     // A same-tick [Options, Back] pair must not navigate on pre-update state:

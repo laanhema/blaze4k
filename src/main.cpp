@@ -7,6 +7,7 @@
 #include <exception>
 #include <filesystem>
 #include "app/app.hpp"
+#include "audio/ui_sounds.hpp"
 #include "chart/simfile_parser.hpp"
 #include "chart/song_library.hpp"
 #include "data/config.hpp"
@@ -241,6 +242,7 @@ int main(int argc, char* argv[]) {
 
     td::GlQuadRenderer quad_renderer;
     td::GameplayView gameplay;
+    td::UiSoundPlayer ui_sounds;
     std::unique_ptr<td::ScreenManager> shell;
 
     if (!demo_path.empty()) {
@@ -343,6 +345,9 @@ int main(int argc, char* argv[]) {
             return app.input_manager().is_action_down(action);
         };
         shell->context().input = &app.input_manager();
+        // D2: synthesize + wire the menu UI sounds (silent/no-op when unavailable).
+        ui_sounds.init(paths.data_dir);
+        shell->context().ui_sounds = &ui_sounds;
 
         td::ScreenId start_screen = td::ScreenId::Title;
         if (!start_screen_text.empty()) {

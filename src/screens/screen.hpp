@@ -18,6 +18,7 @@ class SongLibrary;
 struct JudgmentConstants;
 struct PlayRequest;
 struct ResultsSummary;
+class IUiSoundSink;
 
 // Stable identity of every arcade screen (PRD section 6/7.3). C1 implements
 // Title/Attract and a Select placeholder; C3/C4/C5/C7 replace/extend the rest.
@@ -55,6 +56,10 @@ struct ScreenContext {
     // runtime bindings and toggle raw capture mode. Forward-declared so screens
     // stay free of SDL; null in headless/unit tests.
     InputManager* input = nullptr;
+
+    // D2: menu UI sound sink, wired by main; null in headless/unit tests and the
+    // `--gameplay-demo` path (every trigger is null-guarded).
+    IUiSoundSink* ui_sounds = nullptr;
 };
 
 // A screen is an object with explicit enter/update/render/exit (PRD section 6

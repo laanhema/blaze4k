@@ -3,6 +3,7 @@
 #include <string>
 
 #include "gameplay/score_keeper.hpp"
+#include "render/geometry.hpp"
 
 namespace td {
 
@@ -19,6 +20,11 @@ class GlQuadRenderer;
 // Compact display label for a grade tier: star tiers render as asterisks
 // (`quad_star` -> "****"), letter grades pass through unchanged ("S+", "A-", ...).
 [[nodiscard]] std::string format_grade(const GradeTier& grade);
+
+// Shared judgment palette (Tundra presentation, unsourced): maps a log event's
+// kind/window/hold outcome to its HUD chip color. Used by the HUD counts and the
+// D2 judgment pop so both read identically.
+[[nodiscard]] Color judgment_color(JudgmentKind kind, TapJudgment window, HoldJudgment hold);
 
 // Minimal live HUD: score percent, combo, per-window judgment counts, and grade,
 // drawn as solid quads with a self-contained 5x7 bitmap font. No font asset, no

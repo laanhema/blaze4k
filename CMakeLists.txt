@@ -98,14 +98,17 @@ add_library(tundra_core STATIC
     src/render/gl_quad_renderer.cpp
     src/render/background_renderer.cpp
     src/render/bitmap_font.cpp
+    src/render/note_art.cpp
     src/audio/preview_player.cpp
     src/audio/metronome.cpp
+    src/audio/ui_sounds.cpp
     src/gameplay/speed_mod.cpp
     src/gameplay/gameplay_options.cpp
     src/gameplay/note_field.cpp
     src/gameplay/judgment_engine.cpp
     src/gameplay/score_keeper.cpp
     src/gameplay/hud_renderer.cpp
+    src/gameplay/judgment_animator.cpp
     src/gameplay/life_keeper.cpp
     src/gameplay/noteskin.cpp
     src/gameplay/note_field_renderer.cpp

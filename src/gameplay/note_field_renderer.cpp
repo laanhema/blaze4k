@@ -37,11 +37,12 @@ void NoteFieldRenderer::render(const NoteField& field,
         const Color tint = skin.column_tint(column);
         const Rect quad = centered_quad(field.column_x(column, field_left), receptor_y,
                                         style.width, style.height);
-        renderer.draw_textured_quad(quad, skin.receptor_texture(), UVRect{}, tint);
+        renderer.draw_textured_quad(quad, skin.receptor_texture(column), UVRect{}, tint);
         last_drawn_quads_++;
     }
 
     const Texture& quad_texture = skin.quad_texture();
+    const Texture& body_texture = skin.body_texture();
 
     // 2. Hold/roll bodies.
     for (const NoteRenderItem& item : items) {
@@ -63,7 +64,7 @@ void NoteFieldRenderer::render(const NoteField& field,
             static_cast<float>(width),
             static_cast<float>(bottom - top),
         };
-        renderer.draw_textured_quad(body, quad_texture, UVRect{}, multiply(with_alpha(style.body_color, 0.65f), tint));
+        renderer.draw_textured_quad(body, body_texture, UVRect{}, multiply(with_alpha(style.body_color, 0.65f), tint));
         last_drawn_quads_++;
     }
 
@@ -92,7 +93,8 @@ void NoteFieldRenderer::render(const NoteField& field,
         const Rect head = centered_quad(field.column_x(item.column, field_left),
                                         field.screen_y(item.head_offset),
                                         style.width, style.height);
-        renderer.draw_textured_quad(head, quad_texture, UVRect{}, multiply(style.head_color, tint));
+        renderer.draw_textured_quad(head, skin.head_texture(item.type, item.column), UVRect{},
+                                    multiply(style.head_color, tint));
         last_drawn_quads_++;
     }
 
@@ -106,7 +108,8 @@ void NoteFieldRenderer::render(const NoteField& field,
         const Rect mine = centered_quad(field.column_x(item.column, field_left),
                                         field.screen_y(item.head_offset),
                                         style.width, style.height);
-        renderer.draw_textured_quad(mine, quad_texture, UVRect{}, multiply(style.head_color, tint));
+        renderer.draw_textured_quad(mine, skin.head_texture(NoteType::Mine, item.column), UVRect{},
+                                    multiply(style.head_color, tint));
         last_drawn_quads_++;
     }
 }
