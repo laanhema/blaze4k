@@ -75,6 +75,33 @@ std::string format_grade(const GradeTier& grade) {
     return label;
 }
 
+Color judgment_color(JudgmentKind kind, TapJudgment window, HoldJudgment hold) {
+    (void)hold;
+    switch (kind) {
+        case JudgmentKind::Tap:
+            switch (window) {
+                case TapJudgment::Fantastic: return kFantasticColor;
+                case TapJudgment::Excellent: return kExcellentColor;
+                case TapJudgment::Great: return kGreatColor;
+                case TapJudgment::Decent: return kDecentColor;
+                case TapJudgment::WayOff: return kWayOffColor;
+                case TapJudgment::Miss: return kMissColor;
+                case TapJudgment::HitMine: return kMissColor;
+                case TapJudgment::Num: return kTextColor;
+            }
+            return kTextColor;
+        case JudgmentKind::Miss: return kMissColor;
+        case JudgmentKind::HitMine: return kMissColor;
+        case JudgmentKind::HoldOk:
+        case JudgmentKind::RollOk: return kHoldOkColor;
+        case JudgmentKind::HoldNg:
+        case JudgmentKind::RollNg: return kHoldNgColor;
+        case JudgmentKind::AvoidedMine:
+        case JudgmentKind::RollHit: return kTextColor;
+    }
+    return kTextColor;
+}
+
 void HudRenderer::render(const ScoreState& state, int screen_w, int screen_h,
                          GlQuadRenderer& renderer) const {
     if (screen_w <= 0 || screen_h <= 0) {
@@ -109,18 +136,22 @@ void HudRenderer::render(const ScoreState& state, int screen_w, int screen_h,
         y += square + gap;
     };
 
-    draw_chip(state.tap_counts[static_cast<std::size_t>(TapJudgment::Fantastic)], kFantasticColor,
-              chip_y);
-    draw_chip(state.tap_counts[static_cast<std::size_t>(TapJudgment::Excellent)], kExcellentColor,
-              chip_y);
-    draw_chip(state.tap_counts[static_cast<std::size_t>(TapJudgment::Great)], kGreatColor, chip_y);
-    draw_chip(state.tap_counts[static_cast<std::size_t>(TapJudgment::Decent)], kDecentColor,
-              chip_y);
-    draw_chip(state.tap_counts[static_cast<std::size_t>(TapJudgment::WayOff)], kWayOffColor,
-              chip_y);
-    draw_chip(state.tap_counts[static_cast<std::size_t>(TapJudgment::Miss)], kMissColor, chip_y);
-    draw_chip(state.hold_counts[static_cast<std::size_t>(HoldJudgment::Ok)], kHoldOkColor, chip_y);
-    draw_chip(state.hold_counts[static_cast<std::size_t>(HoldJudgment::Ng)], kHoldNgColor, chip_y);
+    draw_chip(state.tap_counts[static_cast<std::size_t>(TapJudgment::Fantastic)],
+              judgment_color(JudgmentKind::Tap, TapJudgment::Fantastic, HoldJudgment::Num), chip_y);
+    draw_chip(state.tap_counts[static_cast<std::size_t>(TapJudgment::Excellent)],
+              judgment_color(JudgmentKind::Tap, TapJudgment::Excellent, HoldJudgment::Num), chip_y);
+    draw_chip(state.tap_counts[static_cast<std::size_t>(TapJudgment::Great)],
+              judgment_color(JudgmentKind::Tap, TapJudgment::Great, HoldJudgment::Num), chip_y);
+    draw_chip(state.tap_counts[static_cast<std::size_t>(TapJudgment::Decent)],
+              judgment_color(JudgmentKind::Tap, TapJudgment::Decent, HoldJudgment::Num), chip_y);
+    draw_chip(state.tap_counts[static_cast<std::size_t>(TapJudgment::WayOff)],
+              judgment_color(JudgmentKind::Tap, TapJudgment::WayOff, HoldJudgment::Num), chip_y);
+    draw_chip(state.tap_counts[static_cast<std::size_t>(TapJudgment::Miss)],
+              judgment_color(JudgmentKind::Miss, TapJudgment::Miss, HoldJudgment::Num), chip_y);
+    draw_chip(state.hold_counts[static_cast<std::size_t>(HoldJudgment::Ok)],
+              judgment_color(JudgmentKind::HoldOk, TapJudgment::Num, HoldJudgment::Ok), chip_y);
+    draw_chip(state.hold_counts[static_cast<std::size_t>(HoldJudgment::Ng)],
+              judgment_color(JudgmentKind::HoldNg, TapJudgment::Num, HoldJudgment::Ng), chip_y);
 
     // Bottom-centre: live grade.
     if (state.grade != nullptr) {

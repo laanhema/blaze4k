@@ -39,6 +39,8 @@ bool GameplayView::init(const Chart& chart, const JudgmentConstants& constants,
     life_.set_fail_enabled(options.fail_enabled);
     life_.reset(&chart_, &constants);
     exited_ = false;
+    final_combo_celebrated_ = false;
+    judge_anim_.reset();
 
     field_.set_chart(&chart_);
     field_.set_speed_mod(options.speed);
@@ -152,8 +154,10 @@ void GameplayView::update(double fixed_dt, const std::array<bool, 4>& held_colum
     }
 
     // Once failed, gameplay has ended: keep the stub clock advancing (demo only)
-    // but stop judging and draining events.
+    // but stop judging and draining events. Popups keep fading out (presentation
+    // only) instead of freezing on their last frame.
     if (exited_) {
+        judge_anim_.update(fixed_dt, score_.state().combo);
         return;
     }
 
@@ -167,6 +171,15 @@ void GameplayView::update(double fixed_dt, const std::array<bool, 4>& held_colum
     judge_.drain_new_events(new_events_);
     score_.consume(new_events_);
     life_.consume(new_events_);
+    judge_anim_.consume(new_events_);
+    judge_anim_.update(fixed_dt, score_.state().combo);
+
+    // OQ2: the final combo also pops once the chart is fully resolved (the
+    // milestone path covers every 50; this covers the last, non-round count).
+    if (!final_combo_celebrated_ && score_.is_complete()) {
+        final_combo_celebrated_ = true;
+        judge_anim_.celebrate(score_.state().combo);
+    }
 
     if (life_.has_failed()) {
         exited_ = true;
@@ -220,6 +233,7 @@ void GameplayView::render(GlQuadRenderer& renderer, int screen_w, int screen_h) 
     // when the renderer is uninitialized); the score/life state is computed in update().
     hud_.render(score_.state(), screen_w, screen_h, renderer);
     hud_.render_life(life_.life(), screen_w, screen_h, renderer);
+    judge_anim_.render(renderer, screen_w, screen_h);
 }
 
 GameplayOutcome GameplayView::outcome() const {
@@ -258,6 +272,7 @@ void GameplayView::shutdown() {
         clock_.clear_source();
         items_.clear();
         visible_items_.clear();
+        judge_anim_.reset();
         ready_ = false;
     }
 }

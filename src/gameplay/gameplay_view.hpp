@@ -5,6 +5,7 @@
 #include <vector>
 #include "chart/chart.hpp"
 #include "gameplay/hud_renderer.hpp"
+#include "gameplay/judgment_animator.hpp"
 #include "gameplay/judgment_engine.hpp"
 #include "gameplay/life_keeper.hpp"
 #include "gameplay/note_field.hpp"
@@ -82,6 +83,7 @@ private:
     ScoreKeeper score_;
     LifeKeeper life_;
     HudRenderer hud_;
+    JudgmentAnimator judge_anim_;
     std::vector<JudgmentEvent> new_events_;
     std::vector<NoteRenderItem> items_;
     std::vector<NoteRenderItem> visible_items_;
@@ -93,6 +95,7 @@ private:
     bool use_stub_ = false;
     bool audio_started_ = false;
     bool exited_ = false; // fail transition already taken (gameplay ended)
+    bool final_combo_celebrated_ = false; // final combo pop armed once
     bool ready_ = false;
 };
 

@@ -288,3 +288,33 @@ target_link_libraries(results_screen_test PRIVATE
 )
 
 add_test(NAME results_screen_test COMMAND results_screen_test)
+
+add_executable(note_art_test
+    note_art_test.cpp
+)
+
+target_link_libraries(note_art_test PRIVATE
+    tundra_core
+)
+
+add_test(NAME note_art_test COMMAND note_art_test)
+
+add_executable(judgment_animator_test
+    judgment_animator_test.cpp
+)
+
+target_link_libraries(judgment_animator_test PRIVATE
+    tundra_core
+)
+
+add_test(NAME judgment_animator_test COMMAND judgment_animator_test)
+
+add_executable(ui_sounds_test
+    ui_sounds_test.cpp
+)
+
+target_link_libraries(ui_sounds_test PRIVATE
+    tundra_core
+)
+
+add_test(NAME ui_sounds_test COMMAND ui_sounds_test)
