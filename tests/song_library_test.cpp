@@ -197,6 +197,7 @@ int main() {
     TEST_CHECK(!s4->has_custom_background);
     TEST_CHECK(s4->resolved_banner_path == fallback_banner.string());
     TEST_CHECK(s4->resolved_background_path == fallback_bg.string());
+    TEST_CHECK(std::filesystem::exists(s4->resolved_background_path));
     std::cout << "  - Global missing-art fallback verified.\n";
 
     // 7. Validate non-4-panel and corrupt simfiles skipped

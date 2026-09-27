@@ -15,6 +15,7 @@
 #include "gameplay/speed_mod.hpp"
 #include "audio/sound_stream.hpp"
 #include "input/input_event.hpp"
+#include "render/background_renderer.hpp"
 #include "render/gl_quad_renderer.hpp"
 #include "timing/music_clock.hpp"
 
@@ -41,7 +42,7 @@ public:
     GameplayView& operator=(const GameplayView&) = delete;
 
     bool init(const Chart& chart, const JudgmentConstants& constants, const std::string& audio_path,
-              const GameplayOptions& options);
+              const GameplayOptions& options, const std::string& background_path = "");
     void handle_input_events(const std::vector<InputEvent>& events, uint64_t reference_ns);
     void update(double fixed_dt, const std::array<bool, 4>& held_columns);
     void render(GlQuadRenderer& renderer, int screen_w, int screen_h);
@@ -75,6 +76,7 @@ private:
     SoundStream audio_;
     NoteField field_;
     NoteSkin skin_;
+    BackgroundRenderer background_;
     NoteFieldRenderer field_renderer_;
     JudgmentEngine judge_;
     ScoreKeeper score_;

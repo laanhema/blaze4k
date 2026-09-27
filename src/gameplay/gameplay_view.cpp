@@ -26,7 +26,8 @@ GameplayView::~GameplayView() {
 }
 
 bool GameplayView::init(const Chart& chart, const JudgmentConstants& constants,
-                        const std::string& audio_path, const GameplayOptions& options) {
+                        const std::string& audio_path, const GameplayOptions& options,
+                        const std::string& background_path) {
     chart_ = chart;
     if (chart_.notes.empty()) {
         std::cerr << "[GameplayView] Chart has no notes; nothing to play\n";
@@ -64,6 +65,7 @@ bool GameplayView::init(const Chart& chart, const JudgmentConstants& constants,
 
     bind_clock_source();
     skin_.init();
+    background_.load(background_path);
 
     ready_ = true;
     std::cout << "[GameplayView] Loaded chart '" << chart_.difficulty << "' (meter " << chart_.meter
@@ -182,6 +184,9 @@ void GameplayView::render(GlQuadRenderer& renderer, int screen_w, int screen_h) 
         return;
     }
 
+    // Background first (behind receptors/notes/HUD), dimmed for readability.
+    background_.render(renderer, screen_w, screen_h);
+
     const double receptor_y = receptor_fraction_ * static_cast<double>(screen_h);
     config_.receptor_y = receptor_y;
     field_.set_config(config_);
@@ -249,6 +254,7 @@ void GameplayView::shutdown() {
         audio_.stop();
         audio_.unload();
         skin_.shutdown();
+        background_.shutdown();
         clock_.clear_source();
         items_.clear();
         visible_items_.clear();

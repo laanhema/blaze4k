@@ -233,6 +233,22 @@ target_link_libraries(texture_test PRIVATE
 
 add_test(NAME texture_test COMMAND texture_test)
 
+add_executable(background_test
+    background_test.cpp
+)
+
+target_link_libraries(background_test PRIVATE
+    tundra_core
+)
+
+# Locate the committed fallback asset from out-of-tree test runs (cwd is the
+# tests build dir), mirroring main's executable-relative candidate.
+target_compile_definitions(background_test PRIVATE
+    TUNDRA_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets"
+)
+
+add_test(NAME background_test COMMAND background_test)
+
 add_executable(input_remap_test
     input_remap_test.cpp
 )

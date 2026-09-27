@@ -43,4 +43,18 @@ std::filesystem::path default_executable_dir() {
     return std::filesystem::path(base);
 }
 
+std::filesystem::path resolve_first_existing(
+    const std::vector<std::filesystem::path>& candidates) {
+    for (const std::filesystem::path& candidate : candidates) {
+        if (candidate.empty()) {
+            continue;
+        }
+        std::error_code ec;
+        if (std::filesystem::is_regular_file(candidate, ec)) {
+            return candidate;
+        }
+    }
+    return {};
+}
+
 } // namespace td
