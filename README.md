@@ -81,3 +81,14 @@ blaze-4k/
 - [Building](docs/BUILDING.md) — per-OS prerequisites, presets, testing, portable data layout
 - [Cross-platform verification](docs/CROSS_PLATFORM_VERIFICATION.md) — D4 verification record + owner checklist
 - [AGENTS.md](AGENTS.md) — contributor/agent guidance
+
+## License
+
+Blaze 4k's source code is released under the [MIT License](LICENSE).
+
+Bundled third-party assets keep their own licenses:
+
+- The Cel noteskin (`assets/noteskins/cel/`) is public domain under the [Unlicense](assets/noteskins/cel/LICENSE).
+- `assets/noteskins/cel/explosions/Fallback HitMine Explosion.png` is from StepMania and is distributed under [StepMania's license](assets/noteskins/cel/explosions/LICENSE-StepMania.txt).
+
+Dependencies fetched at build time (SDL3, glad, nlohmann/json, miniaudio, stb) are covered by their own licenses.
