@@ -3,7 +3,7 @@
 #include "chart/note.hpp"
 #include "timing/judgment_constants.hpp"
 
-namespace td {
+namespace blaze4k {
 
 // Immutable, event-sourced judgment model (PRD section 6 pattern 2).
 //
@@ -40,4 +40,4 @@ struct JudgmentEvent {
     return j == TapJudgment::Fantastic || j == TapJudgment::Excellent || j == TapJudgment::Great;
 }
 
-} // namespace td
+} // namespace blaze4k

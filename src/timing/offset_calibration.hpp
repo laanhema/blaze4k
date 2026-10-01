@@ -3,7 +3,7 @@
 #include <cstddef>
 #include <vector>
 
-namespace td {
+namespace blaze4k {
 
 // Analytic steady-metronome schedule + robust offset estimation for the C5
 // calibration wizard (PRD section 7.5). Pure: standard-library <cstddef>/<vector>
@@ -42,7 +42,7 @@ struct CalibrationResult {
     int rejected_wild = 0;
     int rejected_outlier = 0;
     double mean_delta_seconds = 0.0; // mean(hit - beat); positive = late
-    double offset_seconds = 0.0;     // -mean_delta (Tundra sign; OQ4)
+    double offset_seconds = 0.0;     // -mean_delta (Blaze 4k sign; OQ4)
     double spread_seconds = 0.0;     // stddev of inliers
 };
 
@@ -70,4 +70,4 @@ private:
     int rejected_wild_ = 0;
 };
 
-} // namespace td
+} // namespace blaze4k

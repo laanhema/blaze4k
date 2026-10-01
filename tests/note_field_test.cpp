@@ -24,9 +24,9 @@ bool approx(double a, double b, double epsilon = 1e-9) {
     return std::abs(a - b) < epsilon;
 }
 
-td::Note make_note(int column, double beat, double time_seconds, td::NoteType type,
+blaze4k::Note make_note(int column, double beat, double time_seconds, blaze4k::NoteType type,
                    double hold_beats = 0.0, double hold_end_time = 0.0) {
-    td::Note note;
+    blaze4k::Note note;
     note.column = column;
     note.beat = beat;
     note.time_seconds = time_seconds;
@@ -43,53 +43,53 @@ int main() {
 
     // 1. Speed-mod parsing (OpenITG semantics, case-insensitive, positive floats only).
     {
-        td::SpeedMod mod;
+        blaze4k::SpeedMod mod;
 
-        TEST_CHECK(td::parse_speed_mod("C400", mod));
-        TEST_CHECK(mod.type == td::SpeedModType::CMod && approx(mod.value, 400.0));
+        TEST_CHECK(blaze4k::parse_speed_mod("C400", mod));
+        TEST_CHECK(mod.type == blaze4k::SpeedModType::CMod && approx(mod.value, 400.0));
 
-        TEST_CHECK(td::parse_speed_mod("1.5x", mod));
-        TEST_CHECK(mod.type == td::SpeedModType::XMod && approx(mod.value, 1.5));
+        TEST_CHECK(blaze4k::parse_speed_mod("1.5x", mod));
+        TEST_CHECK(mod.type == blaze4k::SpeedModType::XMod && approx(mod.value, 1.5));
 
-        TEST_CHECK(td::parse_speed_mod("M600", mod));
-        TEST_CHECK(mod.type == td::SpeedModType::MMod && approx(mod.value, 600.0));
+        TEST_CHECK(blaze4k::parse_speed_mod("M600", mod));
+        TEST_CHECK(mod.type == blaze4k::SpeedModType::MMod && approx(mod.value, 600.0));
 
-        TEST_CHECK(td::parse_speed_mod("c400", mod));
-        TEST_CHECK(mod.type == td::SpeedModType::CMod && approx(mod.value, 400.0));
+        TEST_CHECK(blaze4k::parse_speed_mod("c400", mod));
+        TEST_CHECK(mod.type == blaze4k::SpeedModType::CMod && approx(mod.value, 400.0));
 
-        TEST_CHECK(td::parse_speed_mod("X2", mod));
-        TEST_CHECK(mod.type == td::SpeedModType::XMod && approx(mod.value, 2.0));
+        TEST_CHECK(blaze4k::parse_speed_mod("X2", mod));
+        TEST_CHECK(mod.type == blaze4k::SpeedModType::XMod && approx(mod.value, 2.0));
 
-        TEST_CHECK(!td::parse_speed_mod("", mod));
-        TEST_CHECK(!td::parse_speed_mod("abc", mod));
-        TEST_CHECK(!td::parse_speed_mod("0x", mod));
-        TEST_CHECK(!td::parse_speed_mod("-1x", mod));
-        TEST_CHECK(!td::parse_speed_mod("C0", mod));
-        TEST_CHECK(!td::parse_speed_mod("infx", mod));
+        TEST_CHECK(!blaze4k::parse_speed_mod("", mod));
+        TEST_CHECK(!blaze4k::parse_speed_mod("abc", mod));
+        TEST_CHECK(!blaze4k::parse_speed_mod("0x", mod));
+        TEST_CHECK(!blaze4k::parse_speed_mod("-1x", mod));
+        TEST_CHECK(!blaze4k::parse_speed_mod("C0", mod));
+        TEST_CHECK(!blaze4k::parse_speed_mod("infx", mod));
         std::cout << "  - Speed-mod parsing correct.\n";
     }
 
     // 2. C-mod is constant across a BPM change (time spacing).
     {
-        td::TimingData timing_a;
+        blaze4k::TimingData timing_a;
         timing_a.parse_bpms_string("0=120");
-        td::TimingData timing_b;
+        blaze4k::TimingData timing_b;
         timing_b.parse_bpms_string("0=120,8=240");
 
-        td::Chart chart_a;
+        blaze4k::Chart chart_a;
         chart_a.timing = timing_a;
-        chart_a.notes.push_back(make_note(0, 4.0, 2.0, td::NoteType::Tap));
+        chart_a.notes.push_back(make_note(0, 4.0, 2.0, blaze4k::NoteType::Tap));
 
-        td::Chart chart_b;
+        blaze4k::Chart chart_b;
         chart_b.timing = timing_b;
-        chart_b.notes.push_back(make_note(0, 4.0, 2.0, td::NoteType::Tap));
+        chart_b.notes.push_back(make_note(0, 4.0, 2.0, blaze4k::NoteType::Tap));
 
-        td::NoteField field_a;
+        blaze4k::NoteField field_a;
         field_a.set_chart(&chart_a);
-        field_a.set_speed_mod(td::SpeedMod{td::SpeedModType::CMod, 400.0});
-        td::NoteField field_b;
+        field_a.set_speed_mod(blaze4k::SpeedMod{blaze4k::SpeedModType::CMod, 400.0});
+        blaze4k::NoteField field_b;
         field_b.set_chart(&chart_b);
-        field_b.set_speed_mod(td::SpeedMod{td::SpeedModType::CMod, 400.0});
+        field_b.set_speed_mod(blaze4k::SpeedMod{blaze4k::SpeedModType::CMod, 400.0});
 
         const double expected = (2.0 - 1.0) * (400.0 / 60.0) * 64.0;
         const double offset_a = field_a.offset_for_note(chart_a.notes.front(), 1.0);
@@ -101,16 +101,16 @@ int main() {
 
     // 3. X-mod beat spacing is invariant across a BPM change.
     {
-        td::TimingData timing;
+        blaze4k::TimingData timing;
         timing.parse_bpms_string("0=120,8=240");
 
-        td::Chart chart;
+        blaze4k::Chart chart;
         chart.timing = timing;
-        chart.notes.push_back(make_note(0, 16.0, 0.0, td::NoteType::Tap));
+        chart.notes.push_back(make_note(0, 16.0, 0.0, blaze4k::NoteType::Tap));
 
-        td::NoteField field;
+        blaze4k::NoteField field;
         field.set_chart(&chart);
-        field.set_speed_mod(td::SpeedMod{td::SpeedModType::XMod, 1.0});
+        field.set_speed_mod(blaze4k::SpeedMod{blaze4k::SpeedModType::XMod, 1.0});
 
         const double t_low = timing.beat_to_seconds(8.0);   // inside first BPM
         const double t_high = timing.beat_to_seconds(12.0); // inside second BPM
@@ -130,24 +130,24 @@ int main() {
 
     // 4. M-mod resolves to an X-mod via the chart's max BPM.
     {
-        td::TimingData timing;
+        blaze4k::TimingData timing;
         timing.parse_bpms_string("0=100,16=150");
 
-        td::Chart chart;
+        blaze4k::Chart chart;
         chart.timing = timing;
-        chart.notes.push_back(make_note(0, 16.0, 0.0, td::NoteType::Tap));
+        chart.notes.push_back(make_note(0, 16.0, 0.0, blaze4k::NoteType::Tap));
 
-        TEST_CHECK(approx(td::max_chart_bpm(timing), 150.0));
-        TEST_CHECK(approx(td::resolve_x_speed(td::SpeedMod{td::SpeedModType::MMod, 600.0}, timing), 4.0));
-        TEST_CHECK(approx(td::resolve_x_speed(td::SpeedMod{td::SpeedModType::XMod, 3.0}, timing), 3.0));
+        TEST_CHECK(approx(blaze4k::max_chart_bpm(timing), 150.0));
+        TEST_CHECK(approx(blaze4k::resolve_x_speed(blaze4k::SpeedMod{blaze4k::SpeedModType::MMod, 600.0}, timing), 4.0));
+        TEST_CHECK(approx(blaze4k::resolve_x_speed(blaze4k::SpeedMod{blaze4k::SpeedModType::XMod, 3.0}, timing), 3.0));
 
-        td::NoteField m_field;
+        blaze4k::NoteField m_field;
         m_field.set_chart(&chart);
-        m_field.set_speed_mod(td::SpeedMod{td::SpeedModType::MMod, 600.0});
+        m_field.set_speed_mod(blaze4k::SpeedMod{blaze4k::SpeedModType::MMod, 600.0});
 
-        td::NoteField x_field;
+        blaze4k::NoteField x_field;
         x_field.set_chart(&chart);
-        x_field.set_speed_mod(td::SpeedMod{td::SpeedModType::XMod, 4.0});
+        x_field.set_speed_mod(blaze4k::SpeedMod{blaze4k::SpeedModType::XMod, 4.0});
 
         TEST_CHECK(approx(m_field.effective_x_speed(), 4.0));
         for (double t = 0.0; t < 4.0; t += 0.25) {
@@ -159,16 +159,16 @@ int main() {
 
     // 5. Offset approaches zero then passes as only the supplied music time advances.
     {
-        td::TimingData timing;
+        blaze4k::TimingData timing;
         timing.parse_bpms_string("0=120");
 
-        td::Chart chart;
+        blaze4k::Chart chart;
         chart.timing = timing;
-        chart.notes.push_back(make_note(0, 8.0, 4.0, td::NoteType::Tap));
+        chart.notes.push_back(make_note(0, 8.0, 4.0, blaze4k::NoteType::Tap));
 
-        td::NoteField field;
+        blaze4k::NoteField field;
         field.set_chart(&chart);
-        field.set_speed_mod(td::SpeedMod{td::SpeedModType::XMod, 1.0});
+        field.set_speed_mod(blaze4k::SpeedMod{blaze4k::SpeedModType::XMod, 1.0});
 
         const double t_note = timing.beat_to_seconds(8.0);
         const double before = field.offset_for_note(chart.notes.front(), t_note - 1.0);
@@ -185,15 +185,15 @@ int main() {
 
     // 6. Scroll direction is a pure mirror about the receptor row.
     {
-        td::NoteField field;
-        td::NoteFieldConfig config;
+        blaze4k::NoteField field;
+        blaze4k::NoteFieldConfig config;
         config.receptor_y = 100.0;
 
-        config.direction = td::ScrollDirection::Up;
+        config.direction = blaze4k::ScrollDirection::Up;
         field.set_config(config);
         const double up = field.screen_y(40.0);
 
-        config.direction = td::ScrollDirection::Down;
+        config.direction = blaze4k::ScrollDirection::Down;
         field.set_config(config);
         const double down = field.screen_y(40.0);
 
@@ -205,26 +205,26 @@ int main() {
 
     // 7. Stop semantics: X-mod freezes during a stop; C-mod keeps moving.
     {
-        td::TimingData timing;
+        blaze4k::TimingData timing;
         timing.parse_bpms_string("0=120");
         timing.add_stop(4.0, 1.0);
 
-        td::Chart chart;
+        blaze4k::Chart chart;
         chart.timing = timing;
-        chart.notes.push_back(make_note(0, 8.0, timing.beat_to_seconds(8.0), td::NoteType::Tap));
+        chart.notes.push_back(make_note(0, 8.0, timing.beat_to_seconds(8.0), blaze4k::NoteType::Tap));
 
-        td::NoteField x_field;
+        blaze4k::NoteField x_field;
         x_field.set_chart(&chart);
-        x_field.set_speed_mod(td::SpeedMod{td::SpeedModType::XMod, 1.0});
+        x_field.set_speed_mod(blaze4k::SpeedMod{blaze4k::SpeedModType::XMod, 1.0});
 
         const double stop_start = timing.beat_to_seconds(4.0);
         const double x_early = x_field.offset_for_note(chart.notes.front(), stop_start + 0.2);
         const double x_late = x_field.offset_for_note(chart.notes.front(), stop_start + 0.8);
         TEST_CHECK(approx(x_early, x_late));
 
-        td::NoteField c_field;
+        blaze4k::NoteField c_field;
         c_field.set_chart(&chart);
-        c_field.set_speed_mod(td::SpeedMod{td::SpeedModType::CMod, 400.0});
+        c_field.set_speed_mod(blaze4k::SpeedMod{blaze4k::SpeedModType::CMod, 400.0});
 
         const double c_early = c_field.offset_for_note(chart.notes.front(), stop_start + 0.2);
         const double c_late = c_field.offset_for_note(chart.notes.front(), stop_start + 0.8);
@@ -234,36 +234,36 @@ int main() {
 
     // 8. Holds/rolls/mines render distinctly.
     {
-        td::TimingData timing;
+        blaze4k::TimingData timing;
         timing.parse_bpms_string("0=120");
 
-        td::Chart chart;
+        blaze4k::Chart chart;
         chart.timing = timing;
-        chart.notes.push_back(make_note(0, 4.0, timing.beat_to_seconds(4.0), td::NoteType::Tap));
-        chart.notes.push_back(make_note(1, 4.0, timing.beat_to_seconds(4.0), td::NoteType::HoldHead,
+        chart.notes.push_back(make_note(0, 4.0, timing.beat_to_seconds(4.0), blaze4k::NoteType::Tap));
+        chart.notes.push_back(make_note(1, 4.0, timing.beat_to_seconds(4.0), blaze4k::NoteType::HoldHead,
                                         4.0, timing.beat_to_seconds(8.0)));
-        chart.notes.push_back(make_note(2, 8.0, timing.beat_to_seconds(8.0), td::NoteType::RollHead,
+        chart.notes.push_back(make_note(2, 8.0, timing.beat_to_seconds(8.0), blaze4k::NoteType::RollHead,
                                         4.0, timing.beat_to_seconds(12.0)));
-        chart.notes.push_back(make_note(3, 4.0, timing.beat_to_seconds(4.0), td::NoteType::Mine));
+        chart.notes.push_back(make_note(3, 4.0, timing.beat_to_seconds(4.0), blaze4k::NoteType::Mine));
 
-        td::NoteField field;
+        blaze4k::NoteField field;
         field.set_chart(&chart);
-        field.set_speed_mod(td::SpeedMod{td::SpeedModType::XMod, 1.0});
+        field.set_speed_mod(blaze4k::SpeedMod{blaze4k::SpeedModType::XMod, 1.0});
 
-        std::vector<td::NoteRenderItem> items;
+        std::vector<blaze4k::NoteRenderItem> items;
         field.compute_visible(0.0, -1000.0, 2000.0, items);
         TEST_CHECK(items.size() == 4);
 
-        const td::NoteRenderItem* tap = nullptr;
-        const td::NoteRenderItem* hold = nullptr;
-        const td::NoteRenderItem* roll = nullptr;
-        const td::NoteRenderItem* mine = nullptr;
-        for (const td::NoteRenderItem& item : items) {
+        const blaze4k::NoteRenderItem* tap = nullptr;
+        const blaze4k::NoteRenderItem* hold = nullptr;
+        const blaze4k::NoteRenderItem* roll = nullptr;
+        const blaze4k::NoteRenderItem* mine = nullptr;
+        for (const blaze4k::NoteRenderItem& item : items) {
             switch (item.type) {
-                case td::NoteType::Tap: tap = &item; break;
-                case td::NoteType::HoldHead: hold = &item; break;
-                case td::NoteType::RollHead: roll = &item; break;
-                case td::NoteType::Mine: mine = &item; break;
+                case blaze4k::NoteType::Tap: tap = &item; break;
+                case blaze4k::NoteType::HoldHead: hold = &item; break;
+                case blaze4k::NoteType::RollHead: roll = &item; break;
+                case blaze4k::NoteType::Mine: mine = &item; break;
             }
         }
 
@@ -273,14 +273,14 @@ int main() {
         TEST_CHECK(mine != nullptr && !mine->has_body);
 
         // Headless (no init): the procedural fallback skin's sprites.
-        td::NoteSkin skin;
-        const std::array<td::SkinSprite, 2> mine_layers = skin.mine(0.0);
+        blaze4k::NoteSkin skin;
+        const std::array<blaze4k::SkinSprite, 2> mine_layers = skin.mine(0.0);
         TEST_CHECK(mine_layers[0].scale < 1.0f);
         // ITG note colors encode the beat subdivision (not column direction):
         // 4th=red, 8th=blue, 16th=yellow.
-        const td::Color fourth = skin.quantization_color(td::NoteQuantization::Fourth);
-        const td::Color eighth = skin.quantization_color(td::NoteQuantization::Eighth);
-        const td::Color sixteenth = skin.quantization_color(td::NoteQuantization::Sixteenth);
+        const blaze4k::Color fourth = skin.quantization_color(blaze4k::NoteQuantization::Fourth);
+        const blaze4k::Color eighth = skin.quantization_color(blaze4k::NoteQuantization::Eighth);
+        const blaze4k::Color sixteenth = skin.quantization_color(blaze4k::NoteQuantization::Sixteenth);
         TEST_CHECK(fourth.r > fourth.g && fourth.r > fourth.b);
         TEST_CHECK(eighth.b > eighth.r && eighth.b > eighth.g);
         TEST_CHECK(sixteenth.r > sixteenth.b && sixteenth.g > sixteenth.b);
@@ -290,20 +290,20 @@ int main() {
 
     // 8b. C-mod tail and beat offsets use absolute time spacing (not beat spacing).
     {
-        td::TimingData timing;
+        blaze4k::TimingData timing;
         timing.parse_bpms_string("0=120,8=240");
 
         const double head_time = timing.beat_to_seconds(4.0);
         const double tail_time = timing.beat_to_seconds(8.0);
 
-        td::Chart chart;
+        blaze4k::Chart chart;
         chart.timing = timing;
-        chart.notes.push_back(make_note(0, 4.0, head_time, td::NoteType::HoldHead,
+        chart.notes.push_back(make_note(0, 4.0, head_time, blaze4k::NoteType::HoldHead,
                                         4.0, tail_time));
 
-        td::NoteField field;
+        blaze4k::NoteField field;
         field.set_chart(&chart);
-        field.set_speed_mod(td::SpeedMod{td::SpeedModType::CMod, 400.0});
+        field.set_speed_mod(blaze4k::SpeedMod{blaze4k::SpeedModType::CMod, 400.0});
 
         const double spacing = (400.0 / 60.0) * 64.0;
         const double head = field.offset_for_note(chart.notes.front(), 1.0);
@@ -319,39 +319,39 @@ int main() {
 
     // 9. Culling keeps bodies that intersect the visible window.
     {
-        td::TimingData timing;
+        blaze4k::TimingData timing;
         timing.parse_bpms_string("0=120");
 
-        td::Chart chart;
+        blaze4k::Chart chart;
         chart.timing = timing;
-        chart.notes.push_back(make_note(0, 2.0, timing.beat_to_seconds(2.0), td::NoteType::Tap));
-        chart.notes.push_back(make_note(1, 4.0, timing.beat_to_seconds(4.0), td::NoteType::HoldHead,
+        chart.notes.push_back(make_note(0, 2.0, timing.beat_to_seconds(2.0), blaze4k::NoteType::Tap));
+        chart.notes.push_back(make_note(1, 4.0, timing.beat_to_seconds(4.0), blaze4k::NoteType::HoldHead,
                                         4.0, timing.beat_to_seconds(8.0)));
 
-        td::NoteField field;
+        blaze4k::NoteField field;
         field.set_chart(&chart);
-        field.set_speed_mod(td::SpeedMod{td::SpeedModType::XMod, 1.0});
+        field.set_speed_mod(blaze4k::SpeedMod{blaze4k::SpeedModType::XMod, 1.0});
 
-        std::vector<td::NoteRenderItem> items;
+        std::vector<blaze4k::NoteRenderItem> items;
 
         // Tap center at offset 128: padding by half a note (28px) keeps it when
         // the window edge is at 100, but drops it once the edge plus padding is
         // still short of the center.
         field.compute_visible(0.0, 0.0, 100.0, items);
         TEST_CHECK(items.size() == 1);
-        TEST_CHECK(items.front().type == td::NoteType::Tap);
+        TEST_CHECK(items.front().type == blaze4k::NoteType::Tap);
 
         field.compute_visible(0.0, 0.0, 90.0, items);
         TEST_CHECK(items.empty());
 
         field.compute_visible(0.0, 100.0, 200.0, items);
         TEST_CHECK(items.size() == 1);
-        TEST_CHECK(items.front().type == td::NoteType::Tap);
+        TEST_CHECK(items.front().type == blaze4k::NoteType::Tap);
 
         // Hold body [256, 512] intersects [300, 400] even with its head off-screen.
         field.compute_visible(0.0, 300.0, 400.0, items);
         TEST_CHECK(items.size() == 1);
-        TEST_CHECK(items.front().type == td::NoteType::HoldHead);
+        TEST_CHECK(items.front().type == blaze4k::NoteType::HoldHead);
 
         field.compute_visible(0.0, 600.0, 700.0, items);
         TEST_CHECK(items.empty());
@@ -360,8 +360,8 @@ int main() {
 
     // 10. Column layout is strictly increasing in L,D,U,R order.
     {
-        td::NoteField field;
-        td::NoteFieldConfig config;
+        blaze4k::NoteField field;
+        blaze4k::NoteFieldConfig config;
         config.column_width = 64.0;
         field.set_config(config);
 

@@ -3,7 +3,7 @@
 #include <iostream>
 #include <utility>
 
-namespace td {
+namespace blaze4k {
 
 MusicClock::MusicClock(Source source)
     : source_(std::move(source)) {}
@@ -63,4 +63,4 @@ int64_t MusicClock::time_nanoseconds() const {
     return static_cast<int64_t>(std::llround(time_seconds() * 1e9));
 }
 
-} // namespace td
+} // namespace blaze4k

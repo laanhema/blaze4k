@@ -6,7 +6,7 @@
 
 ## Summary
 
-Implemented CMake project scaffolding for Tundra Dance using C++20 and FetchContent for dependencies: SDL3 (pinned to release-3.2.8), glad (v0.1.36 for OpenGL 3.3 Core), nlohmann/json (v3.11.3), miniaudio (0.11.21), and stb (commit 2c980bb). Created directory structure under `src/` and `assets/`. Added `src/main.cpp` stub linking and exercising all dependencies. Configured CTest suite with `tests/sanity_test.cpp`.
+Implemented CMake project scaffolding for Blaze 4k using C++20 and FetchContent for dependencies: SDL3 (pinned to release-3.2.8), glad (v0.1.36 for OpenGL 3.3 Core), nlohmann/json (v3.11.3), miniaudio (0.11.21), and stb (commit 2c980bb). Created directory structure under `src/` and `assets/`. Added `src/main.cpp` stub linking and exercising all dependencies. Configured CTest suite with `tests/sanity_test.cpp`.
 
 ## Tasks Completed
 
@@ -24,7 +24,7 @@ Implemented CMake project scaffolding for Tundra Dance using C++20 and FetchCont
 |-------|--------|
 | Type check / Build (`cmake --build build`) | ✅ (0 errors, 0 warnings) |
 | Tests (`ctest --test-dir build --output-on-failure`) | ✅ (1/1 passed) |
-| Binary Execution (`./build/tundra-dance`) | ✅ (Successful dependency init and exit 0) |
+| Binary Execution (`./build/blaze-4k`) | ✅ (Successful dependency init and exit 0) |
 
 ## Files Changed
 

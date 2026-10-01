@@ -1,6 +1,6 @@
 #include "render/texture_cache.hpp"
 
-namespace td {
+namespace blaze4k {
 
 const Texture* TextureCache::get(const std::string& path) {
     if (path.empty()) {
@@ -16,4 +16,4 @@ const Texture* TextureCache::get(const std::string& path) {
     return &inserted.first->second;
 }
 
-} // namespace td
+} // namespace blaze4k

@@ -11,14 +11,14 @@
 
 #include "audio/audio_engine.hpp"
 
-namespace td {
+namespace blaze4k {
 
 namespace {
 
 constexpr double kTwoPi = 6.28318530717958647692;
 constexpr uint32_t kSampleRate = 44100;
 // Short, bright, Hann-windowed click: distinct from the 1 kHz calibration
-// metronome and short enough for dense streams. Tundra presentation, unsourced.
+// metronome and short enough for dense streams. Blaze 4k presentation, unsourced.
 constexpr double kTickHz = 2000.0;
 constexpr double kTickSeconds = 0.03;
 constexpr double kTickAmplitude = 0.6;
@@ -168,4 +168,4 @@ void AssistTickPlayer::shutdown() {
     ready_ = false;
 }
 
-} // namespace td
+} // namespace blaze4k

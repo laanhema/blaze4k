@@ -6,7 +6,7 @@
 #include "gameplay/judgment.hpp"
 #include "render/geometry.hpp"
 
-namespace td {
+namespace blaze4k {
 
 class GlQuadRenderer;
 
@@ -17,7 +17,7 @@ class GlQuadRenderer;
 // `render` draws through the shared bitmap font (a no-op when headless).
 class JudgmentAnimator {
 public:
-    // Tundra presentation constants (unsourced; no OpenITG parity requirement).
+    // Blaze 4k presentation constants (unsourced; no OpenITG parity requirement).
     static constexpr double kJudgmentPopSeconds = 0.6;
     static constexpr double kComboPopSeconds = 0.5;
     static constexpr int kComboMilestone = 50;
@@ -67,4 +67,4 @@ private:
     int last_milestone_ = 0;
 };
 
-} // namespace td
+} // namespace blaze4k

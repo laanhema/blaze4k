@@ -14,7 +14,7 @@
 
 namespace {
 
-using td::ResultsAnimator;
+using blaze4k::ResultsAnimator;
 
 constexpr double kReveal = ResultsAnimator::kRevealSeconds;
 

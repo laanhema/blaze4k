@@ -21,7 +21,7 @@ bool approx(double a, double b) {
 }
 
 void test_empty() {
-    td::FrameStats stats;
+    blaze4k::FrameStats stats;
     TEST_CHECK(stats.empty());
     TEST_CHECK(stats.count() == 0);
     TEST_CHECK(stats.total_ms() == 0.0);
@@ -35,7 +35,7 @@ void test_empty() {
 }
 
 void test_basic_statistics() {
-    td::FrameStats stats;
+    blaze4k::FrameStats stats;
     for (int i = 1; i <= 100; ++i) {
         stats.add(static_cast<double>(i));
     }
@@ -55,7 +55,7 @@ void test_basic_statistics() {
 
 void test_percentile_nearest_rank_rule() {
     // Five samples make each rank unambiguous: index = ceil(p/100*5)-1.
-    td::FrameStats stats;
+    blaze4k::FrameStats stats;
     for (double v : {10.0, 20.0, 30.0, 40.0, 50.0}) {
         stats.add(v);
     }
@@ -67,7 +67,7 @@ void test_percentile_nearest_rank_rule() {
     TEST_CHECK(approx(stats.percentile_ms(100.0), 50.0));  // ceil(5)=5 -> 4
 
     // Insertion order must not matter (it sorts a copy).
-    td::FrameStats reversed;
+    blaze4k::FrameStats reversed;
     for (double v : {50.0, 40.0, 30.0, 20.0, 10.0}) {
         reversed.add(v);
     }
@@ -76,7 +76,7 @@ void test_percentile_nearest_rank_rule() {
 }
 
 void test_invalid_samples_ignored() {
-    td::FrameStats stats;
+    blaze4k::FrameStats stats;
     stats.add(std::numeric_limits<double>::quiet_NaN());
     stats.add(std::numeric_limits<double>::infinity());
     stats.add(-std::numeric_limits<double>::infinity());
@@ -92,7 +92,7 @@ void test_invalid_samples_ignored() {
 }
 
 void test_percentile_clamping() {
-    td::FrameStats stats;
+    blaze4k::FrameStats stats;
     stats.add(10.0);
     stats.add(20.0);
     stats.add(30.0);
@@ -105,7 +105,7 @@ void test_percentile_clamping() {
 }
 
 void test_over_budget_and_reset() {
-    td::FrameStats stats;
+    blaze4k::FrameStats stats;
     stats.add(10.0);
     stats.add(16.0);
     stats.add(16.67);

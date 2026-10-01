@@ -52,7 +52,7 @@ So that notes scroll and judge in perfect sync with the music — never drifting
 
 ## Pinned Semantics
 
-Authoritative formula for this project — from the issue AC and PRD §6 pattern 1 (Tundra Dance's own
+Authoritative formula for this project — from the issue AC and PRD §6 pattern 1 (Blaze 4k's own
 locked spec), **not** copied from StepMania's sign convention:
 
 ```
@@ -65,7 +65,7 @@ gameplay_time_seconds = (pcm_cursor_frames / sample_rate) + global_offset_second
 | Sample rate source | Sound data-format rate, fallback engine rate — `src/audio/sound_stream.cpp:69-74` | Sound is fully decoded (`MA_SOUND_FLAG_DECODE`, line 57) |
 | Default offset | `0.0 s` (uncalibrated) | Issue AC4; StepMania/ITG defaults its own pref to `-0.008f` (`PrefsManager.cpp`) |
 | Offset application | **Add**: `raw_sample_seconds + offset` | PRD §6 pattern 1 / issue AC literally state "plus global offset" |
-| StepMania reference (for contrast) | `GetElapsedTimeFromBeat = GetElapsedTimeFromBeatNoOffset - m_fMusicRate * m_fGlobalOffsetSeconds` — `stepmania/stepmania:sr/TimingData.cpp` (via GitHub code search) | Tundra's stored value sign is **not** StepMania's; see Open Questions |
+| StepMania reference (for contrast) | `GetElapsedTimeFromBeat = GetElapsedTimeFromBeatNoOffset - m_fMusicRate * m_fGlobalOffsetSeconds` — `stepmania/stepmania:sr/TimingData.cpp` (via GitHub code search) | Blaze 4k's stored value sign is **not** StepMania's; see Open Questions |
 | Excluded inputs | No `<chrono>`, `<thread>`, `SDL_GetPerformanceCounter`, or frame-delta in `src/timing/` | Core principle 1 / PRD §11 quality indicator |
 
 ---
@@ -130,7 +130,7 @@ add_executable(audio_test
     audio_test.cpp
 )
 target_link_libraries(audio_test PRIVATE
-    tundra_core
+    blaze4k_core
 )
 add_test(NAME audio_test COMMAND audio_test)
 ```
@@ -138,7 +138,7 @@ add_test(NAME audio_test COMMAND audio_test)
 ### Source registration
 ```cmake
 # SOURCE: CMakeLists.txt:80-92
-add_library(tundra_core STATIC
+add_library(blaze4k_core STATIC
     src/app/window.cpp
     ...
     src/chart/song_library.cpp
@@ -155,7 +155,7 @@ add_library(tundra_core STATIC
 | `src/timing/music_clock.cpp` | CREATE | Clock math implementation + safe guards |
 | `src/audio/sound_stream.hpp` | UPDATE | Add `get_position_frames()` and `get_sample_rate()` accessors (additive; no behavior change) |
 | `src/audio/sound_stream.cpp` | UPDATE | Implement the two accessors |
-| `CMakeLists.txt` | UPDATE | Add `src/timing/music_clock.cpp` to `tundra_core` |
+| `CMakeLists.txt` | UPDATE | Add `src/timing/music_clock.cpp` to `blaze4k_core` |
 | `tests/music_clock_test.cpp` | CREATE | Deterministic clock-math + offset-sign + jitter-independence tests; guarded audio integration sub-test |
 | `tests/CMakeLists.txt` | UPDATE | Register `music_clock_test` |
 
@@ -187,7 +187,7 @@ Execute in order. Each task is atomic and verifiable.
 - **Action**: CREATE
 - **Implement**:
   ```cpp
-  namespace td {
+  namespace blaze4k {
   struct SamplePosition {
       uint64_t frames = 0;
       uint32_t sample_rate = 44100;
@@ -215,7 +215,7 @@ Execute in order. Each task is atomic and verifiable.
       static double seconds_from_pcm(uint64_t frames, uint32_t sample_rate);
       static double apply_offset(double sample_seconds, double offset_seconds);
   };
-  } // namespace td
+  } // namespace blaze4k
   ```
   - `#include <cstdint>`, `<functional>`, `<cmath>` only — **no `<chrono>`/`<thread>`/SDL/miniaudio**.
   - Document the sign convention in a header comment: positive offset makes the clock read later.
@@ -247,9 +247,9 @@ Execute in order. Each task is atomic and verifiable.
 - **Files**: `CMakeLists.txt`, `tests/CMakeLists.txt`
 - **Action**: UPDATE
 - **Implement**:
-  - Root `CMakeLists.txt`: add `src/timing/music_clock.cpp` to the `tundra_core` source list (after
+  - Root `CMakeLists.txt`: add `src/timing/music_clock.cpp` to the `blaze4k_core` source list (after
     the `src/chart/` entries, line ~91).
-  - `tests/CMakeLists.txt`: append a `music_clock_test` executable linking `tundra_core` and
+  - `tests/CMakeLists.txt`: append a `music_clock_test` executable linking `blaze4k_core` and
     `add_test(NAME music_clock_test COMMAND music_clock_test)` (mirror the `audio_test` block).
 - **Mirror**: `CMakeLists.txt:80-92`, `tests/CMakeLists.txt:22-30`
 - **Validate**: `cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j16`
@@ -318,7 +318,7 @@ ctest --test-dir build --output-on-failure
 
 | Risk | Mitigation | Scope |
 |------|------------|-------|
-| Offset sign is ambiguous versus StepMania/OpenITG (StepMania uses `- m_fMusicRate * m_fGlobalOffsetSeconds`, default `-0.008f`) | Pin Tundra's own formula `raw + offset` from PRD §6 / issue AC; document sign explicitly; surface in Open Questions for human confirmation | **In scope** — decision recorded in plan |
+| Offset sign is ambiguous versus StepMania/OpenITG (StepMania uses `- m_fMusicRate * m_fGlobalOffsetSeconds`, default `-0.008f`) | Pin Blaze 4k's own formula `raw + offset` from PRD §6 / issue AC; document sign explicitly; surface in Open Questions for human confirmation | **In scope** — decision recorded in plan |
 | Config module does not exist yet (C4), so there is no `config.json` to read an offset from | Clock owns a `double` with setter/getter and default `0.0`; C4 wires persistence, C5 wires calibration. No config code in this issue | **In scope** — setter only |
 | Hardware-dependent test flakiness in CI/headless | Primary tests use injected fake `SamplePosition` sources (deterministic); audio integration test skips when `AudioEngine::init()` fails | **In scope** |
 | `SoundStream` API change ripples to existing tests | Accessors are purely additive; run full 8-test suite after Task 1 | **In scope** |
@@ -334,7 +334,7 @@ ctest --test-dir build --output-on-failure
   hardware" and keeps `src/timing/` free of platform includes. Production binding is a one-line lambda.
 - **Explicit frames ÷ rate**: add raw accessors to `SoundStream` rather than reusing
   `get_position_seconds()`, so the AC is implemented literally and sample-exactness is preserved.
-- **Offset stored with Tundra sign**: `time = raw + offset`; positive offset moves the clock later.
+- **Offset stored with Blaze 4k sign**: `time = raw + offset`; positive offset moves the clock later.
 - **No monotonic enforcement / no caching in the clock**: the audio cursor is the only authority;
   caching or interpolation would reintroduce frame-timing logic.
 - **No config persistence, no App integration** in this issue; downstream B3/B4 consume the clock.
@@ -346,7 +346,7 @@ ctest --test-dir build --output-on-failure
 1. **Offset sign / stored-value convention (needs human decision).** PRD §6 pattern 1 and issue AC say
    `+ global offset`, but StepMania's authoritative code applies `- m_fMusicRate * m_fGlobalOffsetSeconds`
    and defaults the pref to `-0.008f`. Proposed default: implement `raw + offset` (positive = later),
-   store `0.0`, and have C5 write Tundra-signed values. *Rationale:* the issue AC is explicit and this is
+   store `0.0`, and have C5 write Blaze 4k-signed values. *Rationale:* the issue AC is explicit and this is
    a bespoke engine; importing StepMania's negative pref value would invert behavior. Confirm before C5.
 2. **Where the offset value comes from pre-C4.** Proposed: `MusicClock::set_global_offset_seconds()`
    with default `0.0`, wired to `config.json` in C4. Confirm no minimal config loader is expected here.

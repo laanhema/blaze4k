@@ -6,7 +6,7 @@
 
 ## Summary
 
-Added a data-driven judgment/scoring constants table for Tundra Dance, seeded with
+Added a data-driven judgment/scoring constants table for Blaze 4k, seeded with
 OpenITG arcade runtime values (tag `f2c129fe65c65e4a9b3a691ff35e7717b4e8de51`,
 `assets/patch-data/Themes/default/metrics.ini`). The pure value type + classification
 helpers live in `src/timing/judgment_constants.*` (platform-free), the non-throwing

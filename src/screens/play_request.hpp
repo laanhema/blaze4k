@@ -2,7 +2,7 @@
 
 #include "gameplay/gameplay_options.hpp"
 
-namespace td {
+namespace blaze4k {
 struct Song;
 struct Chart;
 
@@ -15,4 +15,4 @@ struct PlayRequest {
     GameplayOptions options{};
 };
 
-} // namespace td
+} // namespace blaze4k

@@ -43,7 +43,7 @@ None.
 
 3. **`src/main.cpp:66` — malformed `--attract-timeout` aborts the process.**
    `std::stod(argv[++i])` throws `std::invalid_argument` uncaught; confirmed
-   `./build/tundra-dance --attract-timeout abc` exits 134 with an abort. Same pre-existing
+   `./build/blaze-4k --attract-timeout abc` exits 134 with an abort. Same pre-existing
    pattern as `--smoke-test`'s `std::stoi`, but new code should validate and fall back to
    the default with a readable log line.
 

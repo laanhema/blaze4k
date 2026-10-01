@@ -33,7 +33,7 @@ namespace fs = std::filesystem;
 namespace {
 
 void print_help() {
-    std::cout << "Usage: tundra-dance [options]\n"
+    std::cout << "Usage: blaze-4k [options]\n"
               << "  --headless              Run without window/GL context\n"
               << "  --smoke-test [N]        Run N frames and exit cleanly (default: 10)\n"
               << "  --no-vsync              Disable vertical sync\n"
@@ -42,7 +42,7 @@ void print_help() {
               << "  --start-screen <name>   Start on 'title' or 'select' (default: title)\n"
               << "  --data-dir <path>       Override the data directory (config.json/scores.json)\n"
               << "  --xdg                   Use the Linux XDG data directory instead of ./data\n"
-              << "                          (also enabled by the TUNDRA_XDG=1 environment variable)\n"
+              << "                          (also enabled by the BLAZE4K_XDG=1 environment variable)\n"
               << "  --perf-report           Print a frame-time report (min/median/p95/p99/max) on exit\n"
               << "  --perf-budget-ms <ms>   Frame budget for the perf report verdict (default 16.67)\n"
               << "  --gameplay-demo <file>  TEMPORARY: render a simfile's first chart (.sm/.ssc)\n"
@@ -55,10 +55,10 @@ void print_help() {
 } // namespace
 
 int main(int argc, char* argv[]) {
-    std::cout << "Tundra Dance - 4-Panel Rhythm Game Engine v0.1.0\n";
+    std::cout << "Blaze 4k - 4-Panel Rhythm Game Engine v0.1.0\n";
 
-    td::AppConfig config;
-    config.window.title = "Tundra Dance";
+    blaze4k::AppConfig config;
+    config.window.title = "Blaze 4k";
     config.window.width = 1280;
     config.window.height = 720;
     config.window.vsync = true;
@@ -171,20 +171,20 @@ int main(int argc, char* argv[]) {
 
     // C2: resolve the local data directory and restore config/high scores before
     // the window is created (video settings must be applied to AppConfig first).
-    const char* xdg_env = std::getenv("TUNDRA_XDG");
+    const char* xdg_env = std::getenv("BLAZE4K_XDG");
     const bool prefer_xdg = xdg_flag || (xdg_env != nullptr && std::string(xdg_env) == "1");
     const char* xdg_home_env = std::getenv("XDG_DATA_HOME");
     const char* home_env = std::getenv("HOME");
-    const td::ResolvedDataPaths paths = td::resolve_data_paths(
-        td::default_executable_dir(), prefer_xdg, xdg_home_env != nullptr ? xdg_home_env : "",
+    const blaze4k::ResolvedDataPaths paths = blaze4k::resolve_data_paths(
+        blaze4k::default_executable_dir(), prefer_xdg, xdg_home_env != nullptr ? xdg_home_env : "",
         home_env != nullptr ? home_env : "",
         data_dir_text.empty() ? fs::path{} : fs::path(data_dir_text));
 
     std::string config_message;
-    td::ConfigLoadStatus config_status = td::ConfigLoadStatus::UsedDefaults;
-    td::GameConfig game_config = td::load_config(paths.config_file, &config_message, &config_status);
+    blaze4k::ConfigLoadStatus config_status = blaze4k::ConfigLoadStatus::UsedDefaults;
+    blaze4k::GameConfig game_config = blaze4k::load_config(paths.config_file, &config_message, &config_status);
     if (!config_message.empty()) {
-        if (config_status == td::ConfigLoadStatus::UsedDefaults) {
+        if (config_status == blaze4k::ConfigLoadStatus::UsedDefaults) {
             std::cerr << config_message << "\n";
         } else {
             std::cout << config_message << "\n";
@@ -196,11 +196,11 @@ int main(int argc, char* argv[]) {
     config.window.fullscreen = game_config.video.fullscreen;
 
     std::string scores_message;
-    td::ScoresLoadStatus scores_status = td::ScoresLoadStatus::UsedDefaults;
-    td::HighScores high_scores =
-        td::load_high_scores(paths.scores_file, &scores_message, &scores_status);
+    blaze4k::ScoresLoadStatus scores_status = blaze4k::ScoresLoadStatus::UsedDefaults;
+    blaze4k::HighScores high_scores =
+        blaze4k::load_high_scores(paths.scores_file, &scores_message, &scores_status);
     if (!scores_message.empty()) {
-        if (scores_status == td::ScoresLoadStatus::UsedDefaults) {
+        if (scores_status == blaze4k::ScoresLoadStatus::UsedDefaults) {
             std::cerr << scores_message << "\n";
         } else {
             std::cout << scores_message << "\n";
@@ -210,8 +210,8 @@ int main(int argc, char* argv[]) {
     // D1: resolve the committed fallback background asset and register it with
     // the scanner BEFORE scanning, so songs lacking their own art resolve to it
     // (process_song_folder reads fallback_background_ during the scan).
-    const fs::path exe_dir = td::default_executable_dir();
-    const fs::path fallback_background = td::resolve_first_existing({
+    const fs::path exe_dir = blaze4k::default_executable_dir();
+    const fs::path fallback_background = blaze4k::resolve_first_existing({
         fs::path("assets") / "backgrounds" / "fallback.png",
         exe_dir / "assets" / "backgrounds" / "fallback.png",
     });
@@ -224,7 +224,7 @@ int main(int argc, char* argv[]) {
 
     // C3: resolve and scan the songs directory. Non-fatal: a missing/empty
     // library is a valid wheel with zero entries.
-    td::SongLibrary library;
+    blaze4k::SongLibrary library;
     library.set_fallback_background(fallback_background);
     {
         fs::path songs_dir;
@@ -251,10 +251,10 @@ int main(int argc, char* argv[]) {
         }
     }
 
-    td::PlayRequest play_request;
-    td::ResultsSummary results_summary;
+    blaze4k::PlayRequest play_request;
+    blaze4k::ResultsSummary results_summary;
 
-    td::App app(config);
+    blaze4k::App app(config);
     if (!app.init()) {
         std::cerr << "Failed to initialize application.\n";
         return 1;
@@ -264,13 +264,13 @@ int main(int argc, char* argv[]) {
     // defaults are applied). Reserved Escape/pad-Back are always re-installed.
     app.input_manager().apply_bindings(game_config.input);
 
-    td::GlQuadRenderer quad_renderer;
-    td::GameplayView gameplay;
-    td::UiSoundPlayer ui_sounds;
-    std::unique_ptr<td::ScreenManager> shell;
+    blaze4k::GlQuadRenderer quad_renderer;
+    blaze4k::GameplayView gameplay;
+    blaze4k::UiSoundPlayer ui_sounds;
+    std::unique_ptr<blaze4k::ScreenManager> shell;
 
     if (!demo_path.empty()) {
-        td::SimfileParser parser;
+        blaze4k::SimfileParser parser;
         if (!parser.parse_file(demo_path)) {
             std::cerr << "[main] Failed to parse simfile: " << demo_path << "\n";
             return 1;
@@ -305,15 +305,15 @@ int main(int argc, char* argv[]) {
             background_path = fallback_background.string();
         }
 
-        td::GameplayOptions options;
+        blaze4k::GameplayOptions options;
         if (!speed_text.empty()) {
-            if (!td::parse_speed_mod(speed_text, options.speed)) {
+            if (!blaze4k::parse_speed_mod(speed_text, options.speed)) {
                 std::cerr << "[main] Invalid --speed '" << speed_text
                           << "'; defaulting to X-mod 1x\n";
-                options.speed = td::SpeedMod{};
+                options.speed = blaze4k::SpeedMod{};
             }
         }
-        options.scroll = downscroll ? td::ScrollDirection::Down : td::ScrollDirection::Up;
+        options.scroll = downscroll ? blaze4k::ScrollDirection::Down : blaze4k::ScrollDirection::Up;
         options.fail_enabled = !fail_off;
 
         if (!gameplay.init(parser.charts().front(), app.judgment_constants(), audio_path, options,
@@ -332,10 +332,10 @@ int main(int argc, char* argv[]) {
             auto events = app.input_manager().poll_events();
             gameplay.handle_input_events(events, app.input_reference_ns());
             const std::array<bool, 4> held = {
-                app.input_manager().is_action_down(td::GameAction::Left),
-                app.input_manager().is_action_down(td::GameAction::Down),
-                app.input_manager().is_action_down(td::GameAction::Up),
-                app.input_manager().is_action_down(td::GameAction::Right),
+                app.input_manager().is_action_down(blaze4k::GameAction::Left),
+                app.input_manager().is_action_down(blaze4k::GameAction::Down),
+                app.input_manager().is_action_down(blaze4k::GameAction::Up),
+                app.input_manager().is_action_down(blaze4k::GameAction::Right),
             };
             gameplay.update(fixed_dt, held);
         });
@@ -350,23 +350,23 @@ int main(int argc, char* argv[]) {
         });
     } else {
         // C1 default path: the arcade shell state machine (Title -> Attract -> Select).
-        shell = std::make_unique<td::ScreenManager>(attract_timeout);
-        shell->add_screen(std::make_unique<td::TitleScreen>());
-        shell->add_screen(std::make_unique<td::AttractScreen>());
-        shell->add_screen(std::make_unique<td::SelectScreen>());
+        shell = std::make_unique<blaze4k::ScreenManager>(attract_timeout);
+        shell->add_screen(std::make_unique<blaze4k::TitleScreen>());
+        shell->add_screen(std::make_unique<blaze4k::AttractScreen>());
+        shell->add_screen(std::make_unique<blaze4k::SelectScreen>());
         shell->add_screen(
-            std::make_unique<td::GameplayScreen>(paths.data_dir / "sfx" / "assist_tick.wav"));
-        shell->add_screen(std::make_unique<td::ResultsScreen>());
+            std::make_unique<blaze4k::GameplayScreen>(paths.data_dir / "sfx" / "assist_tick.wav"));
+        shell->add_screen(std::make_unique<blaze4k::ResultsScreen>());
         shell->add_screen(
-            std::make_unique<td::CalibrationScreen>(paths.data_dir / "calibration_click.wav"));
-        shell->add_screen(std::make_unique<td::InputRemapScreen>());
+            std::make_unique<blaze4k::CalibrationScreen>(paths.data_dir / "calibration_click.wav"));
+        shell->add_screen(std::make_unique<blaze4k::InputRemapScreen>());
         shell->context().config = &game_config;
         shell->context().scores = &high_scores;
         shell->context().library = &library;
         shell->context().constants = &app.judgment_constants();
         shell->context().play_request = &play_request;
         shell->context().results = &results_summary;
-        shell->context().action_down = [&app](td::GameAction action) {
+        shell->context().action_down = [&app](blaze4k::GameAction action) {
             return app.input_manager().is_action_down(action);
         };
         shell->context().input = &app.input_manager();
@@ -374,10 +374,10 @@ int main(int argc, char* argv[]) {
         ui_sounds.init(paths.data_dir);
         shell->context().ui_sounds = &ui_sounds;
 
-        td::ScreenId start_screen = td::ScreenId::Title;
+        blaze4k::ScreenId start_screen = blaze4k::ScreenId::Title;
         if (!start_screen_text.empty()) {
             if (start_screen_text == "select") {
-                start_screen = td::ScreenId::Select;
+                start_screen = blaze4k::ScreenId::Select;
             } else if (start_screen_text != "title") {
                 std::cerr << "[main] Unknown --start-screen '" << start_screen_text
                           << "'; using title\n";
@@ -417,17 +417,17 @@ int main(int argc, char* argv[]) {
     // C2: persist config and high scores on a clean exit. Both saves are atomic
     // and idempotent; failures are warnings, never fatal.
     std::string save_message;
-    if (!td::save_config(paths.config_file, game_config, &save_message) &&
+    if (!blaze4k::save_config(paths.config_file, game_config, &save_message) &&
         !save_message.empty()) {
         std::cerr << save_message << "\n";
     }
-    if (!td::save_high_scores(paths.scores_file, high_scores, &save_message) &&
+    if (!blaze4k::save_high_scores(paths.scores_file, high_scores, &save_message) &&
         !save_message.empty()) {
         std::cerr << save_message << "\n";
     }
 
     gameplay.shutdown();
     quad_renderer.shutdown();
-    std::cout << "Tundra Dance shut down cleanly.\n";
+    std::cout << "Blaze 4k shut down cleanly.\n";
     return 0;
 }

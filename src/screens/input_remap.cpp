@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace td {
+namespace blaze4k {
 
 namespace {
 
@@ -166,4 +166,4 @@ std::string remap_row_value_text(const InputRemapModel& model, int row) {
     return model.rows[static_cast<std::size_t>(row)].name;
 }
 
-} // namespace td
+} // namespace blaze4k

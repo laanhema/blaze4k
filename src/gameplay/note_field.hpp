@@ -4,14 +4,14 @@
 #include "chart/chart.hpp"
 #include "gameplay/speed_mod.hpp"
 
-namespace td {
+namespace blaze4k {
 
 enum class ScrollDirection {
     Up,
     Down,
 };
 
-// Tundra-owned placeholder presentation geometry. `pixels_per_beat` is the only
+// Blaze 4k-owned placeholder presentation geometry. `pixels_per_beat` is the only
 // OpenITG-derived value (ARROW_SIZE = 64 px); the rest is tunable until D2.
 struct NoteFieldConfig {
     double pixels_per_beat = 64.0; // OpenITG ARROW_SIZE
@@ -75,4 +75,4 @@ private:
     double resolved_x_speed_ = 1.0;
 };
 
-} // namespace td
+} // namespace blaze4k

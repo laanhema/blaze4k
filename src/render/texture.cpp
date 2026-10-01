@@ -7,7 +7,7 @@
 #include <glad/glad.h>
 #include <stb_image.h>
 
-namespace td {
+namespace blaze4k {
 
 namespace {
 
@@ -178,4 +178,4 @@ Texture Texture::from_file(const std::string& path, bool mipmaps) {
     return texture;
 }
 
-} // namespace td
+} // namespace blaze4k

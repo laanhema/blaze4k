@@ -5,7 +5,7 @@
 #include "screens/input_remap.hpp"
 #include "screens/screen.hpp"
 
-namespace td {
+namespace blaze4k {
 
 // C6 remapping screen (PRD section 7.4 "full remapping"). Entered from Select's
 // options overlay. Owns the pure InputRemapModel, toggles InputManager capture
@@ -40,4 +40,4 @@ private:
     bool reset_selected_ = false;
 };
 
-} // namespace td
+} // namespace blaze4k

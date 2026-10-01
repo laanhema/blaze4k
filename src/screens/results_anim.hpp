@@ -1,6 +1,6 @@
 #pragma once
 
-namespace td {
+namespace blaze4k {
 
 // Pure, SDL/GL/audio/wall-clock-free presentation model for the D3 results
 // reveal (PRD section 12 Phase D). Mirrors `gameplay/JudgmentAnimator`: the
@@ -10,7 +10,7 @@ namespace td {
 // and headless-testable. The results screen gates its draws on these curves; at
 // completion it reproduces the exact C7 static layout.
 //
-// All constants are "Tundra presentation, unsourced" (no OpenITG parity
+// All constants are "Blaze 4k presentation, unsourced" (no OpenITG parity
 // requirement), scale/alpha/count-up only — bitmap text has no rotation.
 class ResultsAnimator {
 public:
@@ -24,7 +24,7 @@ public:
     static constexpr double kRecordPulsePeriod = 0.40;
     static constexpr double kRevealSeconds = 2.40;     // >= the end of every element
 
-    // Fade lengths and curve shapes. Same "Tundra presentation, unsourced"
+    // Fade lengths and curve shapes. Same "Blaze 4k presentation, unsourced"
     // contract as the delays above; named so the reveal timeline is tuned in one
     // place instead of via inline literals.
     static constexpr double kTitleFadeSeconds = 0.25;
@@ -86,4 +86,4 @@ private:
     double elapsed_ = 0.0;
 };
 
-} // namespace td
+} // namespace blaze4k

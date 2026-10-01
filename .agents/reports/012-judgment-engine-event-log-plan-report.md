@@ -6,7 +6,7 @@
 
 ## Summary
 
-Implemented Tundra's judgment core as a pure, event-sourced engine. Every hit is
+Implemented Blaze 4k's judgment core as a pure, event-sourced engine. Every hit is
 evaluated against the B2 `JudgmentConstants` windows and appended as an immutable
 `JudgmentEvent {column, note_time, hit_time, delta_ms, window}`. The work comprises
 three pure modules (`judgment.hpp`, `judgment_input.hpp`, `judgment_engine.{hpp,cpp}`)

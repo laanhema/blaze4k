@@ -84,7 +84,7 @@ None.
 | Null-sink safe; no blocking/throw without device | PASS — null guards, `init` returns false, `play` no-ops/logs once |
 | 2D-only (no video/3D) | PASS |
 | Pure modules free of SDL/GL/clock includes | PASS — grep for `SDL`/`glad`/`<chrono>`/`clock` finds only comments; `judgment_animator.cpp`'s renderer header transitively pulls no GL |
-| Unsourced presentation constants | Documented as "Tundra presentation, unsourced" (`judgment_animator.hpp:20`, `hud_renderer.hpp`, `ui_sounds.hpp:7`, `noteskin.hpp`) |
+| Unsourced presentation constants | Documented as "Blaze 4k presentation, unsourced" (`judgment_animator.hpp:20`, `hud_renderer.hpp`, `ui_sounds.hpp:7`, `noteskin.hpp`) |
 
 ## Validation Results
 

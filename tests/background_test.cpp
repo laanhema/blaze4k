@@ -30,7 +30,7 @@ bool approx(float a, float b) {
 }
 
 void test_cover_uv_equal_aspect() {
-    const td::UVRect uv = td::BackgroundRenderer::cover_uv(1280, 720, 1280, 720);
+    const blaze4k::UVRect uv = blaze4k::BackgroundRenderer::cover_uv(1280, 720, 1280, 720);
     TEST_CHECK(approx(uv.u0, 0.0f) && approx(uv.u1, 1.0f));
     TEST_CHECK(approx(uv.v0, 0.0f) && approx(uv.v1, 1.0f));
     std::cout << "  - cover_uv equal aspect draws the full texture ok.\n";
@@ -38,7 +38,7 @@ void test_cover_uv_equal_aspect() {
 
 void test_cover_uv_tall_texture() {
     // 4:3 texture on a 16:9 screen -> crop vertical, keep full width.
-    const td::UVRect uv = td::BackgroundRenderer::cover_uv(1280, 720, 640, 480);
+    const blaze4k::UVRect uv = blaze4k::BackgroundRenderer::cover_uv(1280, 720, 640, 480);
     TEST_CHECK(approx(uv.u0, 0.0f) && approx(uv.u1, 1.0f));
     TEST_CHECK(approx(uv.v0, 0.125f) && approx(uv.v1, 0.875f));
     std::cout << "  - cover_uv tall texture crops the vertical axis ok.\n";
@@ -46,22 +46,22 @@ void test_cover_uv_tall_texture() {
 
 void test_cover_uv_wide_texture() {
     // 16:9 texture on a 4:3 screen -> crop horizontal, keep full height.
-    const td::UVRect uv = td::BackgroundRenderer::cover_uv(800, 600, 1280, 720);
+    const blaze4k::UVRect uv = blaze4k::BackgroundRenderer::cover_uv(800, 600, 1280, 720);
     TEST_CHECK(approx(uv.v0, 0.0f) && approx(uv.v1, 1.0f));
     TEST_CHECK(approx(uv.u0, 0.125f) && approx(uv.u1, 0.875f));
     std::cout << "  - cover_uv wide texture crops the horizontal axis ok.\n";
 }
 
 void test_cover_uv_degenerate() {
-    const td::UVRect full{};
-    const td::UVRect cases[] = {
-        td::BackgroundRenderer::cover_uv(0, 720, 640, 480),
-        td::BackgroundRenderer::cover_uv(1280, 0, 640, 480),
-        td::BackgroundRenderer::cover_uv(-10, 720, 640, 480),
-        td::BackgroundRenderer::cover_uv(1280, 720, 0, 480),
-        td::BackgroundRenderer::cover_uv(1280, 720, 640, -1),
+    const blaze4k::UVRect full{};
+    const blaze4k::UVRect cases[] = {
+        blaze4k::BackgroundRenderer::cover_uv(0, 720, 640, 480),
+        blaze4k::BackgroundRenderer::cover_uv(1280, 0, 640, 480),
+        blaze4k::BackgroundRenderer::cover_uv(-10, 720, 640, 480),
+        blaze4k::BackgroundRenderer::cover_uv(1280, 720, 0, 480),
+        blaze4k::BackgroundRenderer::cover_uv(1280, 720, 640, -1),
     };
-    for (const td::UVRect& uv : cases) {
+    for (const blaze4k::UVRect& uv : cases) {
         TEST_CHECK(approx(uv.u0, full.u0) && approx(uv.u1, full.u1));
         TEST_CHECK(approx(uv.v0, full.v0) && approx(uv.v1, full.v1));
     }
@@ -70,8 +70,8 @@ void test_cover_uv_degenerate() {
 
 void test_headless_lifecycle() {
     // No window/GL: every operation must be a safe no-op.
-    td::GlQuadRenderer renderer; // left uninitialized, like the other render tests
-    td::BackgroundRenderer background;
+    blaze4k::GlQuadRenderer renderer; // left uninitialized, like the other render tests
+    blaze4k::BackgroundRenderer background;
 
     background.load("");
     TEST_CHECK(!background.has_image());
@@ -88,7 +88,7 @@ void test_headless_lifecycle() {
 
 void test_resolve_first_existing() {
     const fs::path root = fs::temp_directory_path() /
-                          ("tundra_background_test_" + std::to_string(std::random_device{}()));
+                          ("blaze4k_background_test_" + std::to_string(std::random_device{}()));
     fs::remove_all(root);
     fs::create_directories(root);
     const fs::path present = root / "present.png";
@@ -98,9 +98,9 @@ void test_resolve_first_existing() {
     }
 
     const fs::path missing = root / "missing.png";
-    TEST_CHECK(td::resolve_first_existing({missing, present}).filename() == "present.png");
-    TEST_CHECK(td::resolve_first_existing({missing}).empty());
-    TEST_CHECK(td::resolve_first_existing({}).empty());
+    TEST_CHECK(blaze4k::resolve_first_existing({missing, present}).filename() == "present.png");
+    TEST_CHECK(blaze4k::resolve_first_existing({missing}).empty());
+    TEST_CHECK(blaze4k::resolve_first_existing({}).empty());
     fs::remove_all(root);
     std::cout << "  - resolve_first_existing honors candidate order ok.\n";
 }
@@ -108,9 +108,9 @@ void test_resolve_first_existing() {
 void test_committed_fallback_asset() {
     // Discovery order mirrors the runtime candidates: cwd-relative first, then
     // the source tree (via the compile definition) for out-of-tree test runs.
-    const fs::path asset = td::resolve_first_existing({
+    const fs::path asset = blaze4k::resolve_first_existing({
         fs::path("assets") / "backgrounds" / "fallback.png",
-        fs::path(TUNDRA_ASSETS_DIR) / "backgrounds" / "fallback.png",
+        fs::path(BLAZE4K_ASSETS_DIR) / "backgrounds" / "fallback.png",
     });
     TEST_CHECK(!asset.empty());
     TEST_CHECK(fs::exists(asset));
@@ -121,7 +121,7 @@ void test_committed_fallback_asset() {
     TEST_CHECK(!ec);
 
     // Decodable image with sane (non-degenerate dims within the header cap).
-    const td::ImageHeader header = td::probe_image_header(asset.string());
+    const blaze4k::ImageHeader header = blaze4k::probe_image_header(asset.string());
     TEST_CHECK(header.ok);
     TEST_CHECK(header.width > 0 && header.height > 0);
     std::cout << "  - committed fallback.png exists, is non-empty, and decodes ok.\n";

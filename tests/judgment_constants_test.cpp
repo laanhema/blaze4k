@@ -26,7 +26,7 @@ bool nearly(double a, double b) {
     return std::fabs(a - b) <= kEps;
 }
 
-bool same_weights(const td::Weights& a, const td::Weights& b) {
+bool same_weights(const blaze4k::Weights& a, const blaze4k::Weights& b) {
     return a.fantastic == b.fantastic && a.excellent == b.excellent &&
            a.great == b.great && a.decent == b.decent &&
            a.way_off == b.way_off && a.miss == b.miss &&
@@ -34,7 +34,7 @@ bool same_weights(const td::Weights& a, const td::Weights& b) {
            a.hold_ng == b.hold_ng;
 }
 
-bool same_constants(const td::JudgmentConstants& a, const td::JudgmentConstants& b) {
+bool same_constants(const blaze4k::JudgmentConstants& a, const blaze4k::JudgmentConstants& b) {
     if (!nearly(a.windows.fantastic, b.windows.fantastic) ||
         !nearly(a.windows.excellent, b.windows.excellent) ||
         !nearly(a.windows.great, b.windows.great) ||
@@ -103,7 +103,7 @@ fs::path find_seed_file() {
 int main() {
     std::cout << "[judgment_constants_test] Starting judgment constants tests...\n";
 
-    const td::JudgmentConstants& defaults = td::JudgmentConstants::compiled_defaults();
+    const blaze4k::JudgmentConstants& defaults = blaze4k::JudgmentConstants::compiled_defaults();
 
     // 1. Defaults parity vs OpenITG source commit.
     TEST_CHECK(nearly(defaults.windows.fantastic, 0.0215));
@@ -116,8 +116,8 @@ int main() {
     TEST_CHECK(nearly(defaults.windows.hold_roll, 0.3500));
     TEST_CHECK(nearly(defaults.windows.judge_window_scale, 1.0));
     TEST_CHECK(nearly(defaults.windows.judge_window_add, 0.0));
-    TEST_CHECK(same_weights(defaults.dp_weights, td::Weights{5, 4, 2, 0, -6, -12, -6, 5, 0}));
-    TEST_CHECK(same_weights(defaults.grade_weights, td::Weights{5, 4, 2, 0, -6, -12, -6, 5, 0}));
+    TEST_CHECK(same_weights(defaults.dp_weights, blaze4k::Weights{5, 4, 2, 0, -6, -12, -6, 5, 0}));
+    TEST_CHECK(same_weights(defaults.grade_weights, blaze4k::Weights{5, 4, 2, 0, -6, -12, -6, 5, 0}));
     TEST_CHECK(nearly(defaults.life.fantastic, 0.008));
     TEST_CHECK(nearly(defaults.life.excellent, 0.008));
     TEST_CHECK(nearly(defaults.life.great, 0.004));
@@ -144,26 +144,26 @@ int main() {
     std::cout << "  - 1. compiled defaults match pinned OpenITG values.\n";
 
     // 2. classify_tap boundaries (symmetric, NaN -> Miss).
-    TEST_CHECK(defaults.classify_tap(0.0215) == td::TapJudgment::Fantastic);
-    TEST_CHECK(defaults.classify_tap(0.0215 + kEps) == td::TapJudgment::Excellent);
-    TEST_CHECK(defaults.classify_tap(0.0430 + kEps) == td::TapJudgment::Great);
-    TEST_CHECK(defaults.classify_tap(0.1020 + kEps) == td::TapJudgment::Decent);
-    TEST_CHECK(defaults.classify_tap(0.1350 + kEps) == td::TapJudgment::WayOff);
-    TEST_CHECK(defaults.classify_tap(0.1800 + kEps) == td::TapJudgment::Miss);
-    TEST_CHECK(defaults.classify_tap(-0.0215) == td::TapJudgment::Fantastic);
-    TEST_CHECK(defaults.classify_tap(-(0.0215 + kEps)) == td::TapJudgment::Excellent);
-    TEST_CHECK(defaults.classify_tap(-(0.1800 + kEps)) == td::TapJudgment::Miss);
-    TEST_CHECK(defaults.classify_tap(std::nan("")) == td::TapJudgment::Miss);
+    TEST_CHECK(defaults.classify_tap(0.0215) == blaze4k::TapJudgment::Fantastic);
+    TEST_CHECK(defaults.classify_tap(0.0215 + kEps) == blaze4k::TapJudgment::Excellent);
+    TEST_CHECK(defaults.classify_tap(0.0430 + kEps) == blaze4k::TapJudgment::Great);
+    TEST_CHECK(defaults.classify_tap(0.1020 + kEps) == blaze4k::TapJudgment::Decent);
+    TEST_CHECK(defaults.classify_tap(0.1350 + kEps) == blaze4k::TapJudgment::WayOff);
+    TEST_CHECK(defaults.classify_tap(0.1800 + kEps) == blaze4k::TapJudgment::Miss);
+    TEST_CHECK(defaults.classify_tap(-0.0215) == blaze4k::TapJudgment::Fantastic);
+    TEST_CHECK(defaults.classify_tap(-(0.0215 + kEps)) == blaze4k::TapJudgment::Excellent);
+    TEST_CHECK(defaults.classify_tap(-(0.1800 + kEps)) == blaze4k::TapJudgment::Miss);
+    TEST_CHECK(defaults.classify_tap(std::nan("")) == blaze4k::TapJudgment::Miss);
     std::cout << "  - 2. classify_tap boundary and NaN behavior correct.\n";
 
     // 3. Combo semantics (Decent breaks combo).
-    TEST_CHECK(defaults.continues_combo(td::TapJudgment::Fantastic));
-    TEST_CHECK(defaults.continues_combo(td::TapJudgment::Excellent));
-    TEST_CHECK(defaults.continues_combo(td::TapJudgment::Great));
-    TEST_CHECK(defaults.continues_combo(td::TapJudgment::HitMine));
-    TEST_CHECK(!defaults.continues_combo(td::TapJudgment::Decent));
-    TEST_CHECK(!defaults.continues_combo(td::TapJudgment::WayOff));
-    TEST_CHECK(!defaults.continues_combo(td::TapJudgment::Miss));
+    TEST_CHECK(defaults.continues_combo(blaze4k::TapJudgment::Fantastic));
+    TEST_CHECK(defaults.continues_combo(blaze4k::TapJudgment::Excellent));
+    TEST_CHECK(defaults.continues_combo(blaze4k::TapJudgment::Great));
+    TEST_CHECK(defaults.continues_combo(blaze4k::TapJudgment::HitMine));
+    TEST_CHECK(!defaults.continues_combo(blaze4k::TapJudgment::Decent));
+    TEST_CHECK(!defaults.continues_combo(blaze4k::TapJudgment::WayOff));
+    TEST_CHECK(!defaults.continues_combo(blaze4k::TapJudgment::Miss));
     std::cout << "  - 3. combo continuation semantics correct.\n";
 
     // 4. Grade tier lookup.
@@ -187,13 +187,13 @@ int main() {
                "\"regen_combo_after_fail\": 8, \"max_regen_combo_after_miss\": 9, "
                "\"max_regen_combo_after_fail\": 11}}");
     std::string override_message;
-    td::JudgmentConstants overridden = td::load_judgment_constants(override_path, &override_message);
+    blaze4k::JudgmentConstants overridden = blaze4k::load_judgment_constants(override_path, &override_message);
     TEST_CHECK(nearly(overridden.windows.great, 0.050));
     TEST_CHECK(overridden.dp_weights.fantastic == 9);
     TEST_CHECK(overridden.dp_weights.excellent == 4);
     TEST_CHECK(nearly(overridden.windows.fantastic, defaults.windows.fantastic));
-    TEST_CHECK(overridden.classify_tap(0.048) == td::TapJudgment::Great);
-    TEST_CHECK(overridden.classify_tap(0.020) == td::TapJudgment::Fantastic);
+    TEST_CHECK(overridden.classify_tap(0.048) == blaze4k::TapJudgment::Great);
+    TEST_CHECK(overridden.classify_tap(0.020) == blaze4k::TapJudgment::Fantastic);
     TEST_CHECK(nearly(overridden.life.hot_downgrade, -0.2));
     TEST_CHECK(overridden.life.regen_combo_after_miss == 7);
     TEST_CHECK(overridden.life.regen_combo_after_fail == 8);
@@ -206,13 +206,13 @@ int main() {
     fs::path seed_path = find_seed_file();
     TEST_CHECK(!seed_path.empty());
     std::string seed_message;
-    td::JudgmentConstants seeded = td::load_judgment_constants(seed_path, &seed_message);
+    blaze4k::JudgmentConstants seeded = blaze4k::load_judgment_constants(seed_path, &seed_message);
     TEST_CHECK(same_constants(seeded, defaults));
     std::cout << "  - 6. shipped seed JSON deep-equals compiled defaults.\n";
 
     // 7. Missing file fallback.
     std::string missing_message;
-    td::JudgmentConstants missing = td::load_judgment_constants(temp_dir / "does_not_exist.json",
+    blaze4k::JudgmentConstants missing = blaze4k::load_judgment_constants(temp_dir / "does_not_exist.json",
                                                                &missing_message);
     TEST_CHECK(same_constants(missing, defaults));
     TEST_CHECK(!missing_message.empty());
@@ -222,7 +222,7 @@ int main() {
     fs::path malformed_path = temp_dir / "malformed.json";
     write_file(malformed_path, "{ not json");
     std::string malformed_message;
-    td::JudgmentConstants malformed = td::load_judgment_constants(malformed_path, &malformed_message);
+    blaze4k::JudgmentConstants malformed = blaze4k::load_judgment_constants(malformed_path, &malformed_message);
     TEST_CHECK(same_constants(malformed, defaults));
     TEST_CHECK(!malformed_message.empty());
     std::cout << "  - 8. malformed JSON falls back with warning.\n";
@@ -231,7 +231,7 @@ int main() {
     fs::path invalid_path = temp_dir / "invalid.json";
     write_file(invalid_path, "{\"windows_seconds\": {\"great\": -1}}");
     std::string invalid_message;
-    td::JudgmentConstants invalid = td::load_judgment_constants(invalid_path, &invalid_message);
+    blaze4k::JudgmentConstants invalid = blaze4k::load_judgment_constants(invalid_path, &invalid_message);
     TEST_CHECK(same_constants(invalid, defaults));
     TEST_CHECK(!invalid_message.empty());
 
@@ -239,7 +239,7 @@ int main() {
     fs::path nonmono_path = temp_dir / "nonmono.json";
     write_file(nonmono_path, "{\"windows_seconds\": {\"fantastic\": 0.5}}");
     std::string nonmono_message;
-    td::JudgmentConstants nonmono = td::load_judgment_constants(nonmono_path, &nonmono_message);
+    blaze4k::JudgmentConstants nonmono = blaze4k::load_judgment_constants(nonmono_path, &nonmono_message);
     TEST_CHECK(same_constants(nonmono, defaults));
     TEST_CHECK(!nonmono_message.empty());
 
@@ -247,7 +247,7 @@ int main() {
     fs::path partial_path = temp_dir / "partial.json";
     write_file(partial_path, "{\"dp_weights\": {\"miss\": -20}}");
     std::string partial_message;
-    td::JudgmentConstants partial = td::load_judgment_constants(partial_path, &partial_message);
+    blaze4k::JudgmentConstants partial = blaze4k::load_judgment_constants(partial_path, &partial_message);
     TEST_CHECK(partial.dp_weights.miss == -20);
     TEST_CHECK(partial.dp_weights.fantastic == defaults.dp_weights.fantastic);
     TEST_CHECK(nearly(partial.windows.great, defaults.windows.great));
@@ -258,14 +258,14 @@ int main() {
     fs::path fractional_path = temp_dir / "fractional.json";
     write_file(fractional_path, "{\"dp_weights\": {\"fantastic\": 4.9}}");
     std::string fractional_message;
-    td::JudgmentConstants fractional = td::load_judgment_constants(fractional_path, &fractional_message);
+    blaze4k::JudgmentConstants fractional = blaze4k::load_judgment_constants(fractional_path, &fractional_message);
     TEST_CHECK(same_constants(fractional, defaults));
     TEST_CHECK(!fractional_message.empty());
 
     fs::path huge_path = temp_dir / "huge.json";
     write_file(huge_path, "{\"dp_weights\": {\"fantastic\": 1e20}}");
     std::string huge_message;
-    td::JudgmentConstants huge = td::load_judgment_constants(huge_path, &huge_message);
+    blaze4k::JudgmentConstants huge = blaze4k::load_judgment_constants(huge_path, &huge_message);
     TEST_CHECK(same_constants(huge, defaults));
     TEST_CHECK(!huge_message.empty());
     std::cout << "  - 10. non-integral/out-of-range integer weights fall back.\n";
@@ -276,20 +276,20 @@ int main() {
     write_file(candidate_a, "{\"dp_weights\": {\"fantastic\": 7}}");
     write_file(candidate_b, "{\"dp_weights\": {\"fantastic\": 8}}");
     std::string candidates_message;
-    td::ConstantsLoadStatus candidates_status = td::ConstantsLoadStatus::UsedDefaults;
-    td::JudgmentConstants from_candidates = td::load_judgment_constants_from_candidates(
+    blaze4k::ConstantsLoadStatus candidates_status = blaze4k::ConstantsLoadStatus::UsedDefaults;
+    blaze4k::JudgmentConstants from_candidates = blaze4k::load_judgment_constants_from_candidates(
         {candidate_a, candidate_b}, &candidates_message, &candidates_status);
     TEST_CHECK(from_candidates.dp_weights.fantastic == 7);
-    TEST_CHECK(candidates_status == td::ConstantsLoadStatus::LoadedFromFile);
+    TEST_CHECK(candidates_status == blaze4k::ConstantsLoadStatus::LoadedFromFile);
     TEST_CHECK(!candidates_message.empty());
 
     // 12. No candidate found: compiled defaults + fallback status.
     std::string none_message;
-    td::ConstantsLoadStatus none_status = td::ConstantsLoadStatus::LoadedFromFile;
-    td::JudgmentConstants none = td::load_judgment_constants_from_candidates(
+    blaze4k::ConstantsLoadStatus none_status = blaze4k::ConstantsLoadStatus::LoadedFromFile;
+    blaze4k::JudgmentConstants none = blaze4k::load_judgment_constants_from_candidates(
         {temp_dir / "missing_a.json", temp_dir / "missing_b.json"}, &none_message, &none_status);
     TEST_CHECK(same_constants(none, defaults));
-    TEST_CHECK(none_status == td::ConstantsLoadStatus::UsedDefaults);
+    TEST_CHECK(none_status == blaze4k::ConstantsLoadStatus::UsedDefaults);
     TEST_CHECK(!none_message.empty());
     std::cout << "  - 11. candidate loading precedence and no-candidate fallback correct.\n";
 

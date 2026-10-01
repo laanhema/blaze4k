@@ -12,11 +12,11 @@
 #include "render/gl_quad_renderer.hpp"
 #include "screens/screen_manager.hpp"
 
-namespace td {
+namespace blaze4k {
 
 namespace {
 
-// Tundra results palette (presentation, unsourced; no OpenITG parity requirement).
+// Blaze 4k results palette (presentation, unsourced; no OpenITG parity requirement).
 constexpr Color kBackdropColor{0.05f, 0.07f, 0.12f, 1.0f};
 constexpr Color kTitleColor{0.86f, 0.93f, 1.00f, 1.0f};
 constexpr Color kDimColor{0.55f, 0.60f, 0.72f, 1.0f};
@@ -220,4 +220,4 @@ void ResultsScreen::render(ScreenContext& /*ctx*/, GlQuadRenderer& renderer, int
     }
 }
 
-} // namespace td
+} // namespace blaze4k

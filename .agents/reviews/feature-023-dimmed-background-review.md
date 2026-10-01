@@ -50,7 +50,7 @@ None
 4. **Unsourced presentation constants** — `background_renderer.cpp:15-18` (`kBackgroundDim=0.35`, `kBackgroundOverlay=0.30`, `kFallbackSolid`) are not sourced to OpenITG and are not in the JSON constants table. The in-code comment already labels them unsourced/tunable (good), but flagging per the review brief: they should move into config if/when presentation tuning is exposed.
 5. **Log stream inconsistency** — `background_renderer.cpp:30,40-41` emit failure/headless notices via `std::cout`, whereas the texture layer and other failure paths use `std::cerr`.
 6. **Brittle asset assertion** — `tests/background_test.cpp:124` hard-codes `1024x576`; any future art replacement breaks the test. Prefer asserting `width/height > 0` within the cap.
-7. **Fixed temp dir name** — `tests/background_test.cpp:89` uses a constant `tundra_background_test` path; parallel test runs can collide. Use a unique suffix.
+7. **Fixed temp dir name** — `tests/background_test.cpp:89` uses a constant `blaze4k_background_test` path; parallel test runs can collide. Use a unique suffix.
 
 ## Validation Results
 
@@ -60,8 +60,8 @@ None
 | Build (`cmake --build build -j4`) | PASS (clean) |
 | Lint / warning budget | PASS (no warnings surfaced during build) |
 | Tests (`ctest --test-dir build --output-on-failure`) | PASS — 28/28 |
-| Headless smoke from repo root (`./build/tundra-dance --headless --smoke-test 1`) | PASS — fallback resolved, exit 0 |
-| Headless smoke from `build/` (`cd build && ./tundra-dance --headless --smoke-test 1`) | PASS — fallback resolved, exit 0 |
+| Headless smoke from repo root (`./build/blaze-4k --headless --smoke-test 1`) | PASS — fallback resolved, exit 0 |
+| Headless smoke from `build/` (`cd build && ./blaze-4k --headless --smoke-test 1`) | PASS — fallback resolved, exit 0 |
 | Demo with art (Glacier Groove) / without art (Aurora Borealis) | PASS — correct per-song path / fallback, exit 0 |
 
 No tests were skipped or environment-guarded in this run.

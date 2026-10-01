@@ -7,7 +7,7 @@
 
 struct ma_sound;
 
-namespace td {
+namespace blaze4k {
 
 // Writes the short assist-tick click as a fixed-layout 16-bit mono PCM WAV (pure
 // I/O, no audio device). Returns false on an empty path or write failure.
@@ -41,4 +41,4 @@ private:
     bool ready_ = false;
 };
 
-} // namespace td
+} // namespace blaze4k

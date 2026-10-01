@@ -30,7 +30,7 @@ Build an automated fuzzing suite, harden MSD and Note parsing limits, and provid
 
 ## 4. Reference Pack Fixture
 Create `tests/fixtures/reference_pack/`:
-- `Tundra Anthem/` (.sm with full difficulties, BPM changes, stops)
+- `Blaze Anthem/` (.sm with full difficulties, BPM changes, stops)
 - `Northern Lights/` (.ssc with per-chart timing, 192nd subdivisions)
 - `Glacier Groove/` (.sm with edge cases: escapes, comments inside tags, EOF without semicolon, empty measures)
 - `Aurora Borealis/` (.sm + .ssc both present to test .ssc priority)

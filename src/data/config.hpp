@@ -4,7 +4,7 @@
 #include <utility>
 #include <vector>
 
-namespace td {
+namespace blaze4k {
 
 // Local player configuration (PRD section 7.6 / section 9). This is the pure
 // in-memory model C3 (song select), C4 (options), C5 (offset calibration) and C7
@@ -75,4 +75,4 @@ struct GameConfig {
 // authority and is directly unit-testable. Never throws.
 [[nodiscard]] bool validate_game_config(const GameConfig& config, std::string* error = nullptr);
 
-} // namespace td
+} // namespace blaze4k

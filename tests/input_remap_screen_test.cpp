@@ -25,13 +25,13 @@
 
 namespace {
 
-using td::DeviceType;
-using td::GameAction;
-using td::InputEvent;
-using td::ScreenContext;
-using td::ScreenId;
+using blaze4k::DeviceType;
+using blaze4k::GameAction;
+using blaze4k::InputEvent;
+using blaze4k::ScreenContext;
+using blaze4k::ScreenId;
 
-class SelectSpy : public td::Screen {
+class SelectSpy : public blaze4k::Screen {
 public:
     explicit SelectSpy(int* enters) : enters_(enters) {}
     [[nodiscard]] ScreenId id() const override { return ScreenId::Select; }
@@ -62,8 +62,8 @@ InputEvent raw_press(DeviceType device, uint32_t code, uint64_t ts_ns = 42) {
     return event;
 }
 
-bool config_has(const td::GameConfig& config, const std::string& action, const std::string& name) {
-    for (const td::InputBinding& binding : config.input.key_bindings) {
+bool config_has(const blaze4k::GameConfig& config, const std::string& action, const std::string& name) {
+    for (const blaze4k::InputBinding& binding : config.input.key_bindings) {
         if (binding.first != action) {
             continue;
         }
@@ -77,14 +77,14 @@ bool config_has(const td::GameConfig& config, const std::string& action, const s
 }
 
 struct Fixture {
-    td::InputManager input;
-    td::ScreenManager manager{0.0};
-    td::InputRemapScreen* screen = nullptr;
-    td::GameConfig config;
+    blaze4k::InputManager input;
+    blaze4k::ScreenManager manager{0.0};
+    blaze4k::InputRemapScreen* screen = nullptr;
+    blaze4k::GameConfig config;
     int select_enters = 0;
 
     Fixture() {
-        auto owner = std::make_unique<td::InputRemapScreen>();
+        auto owner = std::make_unique<blaze4k::InputRemapScreen>();
         screen = owner.get();
         manager.add_screen(std::move(owner));
         manager.add_screen(std::make_unique<SelectSpy>(&select_enters));
@@ -185,7 +185,7 @@ void test_reset() {
 
 void test_reserved_safety() {
     Fixture f;
-    td::InputSettings settings;
+    blaze4k::InputSettings settings;
     settings.key_bindings = {{"Left", {"A"}}}; // omits Escape entirely
     f.input.apply_bindings(settings);
     TEST_CHECK(f.input.action_for_key(SDLK_ESCAPE) == GameAction::Back);
@@ -194,7 +194,7 @@ void test_reserved_safety() {
 
 void test_render_and_reenter() {
     Fixture f;
-    td::GlQuadRenderer renderer; // uninitialized: draws are no-ops
+    blaze4k::GlQuadRenderer renderer; // uninitialized: draws are no-ops
     f.screen->render(f.ctx(), renderer, 1280, 720);
     f.screen->render(f.ctx(), renderer, 0, 0);
 

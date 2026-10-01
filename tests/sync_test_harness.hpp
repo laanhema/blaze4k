@@ -24,7 +24,7 @@
 #include "timing/judgment_constants.hpp"
 #include "timing/music_clock.hpp"
 
-namespace td::sync_test {
+namespace blaze4k::sync_test {
 
 // Fake audio clock: the injected SamplePosition source. Models the audio
 // timebase as real_seconds * (1 + rate_error); the MusicClock then applies its
@@ -187,4 +187,4 @@ struct SyncReport {
     return true;
 }
 
-} // namespace td::sync_test
+} // namespace blaze4k::sync_test

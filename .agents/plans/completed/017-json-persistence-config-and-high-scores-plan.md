@@ -49,7 +49,7 @@ So that my records and configuration survive restarts.
 | CMake | 4.4.3 | build dir already configured at `/home/lauri/github/temp-5/build` |
 | C++ Compiler | GCC 16.2.1 (`/usr/bin/c++`) | C++20; `-Wall -Wextra -Wpedantic` from root CMake |
 | Cores | 16 | `-j16` safe |
-| Dependencies | `build/_deps/` | nlohmann_json 3.11.3 already fetched and linked to `tundra_core` (`CMakeLists.txt:42-47,120`); no new dependency needed |
+| Dependencies | `build/_deps/` | nlohmann_json 3.11.3 already fetched and linked to `blaze4k_core` (`CMakeLists.txt:42-47,120`); no new dependency needed |
 | Baseline tests | **16/16 pass** | `ctest --test-dir build --output-on-failure` → "100% tests passed out of 16" (0.27 s), recorded this run |
 | `src/data/` | `judgment_constants_loader.{hpp,cpp}` | Existing JSON pattern to mirror: size cap, `json::parse(..., nullptr, false)`, `is_discarded()`, returns compiled defaults + `std::string* message` + status enum, **never throws** (`judgment_constants_loader.cpp:149-241`) |
 | Screen seam | `src/screens/screen.hpp:21-23`, `screen_manager.hpp:40` | `ScreenContext` currently holds only `ScreenManager*`; manager owns a private `ctx_` with no accessor yet |
@@ -57,7 +57,7 @@ So that my records and configuration survive restarts.
 | Window config | `src/app/window.hpp:9-16` | `WindowConfig{title,width,height,vsync,resizable,headless}` — the video persistence target |
 | Gameplay/offset target | `src/gameplay/gameplay_view.hpp:22-27` | `GameplayOptions{speed, scroll, global_offset_seconds, fail_enabled}` — the gameplay/offset persistence target (applied by C3/C5, modeled by C2) |
 | Chart identity inputs | `src/chart/song.hpp:11-19`, `src/chart/chart.hpp:10-26` | `Song{pack_name,song_dir,simfile_path,metadata}`, `Chart{steps_type,description,difficulty,meter,notes}` — inputs to the stable chart key |
-| Test registration | `tests/CMakeLists.txt:156-164` | Add one `add_executable`/`target_link_libraries(... tundra_core)`/`add_test` block |
+| Test registration | `tests/CMakeLists.txt:156-164` | Add one `add_executable`/`target_link_libraries(... blaze4k_core)`/`add_test` block |
 | Test file patterns | `tests/judgment_constants_test.cpp:13-101` | `TEST_CHECK` macro, `std::filesystem` temp files, `write_file`, seed-file candidate search |
 
 **Start green, stay green:** 16 tests pass; this plan adds **1** test target (`config_persistence_test`)
@@ -74,8 +74,8 @@ contract. No gameplay constants are introduced or changed.
 ### Data layout (PRD §9 / §7.6)
 
 - Portable default: `<dir of executable>/data/config.json` and `<dir of executable>/data/scores.json`.
-- Linux opt-in XDG: when `--xdg` (or env `TUNDRA_XDG=1`) is set, use
-  `${XDG_DATA_HOME:-$HOME/.local/share}/tundra-dance/{config.json,scores.json}`.
+- Linux opt-in XDG: when `--xdg` (or env `BLAZE4K_XDG=1`) is set, use
+  `${XDG_DATA_HOME:-$HOME/.local/share}/blaze-4k/{config.json,scores.json}`.
 - `--data-dir <path>` is an explicit override that wins over both (useful for tests/smoke runs).
 - This matches `AGENTS.md` core principle 4: **fully offline, all state local JSON, no network**.
 
@@ -202,9 +202,9 @@ struct ScreenContext {
 ### Boot order constraint (video settings before window creation)
 ```cpp
 // SOURCE: src/main.cpp:39-43,105-109
-td::AppConfig config; config.window.width = 1280; config.window.height = 720; config.window.vsync = true;
+blaze4k::AppConfig config; config.window.width = 1280; config.window.height = 720; config.window.vsync = true;
 ...
-td::App app(config);
+blaze4k::App app(config);
 if (!app.init()) { ... }
 ```
 
@@ -221,7 +221,7 @@ void write_file(const fs::path& path, const std::string& contents);
 # SOURCE: CMakeLists.txt:106 / tests/CMakeLists.txt:156-164
 src/data/judgment_constants_loader.cpp
 add_executable(screen_manager_test screen_manager_test.cpp)
-target_link_libraries(screen_manager_test PRIVATE tundra_core)
+target_link_libraries(screen_manager_test PRIVATE blaze4k_core)
 add_test(NAME screen_manager_test COMMAND screen_manager_test)
 ```
 
@@ -241,7 +241,7 @@ add_test(NAME screen_manager_test COMMAND screen_manager_test)
 | `src/screens/screen.hpp` | UPDATE | Add `GameConfig* config` / `HighScores* scores` to `ScreenContext` (forward decls; additive) |
 | `src/screens/screen_manager.hpp` | UPDATE | Add `ScreenContext& context()` accessor so `main.cpp` can attach shared state |
 | `src/main.cpp` | UPDATE | Resolve paths, load config before window, apply video, attach context, load scores, save on exit, add `--data-dir`/`--xdg` |
-| `CMakeLists.txt` | UPDATE | Add the four new `src/data/*.cpp` to `tundra_core` |
+| `CMakeLists.txt` | UPDATE | Add the four new `src/data/*.cpp` to `blaze4k_core` |
 | `tests/CMakeLists.txt` | UPDATE | Register `config_persistence_test` |
 | `tests/config_persistence_test.cpp` | CREATE | Round-trip, corruption fallback, size cap, atomic save, chart-key stability, best-score logic, path resolution |
 
@@ -258,7 +258,7 @@ Execute in order. Each task is atomic and verifiable.
 
 - **File**: `src/data/config.hpp`
 - **Action**: CREATE
-- **Implement**: `namespace td` with headers `<array>`/`<string>` only (mirror `judgment_constants.hpp`'s
+- **Implement**: `namespace blaze4k` with headers `<array>`/`<string>` only (mirror `judgment_constants.hpp`'s
   purity note):
   ```cpp
   inline constexpr int kConfigVersion = 1;
@@ -371,7 +371,7 @@ Execute in order. Each task is atomic and verifiable.
     [[nodiscard]] std::filesystem::path default_executable_dir();
     ```
   - cpp: resolution order = explicit_data_dir (if non-empty) → prefer_xdg
-    (`xdg_data_home` or `home_dir/.local/share`, then `/tundra-dance`) → `executable_dir/"data"`.
+    (`xdg_data_home` or `home_dir/.local/share`, then `/blaze-4k`) → `executable_dir/"data"`.
     `default_executable_dir()` calls `SDL_GetBasePath()` and returns its parent directory; if SDL
     returns null, fall back to `std::filesystem::current_path()/"data"`. Include `<SDL3/SDL.h>` here
     only.
@@ -406,22 +406,22 @@ Execute in order. Each task is atomic and verifiable.
 - **Implement**:
   - Parse new flags (before the existing ones): `--data-dir <path>`, `--xdg`; update `print_help()`
     (`main.cpp:21-32`). Track whether `--headless`/`--smoke-test` were given (unchanged behavior).
-  - After argument parsing, **before** constructing `td::App` (`main.cpp:105`):
-    1. `const auto base = td::default_executable_dir();`
-    2. `const auto paths = td::resolve_data_paths(base, xdg_flag,
+  - After argument parsing, **before** constructing `blaze4k::App` (`main.cpp:105`):
+    1. `const auto base = blaze4k::default_executable_dir();`
+    2. `const auto paths = blaze4k::resolve_data_paths(base, xdg_flag,
        getenv("XDG_DATA_HOME") ? getenv("XDG_DATA_HOME") : "",
        getenv("HOME") ? getenv("HOME") : "", data_dir_flag);`
-    3. `td::GameConfig game_config = td::load_config(paths.config_file, &msg, &status);` and print the
+    3. `blaze4k::GameConfig game_config = blaze4k::load_config(paths.config_file, &msg, &status);` and print the
        message (stderr for `UsedDefaults`, stdout for `LoadedFromFile`), mirroring
        `app.cpp:34-40`'s routing.
     4. Apply video to `config.window`: `width`, `height`, `vsync` from `game_config.video` (do **not**
        persist/restore `headless`; the CLI `--headless` still wins).
-    5. `td::HighScores high_scores = td::load_high_scores(paths.scores_file, &msg, &status);` and print.
+    5. `blaze4k::HighScores high_scores = blaze4k::load_high_scores(paths.scores_file, &msg, &status);` and print.
   - After building `shell` (`main.cpp:180-184`): `shell->context().config = &game_config;
     shell->context().scores = &high_scores;`.
   - After `app.run()` and before the existing shutdown logging (`main.cpp:212-216`): call
-    `td::save_config(paths.config_file, game_config, &msg)` and
-    `td::save_high_scores(paths.scores_file, high_scores, &msg)`, printing warnings on failure. Saves
+    `blaze4k::save_config(paths.config_file, game_config, &msg)` and
+    `blaze4k::save_high_scores(paths.scores_file, high_scores, &msg)`, printing warnings on failure. Saves
     run for both the shell path and the `--gameplay-demo` path (config still persists).
   - `--gameplay-demo` keeps working; defaults (no files) produce identical video config to today.
 - **Mirror**: `src/main.cpp:36-109,178-217`, message routing in `src/app/app.cpp:29-40`.
@@ -432,7 +432,7 @@ Execute in order. Each task is atomic and verifiable.
 - **Files**: `CMakeLists.txt`, `tests/CMakeLists.txt`
 - **Action**: UPDATE
 - **Implement**:
-  - Root `tundra_core` list, after `src/data/judgment_constants_loader.cpp` (`CMakeLists.txt:106`):
+  - Root `blaze4k_core` list, after `src/data/judgment_constants_loader.cpp` (`CMakeLists.txt:106`):
     `src/data/config_loader.cpp`, `src/data/high_scores.cpp`, `src/data/data_paths.cpp`.
     (`config.hpp` is header-only.)
   - Tests: append a `config_persistence_test` block mirroring `tests/CMakeLists.txt:156-164`.
@@ -465,7 +465,7 @@ Execute in order. Each task is atomic and verifiable.
   10. **High-score round-trip + corruption** — save/load equality; corrupt/missing file → empty table +
      warning.
   11. **Path resolution** — `resolve_data_paths(dir, false, ...)` → `dir/data`; with `prefer_xdg=true`
-      and `xdg_data_home="/x"` → `/x/tundra-dance`; with explicit override → that dir;
+      and `xdg_data_home="/x"` → `/x/blaze-4k`; with explicit override → that dir;
       `config_file`/`scores_file` are `data_dir/{config,scores}.json`.
   12. **Headless App boot smoke with temp data dir** — not required here (covered by E2E); keep the
       test free of `App`/SDL to stay fast and deterministic.
@@ -504,25 +504,25 @@ dir so the developer's real `data/` is untouched.
 
 1. **Fresh boot writes config** (AC 1):
    ```bash
-   rm -rf /tmp/td-e2e && ./build/tundra-dance --headless --smoke-test 120 --data-dir /tmp/td-e2e
-   # exits 0, no window/GL, prints "Tundra Dance shut down cleanly."
-   python3 -m json.tool /tmp/td-e2e/config.json   # valid JSON with video/audio/offset/gameplay/input
-   test -f /tmp/td-e2e/scores.json && python3 -m json.tool /tmp/td-e2e/scores.json
+   rm -rf /tmp/blaze4k-e2e && ./build/blaze-4k --headless --smoke-test 120 --data-dir /tmp/blaze4k-e2e
+   # exits 0, no window/GL, prints "Blaze 4k shut down cleanly."
+   python3 -m json.tool /tmp/blaze4k-e2e/config.json   # valid JSON with video/audio/offset/gameplay/input
+   test -f /tmp/blaze4k-e2e/scores.json && python3 -m json.tool /tmp/blaze4k-e2e/scores.json
    ```
 2. **Config reload is honored** (AC 1):
    ```bash
    python3 - <<'PY'
-   import json; p="/tmp/td-e2e/config.json"; d=json.load(open(p)); d["video"]["width"]=1024; d["video"]["height"]=600; json.dump(d,open(p,"w"))
+   import json; p="/tmp/blaze4k-e2e/config.json"; d=json.load(open(p)); d["video"]["width"]=1024; d["video"]["height"]=600; json.dump(d,open(p,"w"))
    PY
-   ./build/tundra-dance --headless --smoke-test 30 --data-dir /tmp/td-e2e 2>&1 | rg "\[Config\]"
-   # prints "[Config] Loaded '/tmp/td-e2e/config.json'"; boot succeeds with the 1024x600 window config applied
+   ./build/blaze-4k --headless --smoke-test 30 --data-dir /tmp/blaze4k-e2e 2>&1 | rg "\[Config\]"
+   # prints "[Config] Loaded '/tmp/blaze4k-e2e/config.json'"; boot succeeds with the 1024x600 window config applied
    ```
 3. **Corrupt JSON never crashes** (AC 3):
    ```bash
-   printf '{ this is not json' > /tmp/td-e2e/config.json
-   ./build/tundra-dance --headless --smoke-test 30 --data-dir /tmp/td-e2e; echo "exit=$?"
+   printf '{ this is not json' > /tmp/blaze4k-e2e/config.json
+   ./build/blaze-4k --headless --smoke-test 30 --data-dir /tmp/blaze4k-e2e; echo "exit=$?"
    # stderr shows "[Config] Warning: ... malformed JSON ... using defaults"; exit 0; config.json is rewritten valid
-   python3 -m json.tool /tmp/td-e2e/config.json >/dev/null && echo "config repaired"
+   python3 -m json.tool /tmp/blaze4k-e2e/config.json >/dev/null && echo "config repaired"
    ```
 4. **High-score best logic + round-trip** (AC 2, exercised directly because headless cannot play a
    song): `./build/tests/config_persistence_test` prints each sub-check and exits 0; cases 8–10 prove
@@ -530,17 +530,17 @@ dir so the developer's real `data/` is untouched.
    fallback.
 5. **Portable vs XDG placement** (AC 4):
    ```bash
-   rm -rf /tmp/td-xdg && XDG_DATA_HOME=/tmp/td-xdg ./build/tundra-dance --headless --smoke-test 30 --xdg
-   test -f /tmp/td-xdg/tundra-dance/config.json && echo "XDG path used"
-   ./build/tundra-dance --headless --smoke-test 30 --data-dir /tmp/td-e2e --xdg 2>&1 | rg "/tmp/td-e2e"
+   rm -rf /tmp/blaze4k-xdg && XDG_DATA_HOME=/tmp/blaze4k-xdg ./build/blaze-4k --headless --smoke-test 30 --xdg
+   test -f /tmp/blaze4k-xdg/blaze-4k/config.json && echo "XDG path used"
+   ./build/blaze-4k --headless --smoke-test 30 --data-dir /tmp/blaze4k-e2e --xdg 2>&1 | rg "/tmp/blaze4k-e2e"
    # explicit --data-dir wins over --xdg
    ```
 6. **Regression**: `ctest --test-dir build --output-on-failure` → **17/17**, including the unchanged
    `screen_manager_test`, `metronome_sync_test`, and `app_test`; the existing `--gameplay-demo` harness
    still runs:
    ```bash
-   ./build/tundra-dance --headless --gameplay-demo \
-     "tests/fixtures/reference_pack/Tundra Pack/Tundra Anthem/Tundra Anthem.sm" --smoke-test 60
+   ./build/blaze-4k --headless --gameplay-demo \
+     "tests/fixtures/reference_pack/Blaze Pack/Blaze Anthem/Blaze Anthem.sm" --smoke-test 60
    ```
 7. `git status` shows only additions under `src/data/`, the two screen-header edits, `main.cpp`, the
    CMake files, and the new test — no changes to timing/input/gameplay/render.
@@ -594,7 +594,7 @@ dir so the developer's real `data/` is untouched.
    `fnv1a(lower(filename) + title + artist + steps_type + difficulty + meter + note (beat,type,column)
    fingerprint)`, 16 hex chars. Confirm the content fingerprint is desired (vs. filename+metadata
    only), since a simfile edit then resets the record.
-3. **Non-blocking — XDG trigger.** Proposed `--xdg` flag **or** `TUNDRA_XDG=1` env; `XDG_DATA_HOME`
+3. **Non-blocking — XDG trigger.** Proposed `--xdg` flag **or** `BLAZE4K_XDG=1` env; `XDG_DATA_HOME`
    respected with `$HOME/.local/share` fallback. Confirm the env-var name / whether a flag alone
    suffices.
 4. **Non-blocking — save policy.** Proposed unconditional save of both files on a clean exit

@@ -17,11 +17,11 @@
 
 namespace {
 
-using td::HoldJudgment;
-using td::JudgmentAnimator;
-using td::JudgmentEvent;
-using td::JudgmentKind;
-using td::TapJudgment;
+using blaze4k::HoldJudgment;
+using blaze4k::JudgmentAnimator;
+using blaze4k::JudgmentEvent;
+using blaze4k::JudgmentKind;
+using blaze4k::TapJudgment;
 
 JudgmentEvent make_event(JudgmentKind kind, TapJudgment window = TapJudgment::Num,
                          HoldJudgment hold = HoldJudgment::Num) {
@@ -59,11 +59,11 @@ void test_label_mapping() {
 }
 
 void test_color_mapping() {
-    const td::Color fantastic =
+    const blaze4k::Color fantastic =
         JudgmentAnimator::judgment_color(make_event(JudgmentKind::Tap, TapJudgment::Fantastic));
-    const td::Color miss = JudgmentAnimator::judgment_color(make_event(JudgmentKind::Miss));
-    const td::Color ok = JudgmentAnimator::judgment_color(make_event(JudgmentKind::HoldOk));
-    const td::Color ng = JudgmentAnimator::judgment_color(make_event(JudgmentKind::HoldNg));
+    const blaze4k::Color miss = JudgmentAnimator::judgment_color(make_event(JudgmentKind::Miss));
+    const blaze4k::Color ok = JudgmentAnimator::judgment_color(make_event(JudgmentKind::HoldOk));
+    const blaze4k::Color ng = JudgmentAnimator::judgment_color(make_event(JudgmentKind::HoldNg));
     TEST_CHECK(fantastic.r != miss.r || fantastic.g != miss.g || fantastic.b != miss.b);
     TEST_CHECK(ok.b != ng.b || ok.r != ng.r);
     std::cout << "  - judgment color mapping ok.\n";
@@ -175,7 +175,7 @@ void test_combo_milestone_crossing_and_break_reset() {
 }
 
 void test_headless_render_and_reset() {
-    td::GlQuadRenderer renderer; // uninitialized: draws are no-ops
+    blaze4k::GlQuadRenderer renderer; // uninitialized: draws are no-ops
     JudgmentAnimator animator;
 
     animator.consume({make_event(JudgmentKind::Tap, TapJudgment::Excellent)});

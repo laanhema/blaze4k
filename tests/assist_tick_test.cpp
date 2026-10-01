@@ -20,8 +20,8 @@
 
 namespace {
 
-using td::Note;
-using td::NoteType;
+using blaze4k::Note;
+using blaze4k::NoteType;
 
 Note note(int column, double time, NoteType type = NoteType::Tap) {
     Note n;
@@ -33,7 +33,7 @@ Note note(int column, double time, NoteType type = NoteType::Tap) {
 }
 
 void test_schedule_rows() {
-    td::Chart chart;
+    blaze4k::Chart chart;
     // Deliberately unsorted: a jump at 1.0, a lone mine at 1.5, a hold head and a
     // roll head sharing 2.0, a tap at 0.5, a mine sharing the 3.0 tap's row.
     chart.notes = {
@@ -44,7 +44,7 @@ void test_schedule_rows() {
         note(0, 3.0, NoteType::Mine), note(2, 3.0),
     };
 
-    td::AssistTickSchedule schedule;
+    blaze4k::AssistTickSchedule schedule;
     schedule.reset(chart);
     const std::vector<double> expected = {0.5, 1.0, 2.0, 3.0};
     TEST_CHECK(schedule.tick_times() == expected); // sorted, one per row, no mines
@@ -69,7 +69,7 @@ void test_schedule_rows() {
     TEST_CHECK((out == std::vector<double>{0.5}));
 
     // A mines-only chart never ticks.
-    td::Chart mines;
+    blaze4k::Chart mines;
     mines.notes = {note(0, 1.0, NoteType::Mine)};
     schedule.reset(mines);
     TEST_CHECK(schedule.tick_times().empty());
@@ -78,20 +78,20 @@ void test_schedule_rows() {
 
 void test_wav_and_player_fallbacks() {
     const std::filesystem::path dir =
-        std::filesystem::temp_directory_path() / "tundra_assist_tick_test";
+        std::filesystem::temp_directory_path() / "blaze4k_assist_tick_test";
     std::filesystem::create_directories(dir);
     const std::filesystem::path wav = dir / "assist_tick.wav";
 
-    TEST_CHECK(td::write_assist_tick_wav(wav));
+    TEST_CHECK(blaze4k::write_assist_tick_wav(wav));
     std::ifstream in(wav, std::ios::binary);
     char riff[4] = {};
     in.read(riff, 4);
     TEST_CHECK(std::string(riff, 4) == "RIFF");
     TEST_CHECK(std::filesystem::file_size(wav) > 44u);
-    TEST_CHECK(!td::write_assist_tick_wav(std::filesystem::path{}));
+    TEST_CHECK(!blaze4k::write_assist_tick_wav(std::filesystem::path{}));
 
     // No path: disabled, and scheduling/stopping stay safe no-ops.
-    td::AssistTickPlayer player;
+    blaze4k::AssistTickPlayer player;
     TEST_CHECK(!player.init(std::filesystem::path{}));
     TEST_CHECK(!player.is_ready());
     player.play_in(0.1);

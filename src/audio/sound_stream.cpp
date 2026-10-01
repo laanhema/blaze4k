@@ -5,7 +5,7 @@
 #include <cmath>
 #include <miniaudio.h>
 
-namespace td {
+namespace blaze4k {
 
 SoundStream::SoundStream()
     : sound_(std::make_unique<ma_sound>()) {}
@@ -184,4 +184,4 @@ float SoundStream::get_volume() const {
     return 1.0f;
 }
 
-} // namespace td
+} // namespace blaze4k

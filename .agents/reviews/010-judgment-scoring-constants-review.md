@@ -21,7 +21,7 @@ validation/test-coverage nits, not correctness blockers.
 Sampled against the cloned upstream repo at the pinned commit (`/tmp/opencode/openitg`,
 `HEAD == f2c129fe65c65e4a9b3a691ff35e7717b4e8de51`).
 
-| Constant | Tundra | Upstream | Source | Match |
+| Constant | Blaze 4k | Upstream | Source | Match |
 |----------|--------|----------|--------|-------|
 | `windows.fantastic` | 0.0215 | `JudgeWindowSecondsMarvelous=0.021500` | `metrics.ini` | ✅ |
 | `windows.excellent` | 0.0430 | `JudgeWindowSecondsPerfect=0.043000` | `metrics.ini` | ✅ |
@@ -40,7 +40,7 @@ Sampled against the cloned upstream repo at the pinned commit (`/tmp/opencode/op
 | Window boundary `|delta| <= w` | `classify_tap` | `Player.cpp:957-963` uses `<=` | ✅ |
 
 Note: the `[Grade]` theme labels for tiers 1–4 are star glyphs upstream, not `quad_star`/`triple_star`;
-Tundra uses its own internal identifiers deliberately (plan-documented), so this is not a value error.
+Blaze 4k uses its own internal identifiers deliberately (plan-documented), so this is not a value error.
 
 Internal consistency:
 

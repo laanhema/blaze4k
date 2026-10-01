@@ -56,7 +56,7 @@ void write_file(const std::filesystem::path& path, const std::vector<unsigned ch
 
 void test_oversized_header_rejected_before_decode() {
     const std::filesystem::path root =
-        std::filesystem::temp_directory_path() / "tundra_texture_test";
+        std::filesystem::temp_directory_path() / "blaze4k_texture_test";
     std::filesystem::create_directories(root);
 
     const std::filesystem::path huge = root / "huge.png";
@@ -66,12 +66,12 @@ void test_oversized_header_rejected_before_decode() {
     // it, so the header probe must.
     TEST_CHECK(std::filesystem::file_size(huge) < 1024);
 
-    const td::ImageHeader header = td::probe_image_header(huge.string());
+    const blaze4k::ImageHeader header = blaze4k::probe_image_header(huge.string());
     TEST_CHECK(!header.ok);
 
     // from_file must reject it without allocating decoded pixels (it also
     // returns invalid because no GL context is available in this test).
-    const td::Texture texture = td::Texture::from_file(huge.string());
+    const blaze4k::Texture texture = blaze4k::Texture::from_file(huge.string());
     TEST_CHECK(!texture.valid());
 
     std::filesystem::remove_all(root);
@@ -80,24 +80,24 @@ void test_oversized_header_rejected_before_decode() {
 
 void test_dimension_cap_boundary() {
     const std::filesystem::path root =
-        std::filesystem::temp_directory_path() / "tundra_texture_test";
+        std::filesystem::temp_directory_path() / "blaze4k_texture_test";
     std::filesystem::create_directories(root);
 
     const std::filesystem::path at_cap = root / "at_cap.png";
     write_file(at_cap, make_png_header_only(4096, 4096));
-    TEST_CHECK(td::probe_image_header(at_cap.string()).ok);
+    TEST_CHECK(blaze4k::probe_image_header(at_cap.string()).ok);
 
     const std::filesystem::path over_cap = root / "over_cap.png";
     write_file(over_cap, make_png_header_only(4096, 4097));
-    TEST_CHECK(!td::probe_image_header(over_cap.string()).ok);
+    TEST_CHECK(!blaze4k::probe_image_header(over_cap.string()).ok);
 
     std::filesystem::remove_all(root);
     std::cout << "  - 4096px dimension cap boundary enforced ok.\n";
 }
 
 void test_missing_file_and_empty_path() {
-    TEST_CHECK(!td::probe_image_header("does-not-exist-987654.png").ok);
-    TEST_CHECK(!td::Texture::from_file("").valid());
+    TEST_CHECK(!blaze4k::probe_image_header("does-not-exist-987654.png").ok);
+    TEST_CHECK(!blaze4k::Texture::from_file("").valid());
     std::cout << "  - missing file / empty path rejected ok.\n";
 }
 

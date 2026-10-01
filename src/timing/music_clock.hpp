@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <functional>
 
-namespace td {
+namespace blaze4k {
 
 // Raw audio position: number of PCM frames consumed by the stream cursor.
 struct SamplePosition {
@@ -17,7 +17,7 @@ struct SamplePosition {
 //   time_seconds = frames / sample_rate + global_offset_seconds
 //
 // Sign convention: a positive global offset makes the clock read later
-// (positive offset = clock later). Values are stored in Tundra's own sign;
+// (positive offset = clock later). Values are stored in Blaze 4k's own sign;
 // they are NOT mirrored from StepMania's `- offset` convention.
 //
 // Production binding (one-line adapter over a SoundStream):
@@ -53,4 +53,4 @@ private:
     double global_offset_seconds_ = 0.0;
 };
 
-} // namespace td
+} // namespace blaze4k

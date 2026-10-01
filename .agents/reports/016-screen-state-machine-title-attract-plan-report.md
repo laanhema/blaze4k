@@ -93,7 +93,7 @@ override. `hud_renderer.cpp` now uses the shared font.
    no-ops, per the skill's guidance not to add a test seam by refactoring beyond
    the plan.
 5. **Source registration timing.** `src/render/bitmap_font.cpp` was added to
-   `tundra_core` during Task 1 (rather than only at Task 9) so the build stayed
+   `blaze4k_core` during Task 1 (rather than only at Task 9) so the build stayed
    green immediately after the HUD refactor. Remaining sources added at Task 9.
    No behavioral deviation.
 6. **`screen.hpp`** includes `<optional>` exactly as the plan specified, though it
@@ -109,7 +109,7 @@ override. `hud_renderer.cpp` now uses the shared font.
 
 - [x] `./build/tests/screen_manager_test` exits 0 with all sub-checks passing
 - [x] `ctest --test-dir build --output-on-failure` → 16/16
-- [x] `./build/tundra-dance --headless --smoke-test 120` → `enter Title`, clean exit
+- [x] `./build/blaze-4k --headless --smoke-test 120` → `enter Title`, clean exit
 - [x] Headless idle `Title -> Attract` observed (low timeout + adequate frames; see deviation 3)
 - [x] Timing purity: no wall-clock reads under `src/screens`
 - [x] Phase B `--gameplay-demo` smoke still passes

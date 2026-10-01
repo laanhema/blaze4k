@@ -5,7 +5,7 @@
 #include <SDL3/SDL.h>
 #include "input/input_event.hpp"
 
-namespace td {
+namespace blaze4k {
 
 struct InputSettings;
 
@@ -67,4 +67,4 @@ private:
     bool capture_mode_ = false;
 };
 
-} // namespace td
+} // namespace blaze4k

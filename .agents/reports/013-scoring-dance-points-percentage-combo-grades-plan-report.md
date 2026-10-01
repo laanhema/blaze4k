@@ -6,7 +6,7 @@
 
 ## Summary
 
-Implemented Tundra's event-sourced scoring layer (B5): a pure `ScoreKeeper` that groups B4
+Implemented Blaze 4k's event-sourced scoring layer (B5): a pure `ScoreKeeper` that groups B4
 `JudgmentEvent`s into OpenITG rows and derives dance points, possible dance points, DP%, combo,
 max-combo, miss-combo, per-window judgment counts, and the ★ grade; a self-contained 5×7 bitmap-font
 HUD renderer; and `GameplayView` integration that drains the judgment log into the keeper and draws

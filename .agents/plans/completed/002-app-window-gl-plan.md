@@ -2,7 +2,7 @@
 
 ## Summary
 
-Build the application runtime foundation for Tundra Dance:
+Build the application runtime foundation for Blaze 4k:
 1. `src/app/window.hpp` & `src/app/window.cpp`: Encapsulate SDL3 window creation, OpenGL 3.3 Core context initialization with glad loader, swap interval (vsync), and viewport resize management.
 2. `src/app/app.hpp` & `src/app/app.cpp`: Fixed-timestep accumulator main loop (`kFixedTimestep = 1.0 / 60.0` s), frame pacing, event pump, clean shutdown on quit/Escape, and extensible update/render hooks. Provide `--headless` or `--smoke-test` (run N frames and exit) flags for headless testing.
 3. Update `src/main.cpp` to launch the application.
@@ -34,7 +34,7 @@ So that all gameplay and screens have a stable frame foundation.
 | `src/app/app.hpp` | CREATE | Application class and fixed-timestep accumulator loop header |
 | `src/app/app.cpp` | CREATE | App event handling, fixed update tick, and render loop implementation |
 | `src/main.cpp` | UPDATE | Initialize and run App instance |
-| `CMakeLists.txt` | UPDATE | Add `src/app/window.cpp` and `src/app/app.cpp` to tundra-dance target |
+| `CMakeLists.txt` | UPDATE | Add `src/app/window.cpp` and `src/app/app.cpp` to blaze-4k target |
 | `tests/app_test.cpp` | CREATE | Unit tests for timestep accumulator and app configuration |
 | `tests/CMakeLists.txt` | UPDATE | Add `app_test` executable |
 
@@ -76,7 +76,7 @@ So that all gameplay and screens have a stable frame foundation.
 ### Task 5: Validate and End-to-End Verification
 - Build project: `cmake --build build`
 - Run CTest: `ctest --test-dir build --output-on-failure`
-- Run smoke test: `./build/tundra-dance --smoke-test 10`
+- Run smoke test: `./build/blaze-4k --smoke-test 10`
 
 ---
 
@@ -85,7 +85,7 @@ So that all gameplay and screens have a stable frame foundation.
 ```bash
 cmake --build build
 ctest --test-dir build --output-on-failure
-./build/tundra-dance --smoke-test 10
+./build/blaze-4k --smoke-test 10
 ```
 
 ## Acceptance Criteria

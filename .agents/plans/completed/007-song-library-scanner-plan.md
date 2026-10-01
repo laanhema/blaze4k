@@ -1,7 +1,7 @@
 # Implementation Plan - Issue #7: [A7] Song library scanner with pack grouping and art resolution
 
 ## 1. Context & Objectives
-Implement the recursive song library scanner for Tundra Dance.
+Implement the recursive song library scanner for Blaze 4k.
 Given a `Songs/<Pack>/<Song>/` directory hierarchy (or pack subfolder), the scanner recursively discovers simfiles, groups them into packs, resolves banner/background/music asset paths with case-insensitivity and fallback resolution, skips unsupported or corrupt charts gracefully with readable logs, and ensures 100% error-free loading for valid 4-panel songs.
 
 ## 2. Requirements & Acceptance Criteria

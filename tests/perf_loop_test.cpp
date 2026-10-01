@@ -46,7 +46,7 @@ double time_ms(Fn&& fn) {
     return std::chrono::duration<double, std::milli>(end - start).count();
 }
 
-void print_block(const char* label, const td::FrameStats& stats) {
+void print_block(const char* label, const blaze4k::FrameStats& stats) {
     std::cout << "[" << label << "] frames=" << stats.count()
               << " min=" << std::fixed << std::setprecision(3) << stats.min_ms() << "ms"
               << " median=" << stats.median_ms() << "ms"
@@ -60,11 +60,11 @@ void print_block(const char* label, const td::FrameStats& stats) {
 
 fs::path resolve_fixture() {
     const fs::path candidates[] = {
-        fs::path(TUNDRA_SOURCE_DIR) / "tests" / "fixtures" / "reference_pack" / "Tundra Pack" /
+        fs::path(BLAZE4K_SOURCE_DIR) / "tests" / "fixtures" / "reference_pack" / "Blaze Pack" /
             "Aurora Borealis" / "Aurora Borealis.sm",
-        fs::path("tests") / "fixtures" / "reference_pack" / "Tundra Pack" / "Aurora Borealis" /
+        fs::path("tests") / "fixtures" / "reference_pack" / "Blaze Pack" / "Aurora Borealis" /
             "Aurora Borealis.sm",
-        fs::path("..") / "tests" / "fixtures" / "reference_pack" / "Tundra Pack" /
+        fs::path("..") / "tests" / "fixtures" / "reference_pack" / "Blaze Pack" /
             "Aurora Borealis" / "Aurora Borealis.sm",
     };
     for (const fs::path& candidate : candidates) {
@@ -78,29 +78,29 @@ fs::path resolve_fixture() {
 // Plays the reference chart to completion through the real GameplayView logic
 // path (stub clock in headless), timing update + input handling per step. Render
 // is intentionally not timed (it is a no-op into an uninitialized renderer).
-td::FrameStats run_song_loop(const fs::path& fixture) {
-    td::SimfileParser parser;
+blaze4k::FrameStats run_song_loop(const fs::path& fixture) {
+    blaze4k::SimfileParser parser;
     TEST_CHECK(parser.parse_file(fixture.string()));
     TEST_CHECK(!parser.charts().empty());
-    const td::Chart& chart = parser.charts().front();
+    const blaze4k::Chart& chart = parser.charts().front();
 
-    td::GameplayOptions options;
+    blaze4k::GameplayOptions options;
     options.fail_enabled = false; // keep playing so the full chart resolves
 
-    td::GameplayView view;
-    TEST_CHECK(view.init(chart, td::JudgmentConstants::compiled_defaults(), "", options));
+    blaze4k::GameplayView view;
+    TEST_CHECK(view.init(chart, blaze4k::JudgmentConstants::compiled_defaults(), "", options));
 
     double last_note_time = 0.0;
-    for (const td::Note& note : chart.notes) {
+    for (const blaze4k::Note& note : chart.notes) {
         last_note_time =
             std::max(last_note_time, std::max(note.time_seconds, note.hold_end_time_seconds));
     }
     const int max_steps = static_cast<int>((last_note_time + 5.0) / kFixedDt) + 1;
 
     const std::array<bool, 4> held{false, false, false, false};
-    td::FrameStats stats;
+    blaze4k::FrameStats stats;
     int steps = 0;
-    while (view.outcome() == td::GameplayOutcome::InProgress && steps < max_steps) {
+    while (view.outcome() == blaze4k::GameplayOutcome::InProgress && steps < max_steps) {
         stats.add(time_ms([&] {
             view.handle_input_events({}, 0);
             view.update(kFixedDt, held);
@@ -110,34 +110,34 @@ td::FrameStats run_song_loop(const fs::path& fixture) {
 
     std::cout << "[perf_loop_test] song '" << chart.difficulty << "' (meter " << chart.meter
               << ") resolved as "
-              << (view.outcome() == td::GameplayOutcome::Cleared ? "Cleared" : "not-Cleared")
+              << (view.outcome() == blaze4k::GameplayOutcome::Cleared ? "Cleared" : "not-Cleared")
               << " in " << steps << " steps\n";
-    TEST_CHECK(view.outcome() == td::GameplayOutcome::Cleared);
+    TEST_CHECK(view.outcome() == blaze4k::GameplayOutcome::Cleared);
     TEST_CHECK(!stats.empty());
     TEST_CHECK(stats.count() == static_cast<std::size_t>(steps));
     TEST_CHECK(std::isfinite(stats.max_ms()));
 
     // Headless render must not crash (the renderer is uninitialized).
-    td::GlQuadRenderer renderer;
+    blaze4k::GlQuadRenderer renderer;
     view.render(renderer, 1280, 720);
     return stats;
 }
 
 // Times N real arcade-screen updates, rotating Title -> Attract -> Select so
 // every shell update path is exercised.
-td::FrameStats run_screen_loop() {
-    td::ScreenManager manager(0.0); // idle-attract disabled for determinism
-    manager.add_screen(std::make_unique<td::TitleScreen>());
-    manager.add_screen(std::make_unique<td::AttractScreen>());
-    manager.add_screen(std::make_unique<td::SelectPlaceholderScreen>());
-    manager.start(td::ScreenId::Title);
+blaze4k::FrameStats run_screen_loop() {
+    blaze4k::ScreenManager manager(0.0); // idle-attract disabled for determinism
+    manager.add_screen(std::make_unique<blaze4k::TitleScreen>());
+    manager.add_screen(std::make_unique<blaze4k::AttractScreen>());
+    manager.add_screen(std::make_unique<blaze4k::SelectPlaceholderScreen>());
+    manager.start(blaze4k::ScreenId::Title);
 
     constexpr int kScreenFrames = 2000;
-    const td::ScreenId rotation[] = {td::ScreenId::Title, td::ScreenId::Attract,
-                                     td::ScreenId::Select};
+    const blaze4k::ScreenId rotation[] = {blaze4k::ScreenId::Title, blaze4k::ScreenId::Attract,
+                                     blaze4k::ScreenId::Select};
     int rotation_index = 0;
 
-    td::FrameStats stats;
+    blaze4k::FrameStats stats;
     for (int i = 0; i < kScreenFrames; ++i) {
         if (i > 0 && i % 200 == 0) {
             rotation_index = (rotation_index + 1) % 3;
@@ -155,19 +155,19 @@ int main() {
     std::cout << "[perf_loop_test] Headless CPU-budget benchmark (proxy for AC2; "
                  "not a GPU/vsync FPS proof).\n";
 
-    const char* strict_env = std::getenv("TUNDRA_PERF_STRICT");
+    const char* strict_env = std::getenv("BLAZE4K_PERF_STRICT");
     const bool strict = !(strict_env != nullptr && std::string(strict_env) == "0");
     if (!strict) {
-        std::cout << "[perf_loop_test] TUNDRA_PERF_STRICT=0: budget assertions advisory only.\n";
+        std::cout << "[perf_loop_test] BLAZE4K_PERF_STRICT=0: budget assertions advisory only.\n";
     }
 
     const fs::path fixture = resolve_fixture();
     TEST_CHECK(!fixture.empty());
 
-    const td::FrameStats gameplay_stats = run_song_loop(fixture);
+    const blaze4k::FrameStats gameplay_stats = run_song_loop(fixture);
     print_block("perf_loop_test.song", gameplay_stats);
 
-    const td::FrameStats screen_stats = run_screen_loop();
+    const blaze4k::FrameStats screen_stats = run_screen_loop();
     print_block("perf_loop_test.screens", screen_stats);
 
     if (strict) {

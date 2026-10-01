@@ -10,7 +10,7 @@
 
 #include <nlohmann/json.hpp>
 
-namespace td {
+namespace blaze4k {
 namespace {
 
 using json = nlohmann::json;
@@ -240,4 +240,4 @@ JudgmentConstants load_judgment_constants_from_candidates(
     return fallback(message, status, "no constants file found among configured candidates");
 }
 
-} // namespace td
+} // namespace blaze4k

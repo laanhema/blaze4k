@@ -2,7 +2,7 @@
 #include <iostream>
 #include <miniaudio.h>
 
-namespace td {
+namespace blaze4k {
 
 AudioEngine& AudioEngine::instance() {
     static AudioEngine s_instance;
@@ -56,4 +56,4 @@ float AudioEngine::get_master_volume() const {
     return 1.0f;
 }
 
-} // namespace td
+} // namespace blaze4k

@@ -6,7 +6,7 @@
 #include <iostream>
 #include <string>
 
-namespace td {
+namespace blaze4k {
 
 namespace {
 
@@ -123,4 +123,4 @@ double resolve_x_speed(const SpeedMod& mod, const TimingData& timing) {
     return 1.0;
 }
 
-} // namespace td
+} // namespace blaze4k

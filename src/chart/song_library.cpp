@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <cctype>
 
-namespace td {
+namespace blaze4k {
 
 namespace {
 
@@ -389,4 +389,4 @@ bool SongLibrary::scan_directory(const std::filesystem::path& root_path) {
     return true;
 }
 
-} // namespace td
+} // namespace blaze4k

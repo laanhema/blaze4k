@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace td {
+namespace blaze4k {
 
 namespace {
 
@@ -174,4 +174,4 @@ void NoteFieldRenderer::render(const NoteField& field,
     }
 }
 
-} // namespace td
+} // namespace blaze4k

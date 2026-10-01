@@ -4,7 +4,7 @@
 
 #include "audio/sound_stream.hpp"
 
-namespace td {
+namespace blaze4k {
 
 // Delay between a highlight change and the preview starting (UI feel only; not
 // sourced from OpenITG -- see plan OQ3).
@@ -64,4 +64,4 @@ private:
     float volume_ = 1.0f;
 };
 
-} // namespace td
+} // namespace blaze4k

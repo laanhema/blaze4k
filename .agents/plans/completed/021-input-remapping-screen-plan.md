@@ -54,7 +54,7 @@ So that any controller layout works without editing config files.
 | App → Back gate | `src/app/app.cpp:102-109` | on KEY_DOWN checks `action_for_key(...) == Back` then `event_cb_` → `shell->back_navigates()`; `handle_sdl_event` runs after |
 | Screen seam / manager | `src/screens/screen.hpp:31-47`, `screen_manager.cpp:13-16,20-30,134-162` | `ScreenContext` holds concrete pointers (`config`, `scores`, `library`, `constants`, `play_request`, `action_down`); `handle_back`/`back_consumed` modal hook; `default_back_navigates` + `handle_back` branch per screen |
 | Options seam | `src/screens/options_menu.hpp:12-24`, `select_screen.cpp:255-283` | `OptionsRow` enum + `options_menu_adjust` documented C6 extension point; Select intercepts the action row |
-| Test idiom / registration | `tests/input_test.cpp:8-14`, `tests/CMakeLists.txt:32-40` | `TEST_CHECK` (abort) + one `add_executable`/`target_link_libraries(... tundra_core)`/`add_test` block per target |
+| Test idiom / registration | `tests/input_test.cpp:8-14`, `tests/CMakeLists.txt:32-40` | `TEST_CHECK` (abort) + one `add_executable`/`target_link_libraries(... blaze4k_core)`/`add_test` block per target |
 | SDL name tables | `sdl3-src/src/events/SDL_keymap.c:680-802`, `sdl3-src/src/joystick/SDL_gamepad.c:1064-1090` | key/scancode names ("D","Left","Return","Escape","Tab","Keypad Enter"); gamepad names lowercase ("a","b","x","y","back","start","leftshoulder","rightshoulder","dpup","dpdown","dpleft","dpright") |
 
 **Start green, stay green:** 23 tests pass; this plan adds **2** targets (`input_remap_test`,
@@ -232,7 +232,7 @@ ie.raw_code = static_cast<uint32_t>(event.key.key);
 // SOURCE: tests/input_test.cpp:8-14; tests/CMakeLists.txt:32-40
 #define TEST_CHECK(expr) do { if (!(expr)) { std::cerr << ...; std::abort(); } } while (0)
 add_executable(input_test input_test.cpp)
-target_link_libraries(input_test PRIVATE tundra_core)
+target_link_libraries(input_test PRIVATE blaze4k_core)
 add_test(NAME input_test COMMAND input_test)
 ```
 
@@ -255,7 +255,7 @@ add_test(NAME input_test COMMAND input_test)
 | `src/screens/options_menu.cpp` | UPDATE | Row name/value text; no-op adjust for the new action row |
 | `src/screens/select_screen.cpp` | UPDATE | Intercept the Remap row (Confirm/Right) → `transition_to(ScreenId::InputRemap)`; close overlay |
 | `src/main.cpp` | UPDATE | `apply_bindings(game_config.input)` at boot; register `InputRemapScreen`; wire `context().input = &app.input_manager()` |
-| `CMakeLists.txt` | UPDATE | Add `src/screens/input_remap.cpp` + `src/screens/input_remap_screen.cpp` to `tundra_core` |
+| `CMakeLists.txt` | UPDATE | Add `src/screens/input_remap.cpp` + `src/screens/input_remap_screen.cpp` to `blaze4k_core` |
 | `tests/CMakeLists.txt` | UPDATE | Register `input_remap_test` and `input_remap_screen_test` |
 | `tests/input_remap_test.cpp` | CREATE | Pure model: enumeration, move clamp, assign/replace, conflict, reset, config grouping |
 | `tests/input_remap_screen_test.cpp` | CREATE | Headless screen integration with real `InputManager` + `ScreenManager`: capture, apply, conflict, reset, cancel, back |
@@ -319,7 +319,7 @@ Execute in order. Each task is atomic and verifiable.
 - **Action**: CREATE
 - **Implement** (pure: include only `<string>`, `<vector>`, `data/config.hpp`; no SDL/GL):
   ```cpp
-  namespace td {
+  namespace blaze4k {
   struct RemapRow { GameAction action; DeviceType device; std::string name; };
   enum class RemapStatus { Bound, Replaced, Conflict, Unchanged };
   struct InputRemapModel {
@@ -340,7 +340,7 @@ Execute in order. Each task is atomic and verifiable.
   [[nodiscard]] std::string remap_action_name(GameAction);             // "LEFT", "CONFIRM", ...
   [[nodiscard]] std::string remap_device_name(DeviceType);             // "KEYBOARD", "PAD"
   [[nodiscard]] std::string remap_row_value_text(const InputRemapModel&, int row); // row name or "<PRESS>"
-  } // namespace td
+  } // namespace blaze4k
   ```
   `input_remap_from_config`: start from `default_key_bindings()`/`default_gamepad_bindings()`, then
   for each action present in `config.input.*` replace that action's names; one `RemapRow` per
@@ -456,7 +456,7 @@ Execute in order. Each task is atomic and verifiable.
   - After `app.init()` succeeds (`:214-217`) and before the shell is started, call
     `app.input_manager().apply_bindings(game_config.input);` so a saved remap is honored at boot
     (AC2). (Safe if the file was missing: defaults are applied.)
-  - Register `shell->add_screen(std::make_unique<td::InputRemapScreen>());` alongside the other
+  - Register `shell->add_screen(std::make_unique<blaze4k::InputRemapScreen>());` alongside the other
     `add_screen` calls (`:289-294`).
   - Add `shell->context().input = &app.input_manager();` next to the other context wiring
     (`:295-302`).
@@ -468,7 +468,7 @@ Execute in order. Each task is atomic and verifiable.
 - **Files**: `CMakeLists.txt`, `tests/CMakeLists.txt`
 - **Action**: UPDATE
 - **Implement**: add `src/screens/input_remap.cpp` and `src/screens/input_remap_screen.cpp` to the
-  `tundra_core` list (`CMakeLists.txt:80-124`); append `input_remap_test` and
+  `blaze4k_core` list (`CMakeLists.txt:80-124`); append `input_remap_test` and
   `input_remap_screen_test` blocks mirroring (`tests/CMakeLists.txt:32-40`).
 - **Validate**: `cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j16`.
 
@@ -496,7 +496,7 @@ Execute in order. Each task is atomic and verifiable.
 
 - **File**: `tests/input_remap_screen_test.cpp`
 - **Action**: CREATE
-- **Implement** (`TEST_CHECK`; construct a real `td::InputManager` and a `td::ScreenManager` with
+- **Implement** (`TEST_CHECK`; construct a real `blaze4k::InputManager` and a `blaze4k::ScreenManager` with
   `InputRemap` + `Select` registered; a `GameConfig` and `ScreenContext`):
   1. **Rows from config** — `enter` builds the default rows; `exit` clears capture.
   2. **Capture start** — a Confirm press on a binding row sets `capturing()` and
@@ -592,20 +592,20 @@ developer's real `data/` is untouched.
 
 1. **Binary boots with a saved remap and keeps it** (AC2/AC3 at the binary level):
    ```bash
-   rm -rf /tmp/td-e2e-remap
-   mkdir -p /tmp/td-e2e-remap
+   rm -rf /tmp/blaze4k-e2e-remap
+   mkdir -p /tmp/blaze4k-e2e-remap
    printf '{"version":1,"input":{"key_bindings":{"Confirm":["Space"],"Back":["Escape"]},'\
-   '"gamepad_bindings":{"Confirm":["start"],"Back":["back"]}}}\n' > /tmp/td-e2e-remap/config.json
-   ./build/tundra-dance --headless --smoke-test 30 --start-screen select \
-     --songs tests/fixtures/reference_pack --data-dir /tmp/td-e2e-remap
+   '"gamepad_bindings":{"Confirm":["start"],"Back":["back"]}}}\n' > /tmp/blaze4k-e2e-remap/config.json
+   ./build/blaze-4k --headless --smoke-test 30 --start-screen select \
+     --songs tests/fixtures/reference_pack --data-dir /tmp/blaze4k-e2e-remap
    # exit 0; logs "[InputManager] applied ..." or no warning; config.json still has Confirm:["Space"];
    # no crash with a partial binding file (missing actions fall back to defaults)
    ```
 2. **Defaults are the single authority** (AC4):
    ```bash
-   printf '{}\n' > /tmp/td-e2e-remap/config.json
-   ./build/tundra-dance --headless --smoke-test 30 --start-screen select \
-     --songs tests/fixtures/reference_pack --data-dir /tmp/td-e2e-remap
+   printf '{}\n' > /tmp/blaze4k-e2e-remap/config.json
+   ./build/blaze-4k --headless --smoke-test 30 --start-screen select \
+     --songs tests/fixtures/reference_pack --data-dir /tmp/blaze4k-e2e-remap
    # exit 0; config.json re-saved with the full default 7/7 binding maps
    ```
 3. **Screen end-to-end with a real InputManager (no device)** — capture, apply, conflict, reset

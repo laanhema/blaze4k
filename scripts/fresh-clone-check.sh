@@ -55,7 +55,7 @@ while [ $# -gt 0 ]; do
 done
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-work="$(mktemp -d "${TMPDIR:-/tmp}/tundra-fresh-clone.XXXXXX")"
+work="$(mktemp -d "${TMPDIR:-/tmp}/blaze4k-fresh-clone.XXXXXX")"
 tree="$work/src"
 log_dir="$work/logs"
 mkdir -p "$tree" "$log_dir"

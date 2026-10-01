@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-namespace td {
+namespace blaze4k {
 
 // Where config.json and scores.json live for this run.
 struct ResolvedDataPaths {
@@ -16,7 +16,7 @@ struct ResolvedDataPaths {
 // Pure, deterministic resolution (no environment or platform access) so it is
 // directly unit-testable. Precedence:
 //   1. `explicit_data_dir` when non-empty (e.g. `--data-dir`, tests, smoke runs);
-//   2. XDG when `prefer_xdg` is set -- `${xdg_data_home:-<home>/.local/share}/tundra-dance`;
+//   2. XDG when `prefer_xdg` is set -- `${xdg_data_home:-<home>/.local/share}/blaze-4k`;
 //   3. portable default -- `executable_dir/data` next to the binary.
 // If XDG is requested but neither an XDG data home nor a home directory is
 // available, the portable default is used.
@@ -37,4 +37,4 @@ struct ResolvedDataPaths {
 [[nodiscard]] std::filesystem::path resolve_first_existing(
     const std::vector<std::filesystem::path>& candidates);
 
-} // namespace td
+} // namespace blaze4k

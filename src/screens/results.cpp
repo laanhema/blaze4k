@@ -2,7 +2,7 @@
 
 #include <cmath>
 
-namespace td {
+namespace blaze4k {
 
 ResultsSummary results_summary_from(const ScoreState& state, bool failed, const Song* song,
                                     const Chart* chart) {
@@ -53,4 +53,4 @@ bool results_submit_score(HighScores& scores, const ResultsSummary& summary,
     return submit_high_score(scores, make_chart_key(*summary.song, *summary.chart), record);
 }
 
-} // namespace td
+} // namespace blaze4k

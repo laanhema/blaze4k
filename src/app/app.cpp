@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <iomanip>
 
-namespace td {
+namespace blaze4k {
 
 App::App(const AppConfig& config)
     : config_(config), window_(config.window) {}
@@ -173,4 +173,4 @@ void App::on_event(const SDL_Event& event) {
     (void)event;
 }
 
-} // namespace td
+} // namespace blaze4k

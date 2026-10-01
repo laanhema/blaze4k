@@ -7,7 +7,7 @@
 #include <string>
 #include <system_error>
 
-namespace td {
+namespace blaze4k {
 
 namespace {
 
@@ -204,4 +204,4 @@ MusicClock::Source Metronome::clock_source() {
     };
 }
 
-} // namespace td
+} // namespace blaze4k

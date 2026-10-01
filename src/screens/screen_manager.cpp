@@ -5,7 +5,7 @@
 #include "audio/ui_sounds.hpp"
 #include "render/gl_quad_renderer.hpp"
 
-namespace td {
+namespace blaze4k {
 
 namespace {
 
@@ -286,4 +286,4 @@ void ScreenManager::set_idle_timeout_seconds(double seconds) {
     idle_timeout_seconds_ = seconds;
 }
 
-} // namespace td
+} // namespace blaze4k

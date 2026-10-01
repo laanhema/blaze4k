@@ -2,7 +2,7 @@
 
 ## Summary
 
-Build Tundra's scoring layer as a **pure, event-sourced module** (PRD §6 pattern 2 / AGENTS.md core
+Build Blaze 4k's scoring layer as a **pure, event-sourced module** (PRD §6 pattern 2 / AGENTS.md core
 principles 1 & 2). Every value is derived from the B4 `JudgmentEvent` log — never from an independent
 re-judgment — and every OpenITG rule is pinned to the reference commit (see **Value Provenance**).
 The work splits into a pure scoring core, a thin HUD, and integration:
@@ -74,7 +74,7 @@ So that my scores mean the same thing they do on real hardware.
 ## Pinned Semantics
 
 **Authority for B5 is OpenITG** (PRD §15). OpenITG stores notes by integer row and works in beats;
-Tundra stores an absolute `Note.beat` per note. B5 re-expresses OpenITG's row scoring against Tundra's
+Blaze 4k stores an absolute `Note.beat` per note. B5 re-expresses OpenITG's row scoring against Blaze 4k's
 note/chart domains (documented where the re-expression is not literally identical).
 
 ### Row identity and aggregation
@@ -83,7 +83,7 @@ note/chart domains (documented where the re-expression is not literally identica
   when it is **completely judged** — every non-mine tap/hold-head note in it has a result
   (`IsRowCompletelyJudged = MinTapNoteScore >= TNS_MISS`, `NoteDataWithScoring.cpp:172-190`) — via
   `Player::OnRowCompletelyJudged → HandleTapRowScore` (`Player.cpp:1305-1365,1521-1575`).
-- Tundra's row identity is the exact **`Note.beat`**: the parser computes `beat` once per row and
+- Blaze 4k's row identity is the exact **`Note.beat`**: the parser computes `beat` once per row and
   shares the bit-identical value across that row's columns (`note_parser.cpp:152-158`). B5 maps each
   event's `note_index → chart.notes[note_index].beat` and groups equal beats. This is **stronger than
   grouping by `note_time_seconds`**: a stop/warp can make two distinct beats map to the same seconds,
@@ -102,7 +102,7 @@ note/chart domains (documented where the re-expression is not literally identica
   (a miss anywhere makes the whole row a miss); otherwise the track with the **greatest
   `fTapNoteOffset`** — i.e. the **latest** hit (`fTapNoteOffset = hit − note`, negative = early,
   `NoteTypes.h:14-16`) — with ties going to the **later column**.
-- **Tundra:** for a row's buffered per-note events, if any is a `Miss` → row score = Miss; else the
+- **Blaze 4k:** for a row's buffered per-note events, if any is a `Miss` → row score = Miss; else the
   event with the greatest `delta_ms` (ties → later column) supplies the row score. `delta_ms` carries
   the same sign convention as `fTapNoteOffset` (`judgment.hpp:31`).
 - **TNS_NONE cannot appear** in a completed row: B4 emits no event for a step-too-far; the note stays
@@ -124,7 +124,7 @@ note/chart domains (documented where the re-expression is not literally identica
 - `GetPossibleDancePoints = NumTaps*5 + NumHolds*5 + NumRolls*5`, where `NumTaps =
   RADAR_NUM_TAPS_AND_HOLDS = GetNumRowsWithTapOrHoldHead()` (`ScoreKeeperMAX2.cpp:440-452`;
   `NoteDataUtil.cpp:641-646`; `NoteData.cpp:477-485`), and holds/rolls are per-head counts.
-- **Tundra:** `possible_dp = rows_with_tap_or_hold_head * dp_weights.fantastic
+- **Blaze 4k:** `possible_dp = rows_with_tap_or_hold_head * dp_weights.fantastic
   + chart.hold_count * dp_weights.hold_ok + chart.roll_count * dp_weights.hold_ok`. This is a
   **chart-derived maximum**, not judgment logic; B5 computes it once in `reset()`. (No note-adding
   mods in v1, so OpenITG's `max(pre, post)` radar collapse is a no-op.)
@@ -167,7 +167,7 @@ note/chart domains (documented where the re-expression is not literally identica
 
 - Percent is formatted with `PercentDecimalPlaces=2`, `PercentTotalSize=5`, `PercentUseRemainder=0`,
   **truncated** (not rounded) after a `+0.000001` boost, and **display-clamped to [0,1]** when
-  `actual <= possible` (`PercentageDisplay.cpp:110-116`). Tundra: `format_percent` truncates to two
+  `actual <= possible` (`PercentageDisplay.cpp:110-116`). Blaze 4k: `format_percent` truncates to two
   decimals and appends `%`; grade still uses the unclamped percent.
 
 ---
@@ -204,7 +204,7 @@ All behavioral values/semantics below are transcribed from the cloned OpenITG re
 | Delta sign | `fTapNoteOffset = hit − note` (negative = early) | `NoteTypes.h:14-16`; `judgment.hpp:31` |
 
 **Unsourced presentation choices** (flagged, non-blocking — see Open Questions): the HUD bitmap-font
-glyph shapes, layout offsets, and per-judgment chip colors are Tundra's own presentation and carry no
+glyph shapes, layout offsets, and per-judgment chip colors are Blaze 4k's own presentation and carry no
 OpenITG parity requirement.
 
 ---
@@ -260,7 +260,7 @@ Tagged `std::cerr` lines prefixed `[ScoreKeeper]` / `[GameplayView]`; never thro
 ```cpp
 // SOURCE: tests/judgment_engine_test.cpp:13-19,27-36
 #define TEST_CHECK(expr) do { if (!(expr)) { std::cerr << ...; std::abort(); } } while (0)
-td::Note make_note(int column, double time_seconds, td::NoteType type, double hold_end_time = 0.0);
+blaze4k::Note make_note(int column, double time_seconds, blaze4k::NoteType type, double hold_end_time = 0.0);
 ```
 Plain `int main()` binaries, `TEST_CHECK`, synthetic `Chart`, `JudgmentConstants::compiled_defaults()`,
 deterministic and hardware-independent.
@@ -268,9 +268,9 @@ deterministic and hardware-independent.
 ### Source + test registration
 ```cmake
 # SOURCE: CMakeLists.txt:96-104 / tests/CMakeLists.txt:114-122
-add_library(tundra_core STATIC ... src/gameplay/judgment_engine.cpp ...)
+add_library(blaze4k_core STATIC ... src/gameplay/judgment_engine.cpp ...)
 add_executable(judgment_engine_test judgment_engine_test.cpp)
-target_link_libraries(judgment_engine_test PRIVATE tundra_core)
+target_link_libraries(judgment_engine_test PRIVATE blaze4k_core)
 add_test(NAME judgment_engine_test COMMAND judgment_engine_test)
 ```
 
@@ -286,7 +286,7 @@ add_test(NAME judgment_engine_test COMMAND judgment_engine_test)
 | `src/gameplay/hud_renderer.cpp` | CREATE | 5×7 bitmap font + HUD layout via `GlQuadRenderer` |
 | `src/gameplay/gameplay_view.hpp` | UPDATE | Own `ScoreKeeper` + `HudRenderer`; expose live `ScoreState` |
 | `src/gameplay/gameplay_view.cpp` | UPDATE | Drain new events → keeper in `update`; render HUD; log final score |
-| `CMakeLists.txt` | UPDATE | Add `src/gameplay/score_keeper.cpp`, `src/gameplay/hud_renderer.cpp` to `tundra_core` |
+| `CMakeLists.txt` | UPDATE | Add `src/gameplay/score_keeper.cpp`, `src/gameplay/hud_renderer.cpp` to `blaze4k_core` |
 | `tests/CMakeLists.txt` | UPDATE | Register `score_keeper_test` |
 | `tests/score_keeper_test.cpp` | CREATE | DP/percent/grade/combo/counts/row/HUD-format tests |
 
@@ -304,7 +304,7 @@ Execute in order. Each task is atomic and verifiable.
 - **Action**: CREATE
 - **Implement**:
   ```cpp
-  namespace td {
+  namespace blaze4k {
 
   // Live score derived solely from the B4 judgment log (PRD section 6 pattern 2).
   // Pure value type; no clocks, no platform headers.
@@ -361,7 +361,7 @@ Execute in order. Each task is atomic and verifiable.
       ScoreState state_;
   };
 
-  } // namespace td
+  } // namespace blaze4k
   ```
   - Includes `<array>`, `<vector>`, `<cstddef>`, `"chart/chart.hpp"`, `"gameplay/judgment.hpp"`,
     `"timing/judgment_constants.hpp"`. **No** SDL/GL/`<chrono>`.
@@ -479,7 +479,7 @@ Execute in order. Each task is atomic and verifiable.
       - top-centre: `format_combo(state.combo)` with an `x` suffix;
       - top-right: six color-coded chips (Fantastic/Excellent/Great/Decent/WayOff/Miss) each with its
         `tap_counts` value (plus OK/NG hold chips if space allows).
-    - Colors are Tundra presentation (see Open Questions); use a fixed palette constant.
+    - Colors are Blaze 4k presentation (see Open Questions); use a fixed palette constant.
   - Header only forward-declares `class GlQuadRenderer;` and includes `"gameplay/score_keeper.hpp"`
     (which is GL-free), so the pure formatters are testable without a GL context.
 - **Mirror**: `src/gameplay/note_field_renderer.cpp:20-42` (draw calls), `src/render/geometry.hpp:6-19`.
@@ -517,7 +517,7 @@ Execute in order. Each task is atomic and verifiable.
 - **Files**: `CMakeLists.txt`, `tests/CMakeLists.txt`
 - **Action**: UPDATE
 - **Implement**:
-  - Root: add `src/gameplay/score_keeper.cpp` and `src/gameplay/hud_renderer.cpp` to `tundra_core`
+  - Root: add `src/gameplay/score_keeper.cpp` and `src/gameplay/hud_renderer.cpp` to `blaze4k_core`
     after `src/gameplay/judgment_engine.cpp`.
   - Tests: append a `score_keeper_test` block mirroring `judgment_engine_test`
     (`tests/CMakeLists.txt:114-122`).
@@ -581,8 +581,8 @@ ctest --test-dir build --output-on-failure
 ./build/tests/score_keeper_test
 
 # Headless harness smoke (stub clock; fixture has taps/holds/rolls/mines)
-./build/tundra-dance --headless --gameplay-demo \
-  "tests/fixtures/reference_pack/Tundra Pack/Tundra Anthem/Tundra Anthem.sm" --smoke-test 120
+./build/blaze-4k --headless --gameplay-demo \
+  "tests/fixtures/reference_pack/Blaze Pack/Blaze Anthem/Blaze Anthem.sm" --smoke-test 120
 
 # Purity check: scoring core must not touch platform/time/GL headers
 rg -n "SDL|glad|gl[A-Z]|ma_|chrono|thread|GetPerformanceCounter|GetTicksNS|fixed_dt" \
@@ -662,7 +662,7 @@ rg -n "SDL|glad|gl[A-Z]|ma_|chrono|thread|GetPerformanceCounter|GetTicksNS|fixed
    a stale code-default example. Confirm before parity tests are considered authoritative.
 2. **BLOCKING (presentation) — PRD star example.** PRD §5 says "99%+ earns ★★★★"; OpenITG arcade sets
    four-star (quad) = **1.00** and three-star = **0.99**. Proposed default: follow OpenITG (four stars
-   requires 100%); 99% maps to triple star. Confirm Tundra's star presentation, or B5's grade tests
+   requires 100%); 99% maps to triple star. Confirm Blaze 4k's star presentation, or B5's grade tests
    encode the wrong label. (B2 already seeded the OpenITG tiers.)
 3. **HUD text approach (non-blocking).** No font/text system or font asset exists. Proposed default:
    a self-contained 5×7 bitmap font drawn as solid quads (no asset/licensing, headless-safe). Confirm,
@@ -673,7 +673,7 @@ rg -n "SDL|glad|gl[A-Z]|ma_|chrono|thread|GetPerformanceCounter|GetTicksNS|fixed
    grade live?) and whether the live HUD should clamp negative percent for display (proposed yes,
    matching `PercentageDisplay.cpp:110-116`).
 5. **Live vs full-song denominator (non-blocking).** Proposed: HUD percent = `actual / possible`
-   (full-song), matching OpenITG `GetPercentDancePoints`. Confirm Tundra does not want the "current max"
+   (full-song), matching OpenITG `GetPercentDancePoints`. Confirm Blaze 4k does not want the "current max"
    denominator (`GetCurMaxPercentDancePoints`) used for a subtract-style display.
 6. **`is_complete()` consumer (non-blocking).** Proposed: expose row/hold completion for B6's fail
    transition and C7's results trigger. Confirm B6 wants this rather than its own end-of-chart signal.

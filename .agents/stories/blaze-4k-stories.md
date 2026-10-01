@@ -1,4 +1,4 @@
-# Tundra Dance — User Stories
+# Blaze 4k — User Stories
 
 **Source:** `.agents/PRDs/PRD.md` (v1.0, 2026-09-26)
 **Generated:** 2026-09-26
@@ -25,7 +25,7 @@ As the developer, I want a CMake build that fetches and links all dependencies, 
 
 ### Acceptance Criteria
 
-- [ ] Given a fresh clone, when `cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build` runs, then it produces a runnable `tundra-dance` binary on at least one OS
+- [ ] Given a fresh clone, when `cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build` runs, then it produces a runnable `blaze-4k` binary on at least one OS
 - [ ] Given the CMakeLists.txt, when configuring, then SDL3 (≥3.2), glad (GL 3.3), miniaudio, stb_truetype, and nlohmann/json are all fetched via FetchContent with pinned versions
 - [ ] Given MSVC, Clang, or GCC, when building with C++20, then there are no compiler-specific errors
 - [ ] Given the planned layout, when the scaffold is created, then `src/`, `assets/`, `tests/` directories and `main.cpp` stub exist

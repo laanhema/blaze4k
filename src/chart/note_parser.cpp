@@ -6,7 +6,7 @@
 #include <cmath>
 #include <array>
 
-namespace td {
+namespace blaze4k {
 
 namespace {
 
@@ -260,4 +260,4 @@ std::optional<Chart> NoteParser::parse_4panel_notedata(
     return chart;
 }
 
-} // namespace td
+} // namespace blaze4k

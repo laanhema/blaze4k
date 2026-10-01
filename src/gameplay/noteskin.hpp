@@ -8,7 +8,7 @@
 #include "timing/judgment_constants.hpp"
 #include "render/texture.hpp"
 
-namespace td {
+namespace blaze4k {
 
 // One drawable piece of skin art, drawn in a square box of `scale * note_size`
 // centered on its screen position.
@@ -150,4 +150,4 @@ private:
     Texture body_;
 };
 
-} // namespace td
+} // namespace blaze4k

@@ -27,15 +27,15 @@ int main() {
     std::cout << "[music_clock_test] Starting music clock tests...\n";
 
     // 1. Frame math
-    TEST_CHECK(std::abs(td::MusicClock::seconds_from_pcm(44100, 44100) - 1.0) < 1e-9);
-    TEST_CHECK(std::abs(td::MusicClock::seconds_from_pcm(0, 44100) - 0.0) < 1e-9);
-    TEST_CHECK(std::abs(td::MusicClock::seconds_from_pcm(100, 0) - 0.0) < 1e-9);
+    TEST_CHECK(std::abs(blaze4k::MusicClock::seconds_from_pcm(44100, 44100) - 1.0) < 1e-9);
+    TEST_CHECK(std::abs(blaze4k::MusicClock::seconds_from_pcm(0, 44100) - 0.0) < 1e-9);
+    TEST_CHECK(std::abs(blaze4k::MusicClock::seconds_from_pcm(100, 0) - 0.0) < 1e-9);
     std::cout << "  - Frame math guarded and correct.\n";
 
     // 2. Offset applied (positive/negative direction)
-    td::MusicClock clock;
-    td::MusicClock::Source static_source = [] {
-        return td::SamplePosition{48000, 48000};
+    blaze4k::MusicClock clock;
+    blaze4k::MusicClock::Source static_source = [] {
+        return blaze4k::SamplePosition{48000, 48000};
     };
     clock.set_source(static_source);
     TEST_CHECK(clock.has_source());
@@ -48,12 +48,12 @@ int main() {
     std::cout << "  - Positive/negative offset direction correct.\n";
 
     // 3. Zero/uncalibrated default
-    td::MusicClock default_clock;
+    blaze4k::MusicClock default_clock;
     TEST_CHECK(!default_clock.has_source());
     TEST_CHECK(std::abs(default_clock.time_seconds() - 0.0) < 1e-9);
     TEST_CHECK(std::abs(default_clock.sample_time_seconds() - 0.0) < 1e-9);
     TEST_CHECK(std::abs(default_clock.global_offset_seconds() - 0.0) < 1e-9);
-    default_clock.set_source([] { return td::SamplePosition{0, 44100}; });
+    default_clock.set_source([] { return blaze4k::SamplePosition{0, 44100}; });
     TEST_CHECK(std::abs(default_clock.time_seconds() - 0.0) < 1e-9);
     default_clock.clear_source();
     TEST_CHECK(!default_clock.has_source());
@@ -61,8 +61,8 @@ int main() {
 
     // 4. Frame-hitch independence: repeated reads between frame changes are identical
     uint64_t frames = 22050;
-    td::MusicClock hitch_clock([&frames] {
-        return td::SamplePosition{frames, 44100};
+    blaze4k::MusicClock hitch_clock([&frames] {
+        return blaze4k::SamplePosition{frames, 44100};
     });
     double first = hitch_clock.time_seconds();
     for (int i = 0; i < 1000; ++i) {
@@ -80,7 +80,7 @@ int main() {
     std::cout << "  - Clock advances by exactly the frame delta.\n";
 
     // 6. Non-finite offset rejection keeps last finite value
-    td::MusicClock offset_clock;
+    blaze4k::MusicClock offset_clock;
     offset_clock.set_global_offset_seconds(0.050);
     offset_clock.set_global_offset_seconds(std::numeric_limits<double>::quiet_NaN());
     TEST_CHECK(std::abs(offset_clock.global_offset_seconds() - 0.050) < 1e-12);
@@ -89,13 +89,13 @@ int main() {
     std::cout << "  - Non-finite offsets rejected, last finite value retained.\n";
 
     // 7. Nanoseconds
-    td::MusicClock ns_clock([] { return td::SamplePosition{48000, 48000}; });
+    blaze4k::MusicClock ns_clock([] { return blaze4k::SamplePosition{48000, 48000}; });
     ns_clock.set_global_offset_seconds(0.5);
     TEST_CHECK(ns_clock.time_nanoseconds() == 1500000000LL);
     std::cout << "  - Nanosecond conversion correct.\n";
 
     // 8. Guarded audio integration (End-to-End)
-    td::AudioEngine& engine = td::AudioEngine::instance();
+    blaze4k::AudioEngine& engine = blaze4k::AudioEngine::instance();
     if (!engine.init()) {
         std::cout << "[music_clock_test] skipping audio integration (no audio device)\n";
     } else {
@@ -104,10 +104,10 @@ int main() {
         fs::path wav_path = temp_dir / "clock_1s.wav";
         write_test_wav(wav_path.string(), 1.0, 440.0);
 
-        td::SoundStream stream;
+        blaze4k::SoundStream stream;
         TEST_CHECK(stream.load(wav_path.string()));
-        td::MusicClock audio_clock([&stream] {
-            return td::SamplePosition{stream.get_position_frames(), stream.get_sample_rate()};
+        blaze4k::MusicClock audio_clock([&stream] {
+            return blaze4k::SamplePosition{stream.get_position_frames(), stream.get_sample_rate()};
         });
         audio_clock.set_global_offset_seconds(0.0);
         TEST_CHECK(audio_clock.time_seconds() >= 0.0);

@@ -15,7 +15,7 @@
 
 #include <nlohmann/json.hpp>
 
-namespace td {
+namespace blaze4k {
 namespace {
 
 using json = nlohmann::json;
@@ -447,4 +447,4 @@ bool save_config(const std::filesystem::path& path, const GameConfig& config,
     return true;
 }
 
-} // namespace td
+} // namespace blaze4k

@@ -8,7 +8,7 @@
 
 #include "data/config.hpp"
 
-namespace td {
+namespace blaze4k {
 
 namespace {
 
@@ -278,4 +278,4 @@ std::string format_offset(double seconds) {
     return out.str();
 }
 
-} // namespace td
+} // namespace blaze4k

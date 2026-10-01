@@ -3,7 +3,7 @@
 #include <vector>
 #include <string_view>
 
-namespace td {
+namespace blaze4k {
 
 struct BpmSegment {
     double beat = 0.0;
@@ -51,4 +51,4 @@ private:
     std::vector<StopSegment> stops_;
 };
 
-} // namespace td
+} // namespace blaze4k

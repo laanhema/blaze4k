@@ -2,7 +2,7 @@
 
 #include <SDL3/SDL.h>
 
-namespace td {
+namespace blaze4k {
 
 ResolvedDataPaths resolve_data_paths(const std::filesystem::path& executable_dir, bool prefer_xdg,
                                      const std::string& xdg_data_home, const std::string& home_dir,
@@ -17,7 +17,7 @@ ResolvedDataPaths resolve_data_paths(const std::filesystem::path& executable_dir
         } else if (!home_dir.empty()) {
             base = std::filesystem::path(home_dir) / ".local" / "share";
         }
-        data_dir = base.empty() ? (executable_dir / "data") : (base / "tundra-dance");
+        data_dir = base.empty() ? (executable_dir / "data") : (base / "blaze-4k");
     } else {
         data_dir = executable_dir / "data";
     }
@@ -57,4 +57,4 @@ std::filesystem::path resolve_first_existing(
     return {};
 }
 
-} // namespace td
+} // namespace blaze4k

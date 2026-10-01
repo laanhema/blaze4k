@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace td {
+namespace blaze4k {
 
 void AssistTickSchedule::reset(const Chart& chart) {
     times_.clear();
@@ -24,4 +24,4 @@ void AssistTickSchedule::collect_due(double horizon_seconds, std::vector<double>
     }
 }
 
-} // namespace td
+} // namespace blaze4k

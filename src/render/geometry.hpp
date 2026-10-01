@@ -1,6 +1,6 @@
 #pragma once
 
-namespace td {
+namespace blaze4k {
 
 // Straight-alpha RGBA color, components in [0, 1].
 struct Color {
@@ -39,4 +39,4 @@ enum class BlendMode { Alpha, Add };
     return Color{a.r * b.r, a.g * b.g, a.b * b.b, a.a * b.a};
 }
 
-} // namespace td
+} // namespace blaze4k

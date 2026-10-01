@@ -1,4 +1,4 @@
-# Product Requirements Document: Tundra Dance
+# Product Requirements Document: Blaze 4k
 
 **Version:** 1.0
 **Date:** 2026-09-26
@@ -9,7 +9,7 @@
 
 ## 1. Executive Summary
 
-**Tundra Dance** is a modern 4-panel arrow rhythm game for desktop (Windows, macOS, Linux), built as a faithful homage to *In The Groove*, *Mungyodance*, and *StepMania*. Players hit scrolling arrows in time with music using a keyboard or USB dance pad, judged against tight, ITG-style timing windows, and scored with the OpenITG dance-point/grade system.
+**Blaze 4k** is a modern 4-panel arrow rhythm game for desktop (Windows, macOS, Linux), built as a faithful homage to *In The Groove*, *Mungyodance*, and *StepMania*. Players hit scrolling arrows in time with music using a keyboard or USB dance pad, judged against tight, ITG-style timing windows, and scored with the OpenITG dance-point/grade system.
 
 The game is built on a custom C++20 engine (SDL3 + OpenGL + miniaudio) designed around one non-negotiable principle: **timing precision**. Gameplay is driven by a music-synchronized clock rather than frame timing, and input events are timestamped at the nanosecond level. The game is fully offline, reads the de-facto standard SM/SSC simfile formats (instantly compatible with decades of community charts), and ships engine-only — users import their own song packs.
 
@@ -153,7 +153,7 @@ Deliver the definitive offline ITG-style experience: mechanically faithful, timi
 ### Proposed directory structure
 
 ```
-tundra-dance/
+blaze-4k/
 ├── CMakeLists.txt
 ├── src/
 │   ├── main.cpp
@@ -336,7 +336,7 @@ Not applicable — fully offline desktop application with no network API. Intern
 ### Locked decisions log
 | Decision | Value |
 |---|---|
-| Name | Tundra Dance |
+| Name | Blaze 4k |
 | Platform | Windows / macOS / Linux |
 | Stack | C++20, SDL3, OpenGL 3.3, miniaudio, stb_truetype, nlohmann/json, CMake |
 | Panels | 4 only (v1) |

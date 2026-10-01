@@ -2,9 +2,9 @@
 
 #include <filesystem>
 
-namespace td {
+namespace blaze4k {
 
-// Menu UI sounds only (no gameplay hit SFX). Tundra presentation, unsourced.
+// Menu UI sounds only (no gameplay hit SFX). Blaze 4k presentation, unsourced.
 enum class UiSound { Move, Confirm, Back };
 
 // Injectable sink so the shell's trigger logic is testable without an audio
@@ -43,4 +43,4 @@ private:
     bool logged_unavailable_ = false;
 };
 
-} // namespace td
+} // namespace blaze4k

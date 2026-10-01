@@ -2,7 +2,7 @@
 #include <iostream>
 #include <cstdlib>
 
-namespace td {
+namespace blaze4k {
 
 Window::Window(const WindowConfig& config)
     : config_(config), width_(config.width), height_(config.height) {}
@@ -159,4 +159,4 @@ void Window::on_resize(int new_width, int new_height) {
     }
 }
 
-} // namespace td
+} // namespace blaze4k

@@ -6,7 +6,7 @@
 #include "chart/timing_data.hpp"
 #include "chart/chart.hpp"
 
-namespace td {
+namespace blaze4k {
 
 struct Song {
     std::string pack_name;
@@ -27,4 +27,4 @@ struct Song {
     bool has_custom_music = false;
 };
 
-} // namespace td
+} // namespace blaze4k

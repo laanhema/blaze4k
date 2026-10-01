@@ -11,7 +11,7 @@
 #include "screens/options_menu.hpp"
 #include "screens/screen.hpp"
 
-namespace td {
+namespace blaze4k {
 struct Chart;
 struct Song;
 struct ScoreRecord;
@@ -100,4 +100,4 @@ private:
     bool hold_repeating_ = false;
 };
 
-} // namespace td
+} // namespace blaze4k

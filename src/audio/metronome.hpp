@@ -6,7 +6,7 @@
 #include "audio/sound_stream.hpp"
 #include "timing/music_clock.hpp"
 
-namespace td {
+namespace blaze4k {
 
 // Steady-metronome parameters shared by the click-track generator and the
 // wizard's beat schedule. Defaults match CalibrationConfig (120 BPM, 2 s lead-in,
@@ -58,4 +58,4 @@ private:
     bool using_stub_ = false;
 };
 
-} // namespace td
+} // namespace blaze4k

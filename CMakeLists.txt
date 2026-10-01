@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.24)
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5 CACHE STRING "" FORCE)
-project(tundra-dance VERSION 0.1.0 LANGUAGES C CXX)
+project(blaze-4k VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -77,7 +77,7 @@ if(NOT TARGET stb)
 endif()
 
 # Core library target
-add_library(tundra_core STATIC
+add_library(blaze4k_core STATIC
     src/app/window.cpp
     src/app/app.cpp
     src/audio/miniaudio_impl.cpp
@@ -134,11 +134,11 @@ add_library(tundra_core STATIC
     src/screens/select_placeholder_screen.cpp
 )
 
-target_include_directories(tundra_core PUBLIC
+target_include_directories(blaze4k_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
-target_link_libraries(tundra_core PUBLIC
+target_link_libraries(blaze4k_core PUBLIC
     SDL3::SDL3-static
     glad
     nlohmann_json::nlohmann_json
@@ -148,21 +148,21 @@ target_link_libraries(tundra_core PUBLIC
 )
 
 # Main executable
-add_executable(tundra-dance
+add_executable(blaze-4k
     src/main.cpp
 )
 
-target_link_libraries(tundra-dance PRIVATE
-    tundra_core
+target_link_libraries(blaze-4k PRIVATE
+    blaze4k_core
 )
 
 # Copy bundled assets (fallback background, judgment constants) next to the
 # binary so a fresh `build/` run finds them via the runtime candidate paths.
-add_custom_command(TARGET tundra-dance POST_BUILD
+add_custom_command(TARGET blaze-4k POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
             ${CMAKE_CURRENT_SOURCE_DIR}/assets
-            $<TARGET_FILE_DIR:tundra-dance>/assets
-    COMMENT "Copying bundled assets next to tundra-dance"
+            $<TARGET_FILE_DIR:blaze-4k>/assets
+    COMMENT "Copying bundled assets next to blaze-4k"
 )
 
 # Testing

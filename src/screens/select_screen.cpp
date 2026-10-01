@@ -18,7 +18,7 @@
 #include "screens/play_request.hpp"
 #include "screens/screen_manager.hpp"
 
-namespace td {
+namespace blaze4k {
 
 namespace {
 
@@ -693,4 +693,4 @@ void SelectScreen::update_inactive(double fixed_dt) {
     preview_.update(fixed_dt); // no-op once stopped (Idle)
 }
 
-} // namespace td
+} // namespace blaze4k

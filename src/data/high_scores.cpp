@@ -19,7 +19,7 @@
 
 #include <nlohmann/json.hpp>
 
-namespace td {
+namespace blaze4k {
 namespace {
 
 using json = nlohmann::json;
@@ -349,4 +349,4 @@ const ScoreRecord* find_high_score(const HighScores& scores, const std::string& 
     return &it->second;
 }
 
-} // namespace td
+} // namespace blaze4k

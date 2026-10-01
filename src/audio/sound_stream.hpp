@@ -6,7 +6,7 @@
 
 struct ma_sound;
 
-namespace td {
+namespace blaze4k {
 
 // Narrow playback surface that PreviewPlayer depends on. Lets tests drive the
 // Waiting -> Active -> loop state machine with a fake implementation, so the
@@ -60,4 +60,4 @@ private:
     mutable double last_position_ = 0.0;
 };
 
-} // namespace td
+} // namespace blaze4k

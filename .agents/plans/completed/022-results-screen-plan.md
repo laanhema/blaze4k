@@ -54,7 +54,7 @@ So that I get an honest arcade-style evaluation and can chase my own records.
 | Formatting | `src/gameplay/hud_renderer.cpp:34-76` | `format_percent` (OpenITG truncate/clamp) and `format_grade` (`quad_star`→`****`, letters pass through) |
 | Grade tiers | `src/timing/judgment_constants.cpp:36-55` | 17 arcade tiers, `{1.00,"quad_star"} … {-1000,"D"}` |
 | Headless completed run | `tests/score_keeper_test.cpp:641-661` | One-tap `Chart`, `GameplayView::init(chart,k,"",options)`, 90×`update(1/60, none)` → Miss → `is_complete()`; the exact pattern for a headless end-to-end test |
-| Test idiom / registration | `tests/calibration_screen_test.cpp:24-31,112-142`; `tests/CMakeLists.txt:206-214` | `TEST_CHECK` (abort); one `add_executable`/`target_link_libraries(tundra_core)`/`add_test` per target; `Spy` screens + `ScreenManager` |
+| Test idiom / registration | `tests/calibration_screen_test.cpp:24-31,112-142`; `tests/CMakeLists.txt:206-214` | `TEST_CHECK` (abort); one `add_executable`/`target_link_libraries(blaze4k_core)`/`add_test` per target; `Spy` screens + `ScreenManager` |
 | Screen test manager setup | `tests/select_screen_test.cpp:540-548` | `ScreenManager(0.0)` (idle disabled), register spies, wire context, `start(...)` |
 
 **Start green, stay green:** 25 tests pass; this plan adds **2** targets (`results_test`,
@@ -122,7 +122,7 @@ struct ResultsSummary;            // forward declaration near GameplayScreen/Pla
 ResultsSummary* results = nullptr; // C7: GameplayScreen writes on run end; ResultsScreen reads
 ```
 
-- Wired by `main` (owned as a local `td::ResultsSummary`, like `td::PlayRequest`).
+- Wired by `main` (owned as a local `blaze4k::ResultsSummary`, like `blaze4k::PlayRequest`).
 - `GameplayScreen::update`, when `view_.outcome() != GameplayOutcome::InProgress`, fills
   `*ctx.results = results_summary_from(...)` once and transitions to `Results`.
 - `ResultsScreen::enter` copies `ctx.results` (or an invalid default) and submits.
@@ -216,15 +216,15 @@ bool default_back_navigates(ScreenId id) {
 // SOURCE: tests/calibration_screen_test.cpp:24-31; tests/CMakeLists.txt:206-214
 #define TEST_CHECK(expr) do { if (!(expr)) { std::cerr << ...; std::abort(); } } while (0)
 add_executable(results_test results_test.cpp)
-target_link_libraries(results_test PRIVATE tundra_core)
+target_link_libraries(results_test PRIVATE blaze4k_core)
 add_test(NAME results_test COMMAND results_test)
 ```
 
 ### Headless completed run (for the end-to-end handoff test)
 ```cpp
 // SOURCE: tests/score_keeper_test.cpp:641-661
-td::Chart chart; chart.notes.push_back(make_note(0, 1.0, td::NoteType::Tap)); chart.tap_count = 1;
-td::GameplayView view; view.init(chart, k, "", options);
+blaze4k::Chart chart; chart.notes.push_back(make_note(0, 1.0, blaze4k::NoteType::Tap)); chart.tap_count = 1;
+blaze4k::GameplayView view; view.init(chart, k, "", options);
 for (int i = 0; i < 90; ++i) view.update(1.0/60.0, held_none()); // tap expires -> Miss -> is_complete()
 ```
 
@@ -243,8 +243,8 @@ for (int i = 0; i < 90; ++i) view.update(1.0/60.0, held_none()); // tap expires 
 | `src/screens/gameplay_screen.cpp` | UPDATE | On run end: publish `*ctx.results`, transition to `Results` (fallback to `Select` if Results unregistered) |
 | `src/screens/screen_manager.cpp` | UPDATE | `Results` in `default_back_navigates`; `handle_back` case `Results → Select`; comment |
 | `src/screens/screen_manager.hpp` | UPDATE | Update the Back-navigation contract comment (Results now consumes Back) |
-| `src/main.cpp` | UPDATE | Include + declare `td::ResultsSummary results;`; register `ResultsScreen`; wire `context().results` |
-| `CMakeLists.txt` | UPDATE | Add `src/screens/results.cpp` + `src/screens/results_screen.cpp` to `tundra_core` |
+| `src/main.cpp` | UPDATE | Include + declare `blaze4k::ResultsSummary results;`; register `ResultsScreen`; wire `context().results` |
+| `CMakeLists.txt` | UPDATE | Add `src/screens/results.cpp` + `src/screens/results_screen.cpp` to `blaze4k_core` |
 | `tests/CMakeLists.txt` | UPDATE | Register `results_test` and `results_screen_test` |
 | `tests/results_test.cpp` | CREATE | Pure model: snapshot copy, submit first/lower/higher/tie, failed/invalid no-op |
 | `tests/results_screen_test.cpp` | CREATE | Headless integration: enter→submit→flag, render, Confirm/Back→Select, Gameplay→Results end-to-end |
@@ -380,8 +380,8 @@ Execute in order. Each task is atomic and verifiable.
 - **Action**: UPDATE
 - **Implement**:
   - `#include "screens/results_screen.hpp"` and `#include "screens/results.hpp"`.
-  - Near `td::PlayRequest play_request;` (`:212`) add `td::ResultsSummary results_summary;`.
-  - Register `shell->add_screen(std::make_unique<td::ResultsScreen>());` alongside the other
+  - Near `blaze4k::PlayRequest play_request;` (`:212`) add `blaze4k::ResultsSummary results_summary;`.
+  - Register `shell->add_screen(std::make_unique<blaze4k::ResultsScreen>());` alongside the other
     `add_screen` calls (`:294-300`).
   - Add `shell->context().results = &results_summary;` next to the other context wiring (`:301-309`).
 - **Mirror**: `src/main.cpp:212-222,293-309`.
@@ -392,7 +392,7 @@ Execute in order. Each task is atomic and verifiable.
 - **Files**: `CMakeLists.txt`, `tests/CMakeLists.txt`
 - **Action**: UPDATE
 - **Implement**: add `src/screens/results.cpp` and `src/screens/results_screen.cpp` to the
-  `tundra_core` list (`CMakeLists.txt:80-126`); append `results_test` and `results_screen_test`
+  `blaze4k_core` list (`CMakeLists.txt:80-126`); append `results_test` and `results_screen_test`
   blocks mirroring `tests/CMakeLists.txt:206-214`.
 - **Validate**: `cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j16`.
 
@@ -400,7 +400,7 @@ Execute in order. Each task is atomic and verifiable.
 
 - **File**: `tests/results_test.cpp`
 - **Action**: CREATE
-- **Implement** (`TEST_CHECK`; no SDL/GL; build a `ScoreState` by hand and a `td::Song`/`td::Chart`):
+- **Implement** (`TEST_CHECK`; no SDL/GL; build a `ScoreState` by hand and a `blaze4k::Song`/`blaze4k::Chart`):
   1. **Snapshot copy** — `results_summary_from(state, failed, &song, &chart)` copies grade label,
      percent, `actual_dp`/`possible_dp`, `max_combo`, both count arrays, `failed`, and pointers;
      `valid == true`; null `state.grade` → empty label but valid.
@@ -496,10 +496,10 @@ the developer's real `data/` is untouched.
    level, a fresh data dir and a completed run leaves `scores.json` with a record after clean exit
    (the existing `main` save path):
    ```bash
-   rm -rf /tmp/td-e2e-results && mkdir -p /tmp/td-e2e-results
-   ./build/tundra-dance --headless --smoke-test 30 --start-screen select \
-     --songs tests/fixtures/reference_pack --data-dir /tmp/td-e2e-results
-   # exit 0; /tmp/td-e2e-results/scores.json exists (possibly empty with no run)
+   rm -rf /tmp/blaze4k-e2e-results && mkdir -p /tmp/blaze4k-e2e-results
+   ./build/blaze-4k --headless --smoke-test 30 --start-screen select \
+     --songs tests/fixtures/reference_pack --data-dir /tmp/blaze4k-e2e-results
+   # exit 0; /tmp/blaze4k-e2e-results/scores.json exists (possibly empty with no run)
    ```
 3. **Failed-run clarity** (AC4): `results_screen_test` case 3 asserts the failed summary submits
    nothing and exposes `failed`; the render path draws the red `FAILED` banner (headless no-op).

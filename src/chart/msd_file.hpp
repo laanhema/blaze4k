@@ -4,7 +4,7 @@
 #include <vector>
 #include <string_view>
 
-namespace td {
+namespace blaze4k {
 
 struct MsdTag {
     std::string name;
@@ -42,4 +42,4 @@ private:
     std::vector<MsdTag> tags_;
 };
 
-} // namespace td
+} // namespace blaze4k

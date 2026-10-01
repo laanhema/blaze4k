@@ -6,7 +6,7 @@
 #include "gameplay/noteskin.hpp"
 #include "render/gl_quad_renderer.hpp"
 
-namespace td {
+namespace blaze4k {
 
 // Most recent tap explosion in a column. `window` Num = none.
 struct TapExplosionState {
@@ -43,4 +43,4 @@ private:
     mutable int last_drawn_quads_ = 0;
 };
 
-} // namespace td
+} // namespace blaze4k

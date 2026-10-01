@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <limits>
 
-namespace td {
+namespace blaze4k {
 
 void ScoreKeeper::reset(const Chart* chart, const JudgmentConstants* constants) {
     chart_ = chart;
@@ -242,4 +242,4 @@ bool ScoreKeeper::is_complete() const {
     return true;
 }
 
-} // namespace td
+} // namespace blaze4k

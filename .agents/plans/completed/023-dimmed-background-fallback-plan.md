@@ -45,8 +45,8 @@ So that songs have visual identity without distracting from the arrows.
 | Renderer | `src/render/gl_quad_renderer.hpp:29-36` | `draw_quad` (solid) + `draw_textured_quad` (UV, tint); every call is a no-op when uninitialized (headless) |
 | Texture factory | `src/render/texture.hpp:39-56` | `Texture::from_file` (PNG/JPG/BMP, 4096px / 16 MiB caps, headless → invalid), `from_rgba`, `solid` |
 | Procedural precedent | `src/gameplay/noteskin.cpp:11-40`; `noteskin.hpp:17-18` | "no image files"; `init()` logs + returns false without GL; safe to draw regardless |
-| Palette precedent | `src/gameplay/hud_renderer.cpp:14-29` | "Tundra presentation, unsourced; no OpenITG parity requirement" constants |
-| Fixtures | `tests/fixtures/reference_pack/Tundra Pack/` | `Glacier Groove/` + `Tundra Anthem/` + `Northern Lights/` have `bg*.png`; `Aurora Borealis/` has none (exercises fallback) |
+| Palette precedent | `src/gameplay/hud_renderer.cpp:14-29` | "Blaze 4k presentation, unsourced; no OpenITG parity requirement" constants |
+| Fixtures | `tests/fixtures/reference_pack/Blaze Pack/` | `Glacier Groove/` + `Blaze Anthem/` + `Northern Lights/` have `bg*.png`; `Aurora Borealis/` has none (exercises fallback) |
 | Test idiom | `tests/texture_test.cpp:12-19`; `tests/CMakeLists.txt:226-234`; `tests/score_keeper_test.cpp:638-661` | `TEST_CHECK` abort; one target per test; headless `GameplayView` construction pattern |
 
 **Start green, stay green:** 27 tests pass; this plan adds **1** target (`background_test`) → **28
@@ -60,7 +60,7 @@ expected**. No `src/chart/*`, `src/audio/*`, `src/timing/*`, `src/gameplay/judgm
 
 Authority: **PRD §4/§5 story 7/§12 Phase D/§15**, the existing **`Texture`/`GlQuadRenderer`**
 contracts, and the **`NoteSkin` procedural-art pattern**. No OpenITG parity value is required for
-the dim level or fallback look ("Tundra presentation, unsourced", per `hud_renderer.cpp:14-17`);
+the dim level or fallback look ("Blaze 4k presentation, unsourced", per `hud_renderer.cpp:14-17`);
 only the 2D-only constraint is locked.
 
 ### Background sources (all resolved, no new scanner work)
@@ -173,7 +173,7 @@ active_ = view_.init(chart, constants, audio_path, ctx.play_request->options);
 // SOURCE: tests/texture_test.cpp:12-19; tests/CMakeLists.txt:226-234
 #define TEST_CHECK(expr) do { if (!(expr)) { std::cerr << ...; std::abort(); } } while (0)
 add_executable(background_test background_test.cpp)
-target_link_libraries(background_test PRIVATE tundra_core)
+target_link_libraries(background_test PRIVATE blaze4k_core)
 add_test(NAME background_test COMMAND background_test)
 ```
 
@@ -189,7 +189,7 @@ add_test(NAME background_test COMMAND background_test)
 | `src/gameplay/gameplay_view.cpp` | UPDATE | `init`: `background_.init(); background_.load(background_path);`; `render`: draw background first; `shutdown`: `background_.shutdown();` |
 | `src/screens/gameplay_screen.cpp` | UPDATE | Pass `song.resolved_background_path` to `view_.init(...)` |
 | `src/main.cpp` | UPDATE | `--gameplay-demo`: resolve the simfile's background (if present) and pass it (parity; optional) |
-| `CMakeLists.txt` | UPDATE | Add `src/render/background_renderer.cpp` to `tundra_core` |
+| `CMakeLists.txt` | UPDATE | Add `src/render/background_renderer.cpp` to `blaze4k_core` |
 | `tests/CMakeLists.txt` | UPDATE | Register `background_test` |
 | `tests/background_test.cpp` | CREATE | `cover_uv` math (equal/tall/wide/degenerate), headless init/load/render no-crash, path handling |
 
@@ -213,7 +213,7 @@ Execute in order. Each task is atomic and verifiable.
   #include <string>
   #include "render/geometry.hpp"
   #include "render/texture.hpp"
-  namespace td {
+  namespace blaze4k {
   class GlQuadRenderer;
   class BackgroundRenderer {
   public:
@@ -235,7 +235,7 @@ Execute in order. Each task is atomic and verifiable.
       Texture image_;
       Texture fallback_;
   };
-  } // namespace td
+  } // namespace blaze4k
   ```
   - `init()`: return `true` if `fallback_.valid()` already; if `glad_glGenTextures == nullptr`
     log `[BackgroundRenderer] No GL context available; fallback background disabled` and return
@@ -291,7 +291,7 @@ Execute in order. Each task is atomic and verifiable.
 
 - **Files**: `CMakeLists.txt`, `tests/CMakeLists.txt`
 - **Action**: UPDATE
-- **Implement**: add `src/render/background_renderer.cpp` to the `tundra_core` source list
+- **Implement**: add `src/render/background_renderer.cpp` to the `blaze4k_core` source list
   (`CMakeLists.txt:95-99` area); append a `background_test` block mirroring
   `tests/CMakeLists.txt:226-234`.
 - **Validate**: `cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j16`.
@@ -353,15 +353,15 @@ so the developer's real `data/` is untouched.
 1. **Song with art** (AC1): the fixture `Glacier Groove` has `bg.png` in-folder. The demo path
    resolves it; the log shows `[BackgroundRenderer] background '<...>/bg.png' (WxH)`.
    ```bash
-   ./build/tundra-dance --headless --smoke-test 30 \
-     --gameplay-demo "tests/fixtures/reference_pack/Tundra Pack/Glacier Groove/Glacier Groove.sm"
+   ./build/blaze-4k --headless --smoke-test 30 \
+     --gameplay-demo "tests/fixtures/reference_pack/Blaze Pack/Glacier Groove/Glacier Groove.sm"
    # exit 0; background loaded log; note field + HUD still render (headless no-ops)
    ```
 2. **Song without art** (AC2): `Aurora Borealis` has no `bg*.png`; the log shows the procedural
    fallback being used, and gameplay runs to the smoke-test exit.
    ```bash
-   ./build/tundra-dance --headless --smoke-test 30 \
-     --gameplay-demo "tests/fixtures/reference_pack/Tundra Pack/Aurora Borealis/Aurora Borealis.sm"
+   ./build/blaze-4k --headless --smoke-test 30 \
+     --gameplay-demo "tests/fixtures/reference_pack/Blaze Pack/Aurora Borealis/Aurora Borealis.sm"
    # exit 0; "using fallback" logged
    ```
 3. **Contrast / draw order** (AC3): `cover_uv` unit tests (Task 5) pin the non-distorting layout;

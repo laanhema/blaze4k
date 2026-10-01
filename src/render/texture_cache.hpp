@@ -5,7 +5,7 @@
 
 #include "render/texture.hpp"
 
-namespace td {
+namespace blaze4k {
 
 // Path-keyed texture cache: decodes/uploads each unique banner path at most once
 // and hands back a stable pointer to the stored (move-only) Texture. A null
@@ -25,4 +25,4 @@ private:
     std::unordered_map<std::string, Texture> textures_;
 };
 
-} // namespace td
+} // namespace blaze4k

@@ -6,7 +6,7 @@
 #include "data/config.hpp"
 #include "input/input_event.hpp"
 
-namespace td {
+namespace blaze4k {
 
 // One remappable binding slot: a single (action, device, name) triple. The C6
 // UI shows one row per slot so a default that maps two keys to one action (e.g.
@@ -68,4 +68,4 @@ void input_remap_apply(const InputRemapModel& model, InputSettings& settings);
 [[nodiscard]] std::string remap_device_name(DeviceType device);
 [[nodiscard]] std::string remap_row_value_text(const InputRemapModel& model, int row);
 
-} // namespace td
+} // namespace blaze4k

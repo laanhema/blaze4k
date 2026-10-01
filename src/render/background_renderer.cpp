@@ -4,11 +4,11 @@
 
 #include "render/gl_quad_renderer.hpp"
 
-namespace td {
+namespace blaze4k {
 
 namespace {
 
-// Tundra's own presentation constants (unsourced; no OpenITG parity
+// Blaze 4k's own presentation constants (unsourced; no OpenITG parity
 // requirement). Effective background brightness is bounded by the dim over the
 // black clear plus the scrim, while notes/HUD draw afterwards at full
 // brightness. Tunable until D2.
@@ -96,4 +96,4 @@ void BackgroundRenderer::shutdown() {
     image_.destroy();
 }
 
-} // namespace td
+} // namespace blaze4k

@@ -7,7 +7,7 @@
 #include "render/bitmap_font.hpp"
 #include "render/gl_quad_renderer.hpp"
 
-namespace td {
+namespace blaze4k {
 
 namespace {
 
@@ -47,7 +47,7 @@ void AttractScreen::render(ScreenContext& /*ctx*/, GlQuadRenderer& renderer, int
     // Brightness-pulsed logo (deterministic in the injected fixed_dt).
     const float pulse = 0.65f + 0.35f * static_cast<float>(std::sin(phase_seconds_ * 2.0));
     const float logo_pixel = std::max(2.0f, width * 0.0055f);
-    draw_text_centered(renderer, "TUNDRA DANCE", width * 0.5f, height * 0.30f, logo_pixel,
+    draw_text_centered(renderer, "BLAZE 4K", width * 0.5f, height * 0.30f, logo_pixel,
                        scale_rgb(kLogoColor, pulse));
 
     // Four receptors blinking in sequence.
@@ -70,4 +70,4 @@ void AttractScreen::render(ScreenContext& /*ctx*/, GlQuadRenderer& renderer, int
                        scale_rgb(kLogoColor, pulse));
 }
 
-} // namespace td
+} // namespace blaze4k

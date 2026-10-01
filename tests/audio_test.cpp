@@ -23,14 +23,14 @@ int main() {
     std::cout << "[audio_test] Starting audio engine and sound stream tests...\n";
 
     // 1. AudioEngine instance test
-    td::AudioEngine& engine = td::AudioEngine::instance();
+    blaze4k::AudioEngine& engine = blaze4k::AudioEngine::instance();
     bool engine_ok = engine.init();
     std::cout << "  - AudioEngine init result: " << (engine_ok ? "SUCCESS" : "FALLBACK") << "\n";
     engine.set_master_volume(0.9f);
     TEST_CHECK(std::abs(engine.get_master_volume() - 0.9f) < 1e-4);
 
     // 2. Missing file test
-    td::SoundStream stream;
+    blaze4k::SoundStream stream;
     bool load_missing = stream.load("non_existent_file_123456.wav");
     TEST_CHECK(!load_missing);
     TEST_CHECK(!stream.is_loaded());

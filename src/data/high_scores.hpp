@@ -8,7 +8,7 @@
 #include "chart/chart.hpp"
 #include "chart/song.hpp"
 
-namespace td {
+namespace blaze4k {
 
 // Scores-file schema version, independent of the config schema (kConfigVersion).
 inline constexpr int kScoresVersion = 1;
@@ -59,4 +59,4 @@ struct HighScores {
 [[nodiscard]] const ScoreRecord* find_high_score(const HighScores& scores,
                                                  const std::string& chart_key);
 
-} // namespace td
+} // namespace blaze4k

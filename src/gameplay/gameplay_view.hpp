@@ -24,7 +24,7 @@
 #include "render/gl_quad_renderer.hpp"
 #include "timing/music_clock.hpp"
 
-namespace td {
+namespace blaze4k {
 
 // Where a single song run stands. B6 exposes this so the future screen state
 // machine (C1/C7) can transition out of gameplay. `Cleared` means every row/hold
@@ -126,4 +126,4 @@ private:
     bool ready_ = false;
 };
 
-} // namespace td
+} // namespace blaze4k

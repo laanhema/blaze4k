@@ -16,7 +16,7 @@ autoplay is deferred (flagged).
 
 Screens render through the existing `GlQuadRenderer` (a documented headless no-op), so all behavior is
 testable with no window, no GL context, and no audio device. UI text needs letters the current 5×7 HUD
-font lacks (`PRESS START`, `TUNDRA DANCE`), so the bitmap font is extracted into a reusable
+font lacks (`PRESS START`, `BLAZE 4K`), so the bitmap font is extracted into a reusable
 `src/render/bitmap_font.{hpp,cpp}` with a full A–Z set and `hud_renderer.cpp` is switched to it
 (behavior-preserving for the HUD).
 
@@ -52,14 +52,14 @@ So that it feels like an arcade cabinet in my living room.
 | Cores | 16 | `-j16` safe |
 | Dependencies | `build/_deps/` | SDL3 3.2.8, glad (GL 3.3 core), miniaudio 0.11.21, nlohmann_json 3.11.3, stb fetched |
 | Baseline tests | **15/15 pass** | `ctest --test-dir build --output-on-failure` → "100% tests passed out of 15" (0.26 s), recorded this run |
-| `src/screens/` | **exists, empty** | Add new sources here; register in `tundra_core` |
-| Test registration | `tests/CMakeLists.txt:1-154` | Add one block (`add_executable` / `target_link_libraries(... tundra_core)` / `add_test`) |
+| `src/screens/` | **exists, empty** | Add new sources here; register in `blaze4k_core` |
+| Test registration | `tests/CMakeLists.txt:1-154` | Add one block (`add_executable` / `target_link_libraries(... blaze4k_core)` / `add_test`) |
 | App callbacks | `src/app/app.hpp:34-38`, `src/app/app.cpp:119-138` | `set_update_callback` / `set_render_callback`; `on_event` is a protected no-op virtual |
 | Headless renderer | `src/render/gl_quad_renderer.hpp:12-13,22-36` | Uninitialized renderer draws are safe no-ops; `begin/end` must be gated on `is_initialized()` (see `src/main.cpp:125-129`) |
 | HUD font | `src/gameplay/hud_renderer.cpp:32-94` | Private 5×7 glyph table + `draw_text`; lacks most letters needed for screen text |
 | Input actions | `src/input/input_event.hpp:8-24`, `src/input/input_manager.cpp:52-71` | `Confirm` = Enter/KP-Enter/Start; `Back` = Escape/Back |
 | Escape handling | `src/app/app.cpp:102-106` | App currently quits on Escape key-down; `input_manager` also emits `Back` — see Risk/OQ2 |
-| Reference chart (if ever needed) | `tests/fixtures/reference_pack/Tundra Pack/Tundra Anthem/Tundra Anthem.sm` | Present; **not** required by C1's title-loop attract |
+| Reference chart (if ever needed) | `tests/fixtures/reference_pack/Blaze Pack/Blaze Anthem/Blaze Anthem.sm` | Present; **not** required by C1's title-loop attract |
 
 **Start green, stay green:** 15 tests pass; this plan adds 1 test target (`screen_manager_test`) →
 **16 expected**. Changes to `app.cpp`, `main.cpp`, `hud_renderer.cpp`, and CMake are additive except the
@@ -69,7 +69,7 @@ Escape-delegation hook, whose default path preserves A2's existing behavior.
 
 ## Pinned Semantics
 
-Authority: **PRD** (this project's contract) for the screen flow/lifecycle; existing Tundra code for the
+Authority: **PRD** (this project's contract) for the screen flow/lifecycle; existing Blaze 4k code for the
 interfaces C1 must mirror. **No new gameplay constants** are introduced.
 
 ### Screen lifecycle (PRD §6 pattern 4)
@@ -119,7 +119,7 @@ not pinned by any reference source (flagged in Open Questions).
 | Button for Start | `GameAction::Confirm` | `src/input/input_event.hpp:16`; defaults `input_manager.cpp:53-54,70` |
 | Button for Back | `GameAction::Back` | `src/input/input_event.hpp:17`; defaults `input_manager.cpp:55,71` |
 | Headless render no-op | uninitialized renderer safe | `src/render/gl_quad_renderer.hpp:12-13` |
-| Idle timeout (screens) | **proposed `30.0 s`**, configurable | Tundra UX choice — **unsourced**, OQ1 |
+| Idle timeout (screens) | **proposed `30.0 s`**, configurable | Blaze 4k UX choice — **unsourced**, OQ1 |
 
 ---
 
@@ -158,8 +158,8 @@ renderer.draw_quad(Rect{...}, color);
 ### Headless App smoke pattern (tests)
 ```cpp
 // SOURCE: tests/app_test.cpp:82-104
-td::AppConfig cfg; cfg.window.headless = true; cfg.smoke_test_frames = 10;
-td::App app(cfg);
+blaze4k::AppConfig cfg; cfg.window.headless = true; cfg.smoke_test_frames = 10;
+blaze4k::App app(cfg);
 app.set_update_callback([&](double){ update_count++; });
 app.set_render_callback([&](double){ render_count++; });
 TEST_CHECK(app.init()); app.run();
@@ -176,9 +176,9 @@ TEST_CHECK(render_count == 10); TEST_CHECK(!app.is_running());
 ### Source + test registration
 ```cmake
 # SOURCE: CMakeLists.txt:80-106 / tests/CMakeLists.txt:136-144
-add_library(tundra_core STATIC ... src/gameplay/life_keeper.cpp ...)
+add_library(blaze4k_core STATIC ... src/gameplay/life_keeper.cpp ...)
 add_executable(life_keeper_test life_keeper_test.cpp)
-target_link_libraries(life_keeper_test PRIVATE tundra_core)
+target_link_libraries(life_keeper_test PRIVATE blaze4k_core)
 add_test(NAME life_keeper_test COMMAND life_keeper_test)
 ```
 
@@ -203,7 +203,7 @@ add_test(NAME life_keeper_test COMMAND life_keeper_test)
 | `src/app/app.hpp` | UPDATE | Add optional event callback returning "consumed" (for Escape delegation) |
 | `src/app/app.cpp` | UPDATE | Quit on Escape **only if** no event callback consumes it (A2 default preserved) |
 | `src/main.cpp` | UPDATE | Build/register the ScreenManager as the default path; add `--attract-timeout`; keep `--gameplay-demo` override |
-| `CMakeLists.txt` | UPDATE | Add the new `src/screens/*.cpp` and `src/render/bitmap_font.cpp` to `tundra_core` |
+| `CMakeLists.txt` | UPDATE | Add the new `src/screens/*.cpp` and `src/render/bitmap_font.cpp` to `blaze4k_core` |
 | `tests/CMakeLists.txt` | UPDATE | Register `screen_manager_test` |
 | `tests/screen_manager_test.cpp` | CREATE | Headless lifecycle/transition/idle/real-screen/App-smoke tests |
 
@@ -221,7 +221,7 @@ Execute in order. Each task is atomic and verifiable.
 - **Files**: `src/render/bitmap_font.hpp`, `src/render/bitmap_font.cpp`, `src/gameplay/hud_renderer.cpp`
 - **Action**: CREATE (first two), UPDATE (third)
 - **Implement**:
-  - Header `namespace td`: declare
+  - Header `namespace blaze4k`: declare
     ```cpp
     // 5x7 glyph bitmap font. Coordinates are pixels, top-left origin (y down).
     [[nodiscard]] float text_width(const std::string& text, float pixel);
@@ -252,7 +252,7 @@ Execute in order. Each task is atomic and verifiable.
   #include <vector>
   #include "input/input_event.hpp"
 
-  namespace td {
+  namespace blaze4k {
   class ScreenManager;
   class GlQuadRenderer;
 
@@ -282,7 +282,7 @@ Execute in order. Each task is atomic and verifiable.
                           int /*h*/) {}
       virtual void exit(ScreenContext& /*ctx*/) {}
   };
-  } // namespace td
+  } // namespace blaze4k
   ```
   - Includes only `<optional>`, `<string_view>`, `<vector>`, `input/input_event.hpp`. **No** SDL/GL.
 - **Mirror**: header style of `src/gameplay/hud_renderer.hpp:1-36`.
@@ -294,7 +294,7 @@ Execute in order. Each task is atomic and verifiable.
 - **Action**: CREATE
 - **Implement**:
   ```cpp
-  namespace td {
+  namespace blaze4k {
   class ScreenManager {
   public:
       explicit ScreenManager(double idle_timeout_seconds = 30.0);
@@ -330,7 +330,7 @@ Execute in order. Each task is atomic and verifiable.
       double idle_timeout_seconds_ = 30.0;
       double idle_seconds_ = 0.0;
   };
-  } // namespace td
+  } // namespace blaze4k
   ```
   - `start(id)`: store `active_id_`, set `started_`, reset idle, call that screen's `enter(ctx_)`,
     log `[ScreenManager] enter <name>`.
@@ -372,7 +372,7 @@ Execute in order. Each task is atomic and verifiable.
   - `enter`: reset `blink_seconds_=0`; log `[TitleScreen] logo + "Press Start"`.
   - `update`: advance `blink_seconds_ += fixed_dt`; on any `Confirm && pressed` event →
     `ctx.manager->transition_to(ScreenId::Select)`.
-  - `render`: guard `screen_w<=0||screen_h<=0`; draw a text "logo" — `draw_text_centered("TUNDRA DANCE", ...)`
+  - `render`: guard `screen_w<=0||screen_h<=0`; draw a text "logo" — `draw_text_centered("BLAZE 4K", ...)`
     at large pixel size plus a row of four solid receptor quads below it (no asset; PRD logo is an
     open item). Blink "PRESS START" with `(static_cast<int>(blink_seconds_*2) % 2 == 0)` so it is
     deterministic in `fixed_dt`.
@@ -389,7 +389,7 @@ Execute in order. Each task is atomic and verifiable.
   - `update`: `phase_seconds_ += fixed_dt`; Confirm is handled centrally by the manager
     (`ScreenManager::update` transitions an active Attract back to `attract_return()`), so the screen
     stays dumb with no special-casing (PRD §6 pattern 4).
-  - `render`: dim full-screen backdrop quad, cycling "TUNDRA DANCE" text scaled/brightness-pulsed from
+  - `render`: dim full-screen backdrop quad, cycling "BLAZE 4K" text scaled/brightness-pulsed from
     `phase_seconds_`, and four receptors blinking in sequence — a pure quad/text loop (no chart, no
     audio).
 - **Mirror**: `src/gameplay/hud_renderer.cpp:198-228` (quad fill + palette).
@@ -455,7 +455,7 @@ Execute in order. Each task is atomic and verifiable.
 - **Files**: `CMakeLists.txt`, `tests/CMakeLists.txt`
 - **Action**: UPDATE
 - **Implement**:
-  - Root `tundra_core` source list (after `src/data/judgment_constants_loader.cpp`, `CMakeLists.txt:105`):
+  - Root `blaze4k_core` source list (after `src/data/judgment_constants_loader.cpp`, `CMakeLists.txt:105`):
     `src/render/bitmap_font.cpp`, `src/screens/screen_manager.cpp`, `src/screens/title_screen.cpp`,
     `src/screens/attract_screen.cpp`, `src/screens/select_placeholder_screen.cpp`.
   - Tests: append a `screen_manager_test` block mirroring `tests/CMakeLists.txt:136-144`.
@@ -516,10 +516,10 @@ ctest --test-dir build --output-on-failure
 ./build/tests/screen_manager_test
 
 # Headless boot smoke (Title screen, no window, exits cleanly after 120 frames)
-./build/tundra-dance --headless --smoke-test 120
+./build/blaze-4k --headless --smoke-test 120
 
 # Headless attract smoke: short timeout must log the Title -> Attract transition
-./build/tundra-dance --headless --smoke-test 600 --attract-timeout 1.0 2>&1 \
+./build/blaze-4k --headless --smoke-test 600 --attract-timeout 1.0 2>&1 \
   | rg "ScreenManager.*(Title|Attract)"
 
 # Purity check: screens must not read wall-clock / frame delta (fixed_dt accumulation is allowed)
@@ -527,8 +527,8 @@ rg -n "chrono|GetTicks|GetPerformanceCounter|SDL_GetTicks|std::this_thread" src/
 # (no matches)
 
 # Existing Phase B harness still works (shell bypassed)
-./build/tundra-dance --headless --gameplay-demo \
-  "tests/fixtures/reference_pack/Tundra Pack/Tundra Anthem/Tundra Anthem.sm" --smoke-test 60
+./build/blaze-4k --headless --gameplay-demo \
+  "tests/fixtures/reference_pack/Blaze Pack/Blaze Anthem/Blaze Anthem.sm" --smoke-test 60
 ```
 
 ## End-to-End Verification
@@ -540,10 +540,10 @@ rg -n "chrono|GetTicks|GetPerformanceCounter|SDL_GetTicks|std::this_thread" src/
    boots the shell and exits cleanly.
 2. `ctest --test-dir build --output-on-failure` → **16/16**; all 15 prior tests stay green (additive
    sources; the only behavioral toggle is the Escape hook, whose default keeps A2 intact).
-3. `./build/tundra-dance --headless --smoke-test 120` exits 0 without opening a window and without
-   blocking; stdout shows `[ScreenManager] enter Title` (boot → Title) and `Tundra Dance shut down
+3. `./build/blaze-4k --headless --smoke-test 120` exits 0 without opening a window and without
+   blocking; stdout shows `[ScreenManager] enter Title` (boot → Title) and `Blaze 4k shut down
    cleanly.` No GL calls are attempted headless (renderer `begin/end` and all draws are gated/no-op).
-4. `./build/tundra-dance --headless --smoke-test 600 --attract-timeout 1.0 2>&1 | rg "ScreenManager"`
+4. `./build/blaze-4k --headless --smoke-test 600 --attract-timeout 1.0 2>&1 | rg "ScreenManager"`
    shows the idle `Title -> Attract` transition (≈60 simulated frames at 1/60 s), proving the idle
    timer is driven by `fixed_dt` and is observable headless.
 5. The purity `rg` finds no wall-clock use in `src/screens` (idle/animation use only the injected
@@ -609,7 +609,7 @@ rg -n "chrono|GetTicks|GetPerformanceCounter|SDL_GetTicks|std::this_thread" src/
    `Select` unregistered (which would make the transition a logged no-op).
 5. **Non-blocking — attract return target.** Proposed return to the origin screen (Title or Select).
    Confirm vs always returning to Title.
-6. **Non-blocking — logo presentation.** Proposed text-quad "TUNDRA DANCE" + receptor row; a real logo
+6. **Non-blocking — logo presentation.** Proposed text-quad "BLAZE 4K" + receptor row; a real logo
    asset remains a PRD open item.
 
 ---

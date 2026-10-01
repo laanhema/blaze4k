@@ -15,9 +15,9 @@
 
 namespace {
 
-using td::CalibrationConfig;
-using td::CalibrationResult;
-using td::OffsetCalibration;
+using blaze4k::CalibrationConfig;
+using blaze4k::CalibrationResult;
+using blaze4k::OffsetCalibration;
 
 bool near(double a, double b, double eps = 1e-9) { return std::fabs(a - b) <= eps; }
 

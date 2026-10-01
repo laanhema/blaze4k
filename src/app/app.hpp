@@ -7,7 +7,7 @@
 #include "input/input_manager.hpp"
 #include "timing/judgment_constants.hpp"
 
-namespace td {
+namespace blaze4k {
 
 struct AppConfig {
     WindowConfig window;
@@ -74,4 +74,4 @@ private:
     EventCallback event_cb_;
 };
 
-} // namespace td
+} // namespace blaze4k

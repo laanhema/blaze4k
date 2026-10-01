@@ -2,7 +2,7 @@
 
 ## Summary
 
-Build Tundra's life layer as a **pure, event-sourced module** (PRD §6 pattern 2; AGENTS.md core
+Build Blaze 4k's life layer as a **pure, event-sourced module** (PRD §6 pattern 2; AGENTS.md core
 principles 1 & 2). Life is a projection of the frozen B4 `JudgmentEvent` log — never an independent
 re-judgment, never wall-clock/frame driven. The work splits into a pure life core, a HUD bar, and
 gameplay integration:
@@ -167,7 +167,7 @@ choices (flagged).
 | Bar start (`DRAIN_NORMAL`) | `InitialValue`; fallback `0.5` — **AC says full** | `LifeMeterBar.cpp:23-27`; `metrics.ini:2564-2571`; `fallback/metrics.ini:2385` |
 
 **Unsourced presentation choices** (flagged, non-blocking): life-bar geometry, colors, and danger tint
-are Tundra's own and carry no OpenITG parity requirement.
+are Blaze 4k's own and carry no OpenITG parity requirement.
 
 ---
 
@@ -213,15 +213,15 @@ renderer.draw_quad(Rect{x, y, w, h}, color);
 ```cpp
 // SOURCE: tests/score_keeper_test.cpp:19-25,31-38
 #define TEST_CHECK(expr) do { if (!(expr)) { std::cerr << ...; std::abort(); } } while (0)
-td::Note make_note(int column, double time_seconds, td::NoteType type, double hold_end_time = 0.0);
+blaze4k::Note make_note(int column, double time_seconds, blaze4k::NoteType type, double hold_end_time = 0.0);
 ```
 
 ### Source + test registration
 ```cmake
 # SOURCE: CMakeLists.txt:99-100 / tests/CMakeLists.txt:125-133
-add_library(tundra_core STATIC ... src/gameplay/score_keeper.cpp src/gameplay/hud_renderer.cpp ...)
+add_library(blaze4k_core STATIC ... src/gameplay/score_keeper.cpp src/gameplay/hud_renderer.cpp ...)
 add_executable(life_keeper_test life_keeper_test.cpp)
-target_link_libraries(life_keeper_test PRIVATE tundra_core)
+target_link_libraries(life_keeper_test PRIVATE blaze4k_core)
 add_test(NAME life_keeper_test COMMAND life_keeper_test)
 ```
 
@@ -238,7 +238,7 @@ add_test(NAME life_keeper_test COMMAND life_keeper_test)
 | `src/gameplay/gameplay_view.hpp` | UPDATE | Own `LifeKeeper`; add `fail_enabled` option + outcome accessors |
 | `src/gameplay/gameplay_view.cpp` | UPDATE | Consume events into life; stop on fail; render bar; log |
 | `src/main.cpp` | UPDATE | Add `--fail-off` demo flag |
-| `CMakeLists.txt` | UPDATE | Add `src/gameplay/life_keeper.cpp` to `tundra_core` |
+| `CMakeLists.txt` | UPDATE | Add `src/gameplay/life_keeper.cpp` to `blaze4k_core` |
 | `tests/CMakeLists.txt` | UPDATE | Register `life_keeper_test` |
 | `tests/life_keeper_test.cpp` | CREATE | Life deltas, row grouping, clamp, fail/Fail-Off, engine integration |
 
@@ -256,7 +256,7 @@ Execute in order. Each task is atomic and verifiable.
 - **Action**: CREATE
 - **Implement**:
   ```cpp
-  namespace td {
+  namespace blaze4k {
 
   // Live life derived solely from the B4 judgment log (PRD section 6 pattern 2).
   // Pure value type: no clocks, no platform headers.
@@ -309,7 +309,7 @@ Execute in order. Each task is atomic and verifiable.
       LifeState state_;
   };
 
-  } // namespace td
+  } // namespace blaze4k
   ```
   - Includes `<vector>`, `<cstddef>`, `"chart/chart.hpp"`, `"gameplay/judgment.hpp"`,
     `"timing/judgment_constants.hpp"`. **No** SDL/GL/`<chrono>`.
@@ -390,7 +390,7 @@ Execute in order. Each task is atomic and verifiable.
   - cpp: early-return if `screen_w<=0 || screen_h<=0`; clamp `life` to `[0,1]`; draw a background
     frame quad and a filled portion quad (e.g. bottom-centre, fixed height) with a
     `kLifeFillColor`; use a `kLifeDangerColor` when `life < 0.3`. File-local constexpr colors
-    (Tundra presentation, consistent with the existing palette at `hud_renderer.cpp:12-21`).
+    (Blaze 4k presentation, consistent with the existing palette at `hud_renderer.cpp:12-21`).
   - Do **not** add glyphs for a "LIFE" label (the 5×7 font lacks the letters; bar-only avoids a font
     asset). Existing `render(ScoreState,...)` stays unchanged.
 - **Mirror**: `src/gameplay/hud_renderer.cpp:158-165` (quad draw), `:133-140` (guards).
@@ -444,7 +444,7 @@ Execute in order. Each task is atomic and verifiable.
 - **Files**: `CMakeLists.txt`, `tests/CMakeLists.txt`
 - **Action**: UPDATE
 - **Implement**:
-  - Root: add `src/gameplay/life_keeper.cpp` to `tundra_core` after `src/gameplay/hud_renderer.cpp`
+  - Root: add `src/gameplay/life_keeper.cpp` to `blaze4k_core` after `src/gameplay/hud_renderer.cpp`
     (line ~100).
   - Tests: append a `life_keeper_test` block mirroring `score_keeper_test`
     (`tests/CMakeLists.txt:125-133`).
@@ -502,12 +502,12 @@ ctest --test-dir build --output-on-failure
 ./build/tests/life_keeper_test
 
 # Headless harness smoke (stub clock; fixture has taps/holds/rolls/mines)
-./build/tundra-dance --headless --gameplay-demo \
-  "tests/fixtures/reference_pack/Tundra Pack/Tundra Anthem/Tundra Anthem.sm" --smoke-test 120
+./build/blaze-4k --headless --gameplay-demo \
+  "tests/fixtures/reference_pack/Blaze Pack/Blaze Anthem/Blaze Anthem.sm" --smoke-test 120
 
 # Fail-Off harness smoke (same run; must not fail/leave early)
-./build/tundra-dance --headless --gameplay-demo \
-  "tests/fixtures/reference_pack/Tundra Pack/Tundra Anthem/Tundra Anthem.sm" \
+./build/blaze-4k --headless --gameplay-demo \
+  "tests/fixtures/reference_pack/Blaze Pack/Blaze Anthem/Blaze Anthem.sm" \
   --smoke-test 120 --fail-off
 
 # Purity check: life core must not touch platform/time/GL headers
@@ -545,7 +545,7 @@ rg -n "SDL|glad|gl[A-Z]|ma_|chrono|thread|GetPerformanceCounter|GetTicksNS|fixed
 | Issue AC says "starts full" but OpenITG `LifeMeterBar.InitialValue` resolves to `0.5` via fallback | Default `life = 1.0` per AC/PRD; OQ1 asks for ratification | **In scope** — flagged |
 | AC says "refills on Great-or-better" but OpenITG has hot-downgrade + combo-to-regain that modify this | v1 omits non-B2 knobs and flags them (OQ2) with provenance; if ratified, add as a follow-up or set the relevant defaults | **In scope** — flagged |
 | Life could be applied after the fail freeze, refilling a dead player | `apply()` zeroes deltas once `failed` (`LifeMeterBar.cpp:229-231`); test 5 | **In scope** |
-| Fail detected in a frame loop in OpenITG, but Tundra is event-sourced | Detect at `apply()` time (`life<=0` with fail enabled), which is equivalent for FAIL_IMMEDIATE; documented in Pinned Semantics | **In scope** |
+| Fail detected in a frame loop in OpenITG, but Blaze 4k is event-sourced | Detect at `apply()` time (`life<=0` with fail enabled), which is equivalent for FAIL_IMMEDIATE; documented in Pinned Semantics | **In scope** |
 | "Transition out of gameplay" needs a screen manager that does not exist yet | `GameplayView` exposes `outcome()`/`has_failed()` and stops audio; C1/C7 consume it later | **In scope** — boundary |
 | HUD life bar needs a font/glyphs | Draw with solid quads only (no label text); no stb_truetype/font asset | **In scope** |
 | Headless GL crash from life-bar draw | `GlQuadRenderer` is a documented no-op when uninitialized; E2E step 3 | **In scope** |
@@ -598,7 +598,7 @@ rg -n "SDL|glad|gl[A-Z]|ma_|chrono|thread|GetPerformanceCounter|GetTicksNS|fixed
    (all rows/holds resolved), `Failed` when `has_failed()`, else `InProgress`. Confirm C7 wants
    `is_complete()` as the results trigger rather than a music-past-chart-end check.
 5. **Non-blocking — life-bar placement/style.** Proposed: a horizontal bar along the bottom-centre with
-   a `0.3` danger tint; exact geometry/colors are Tundra presentation (unsourced).
+   a `0.3` danger tint; exact geometry/colors are Blaze 4k presentation (unsourced).
 
 ---
 

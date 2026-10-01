@@ -48,7 +48,7 @@ unchanged (breakdown / max combo display-only).
 | `./build/tests/select_screen_test` | ✅ exit 0 |
 | Purity (`rg SDL_/glad/miniaudio/chrono/GetTicks/std::time` on `results.*`) | ✅ no matches |
 | Warning budget (`-Wall -Wextra -Wpedantic`, forced rebuild) | ✅ zero warnings |
-| E2E binary smoke (`--headless --smoke-test 30 --start-screen select --data-dir /tmp/td-e2e-results`) | ✅ exit 0; `scores.json` created |
+| E2E binary smoke (`--headless --smoke-test 30 --start-screen select --data-dir /tmp/blaze4k-e2e-results`) | ✅ exit 0; `scores.json` created |
 
 ## Files Changed
 

@@ -5,7 +5,7 @@
 #include "chart/chart.hpp"
 #include "chart/timing_data.hpp"
 
-namespace td {
+namespace blaze4k {
 
 class NoteParser {
 public:
@@ -19,4 +19,4 @@ public:
     );
 };
 
-} // namespace td
+} // namespace blaze4k

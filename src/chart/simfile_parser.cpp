@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <cctype>
 
-namespace td {
+namespace blaze4k {
 
 namespace {
 
@@ -191,4 +191,4 @@ bool SimfileParser::parse_msd(const MsdFile& msd, const std::string& file_extens
     return true;
 }
 
-} // namespace td
+} // namespace blaze4k

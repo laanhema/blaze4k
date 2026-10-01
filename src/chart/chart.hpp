@@ -5,7 +5,7 @@
 #include "chart/note.hpp"
 #include "chart/timing_data.hpp"
 
-namespace td {
+namespace blaze4k {
 
 struct Chart {
     std::string steps_type = "dance-single";
@@ -26,4 +26,4 @@ struct Chart {
     }
 };
 
-} // namespace td
+} // namespace blaze4k

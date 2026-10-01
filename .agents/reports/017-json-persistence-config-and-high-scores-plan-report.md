@@ -11,7 +11,7 @@ gameplay/input) and per-chart best scores in `scores.json` are written with an
 atomic temp-file + rename and read through a non-throwing, defaulting, 1 MiB-capped
 reader modelled on `judgment_constants_loader`. Data lives in a portable `data/`
 folder next to the binary by default, with opt-in XDG placement (`--xdg`,
-`TUNDRA_XDG=1`) and an explicit `--data-dir` override that wins. Stable content-based
+`BLAZE4K_XDG=1`) and an explicit `--data-dir` override that wins. Stable content-based
 chart keys (filename + metadata + note fingerprint) let scores survive pack moves.
 `ScreenContext` gained additive `config`/`scores` pointers and `ScreenManager` a
 `context()` accessor; `main.cpp` owns the boot/exit lifecycle (load config before
@@ -51,7 +51,7 @@ screens, no gameplay/timing/input/render changes.
 | 2. Config reload honored (`[Config] Loaded ...`) | ✅ |
 | 3. Corrupt JSON → warning, exit 0, config repaired | ✅ |
 | 4. High-score best logic + chart-key stability (test 8–10) | ✅ |
-| 5. XDG path used; `--data-dir` wins over `--xdg`; `TUNDRA_XDG=1` honored | ✅ |
+| 5. XDG path used; `--data-dir` wins over `--xdg`; `BLAZE4K_XDG=1` honored | ✅ |
 | 6. Regression 17/17 + `--gameplay-demo` still runs (exit 0) | ✅ |
 | 7. `git status` limited to planned files; no `timing/input/gameplay/render` changes | ✅ |
 

@@ -2,7 +2,7 @@
 
 #include <cmath>
 
-namespace td {
+namespace blaze4k {
 
 const JudgmentConstants& JudgmentConstants::compiled_defaults() {
     // Values pinned from OpenITG commit f2c129fe65c65e4a9b3a691ff35e7717b4e8de51,
@@ -154,4 +154,4 @@ const GradeTier& JudgmentConstants::grade_for_percent(double percent) const {
     return grade_tiers.back();
 }
 
-} // namespace td
+} // namespace blaze4k

@@ -9,7 +9,7 @@
 #include "timing/music_clock.hpp"
 #include "timing/offset_calibration.hpp"
 
-namespace td {
+namespace blaze4k {
 
 enum class CalibrationPhase : int { CountIn = 0, Sampling, Ready };
 
@@ -65,4 +65,4 @@ private:
     uint32_t stub_rate_ = 44100;
 };
 
-} // namespace td
+} // namespace blaze4k

@@ -4,7 +4,7 @@
 #include "render/geometry.hpp"
 #include "render/texture.hpp"
 
-namespace td {
+namespace blaze4k {
 
 class GlQuadRenderer;
 
@@ -40,4 +40,4 @@ private:
     Texture image_;
 };
 
-} // namespace td
+} // namespace blaze4k

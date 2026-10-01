@@ -5,7 +5,7 @@
 
 ## Summary
 
-All 11 prior findings were re-checked against the current tree. Findings 2, 3, 4, 5, 7, 9, 10, and 11 are fully fixed with tests/evidence; finding 6 (won't-fix) is confirmed correct against the vendored SDL3 source; finding 8 (Low) was deliberately left as-is and is consistent with sibling flags. Finding 1 is fixed for the demonstrated exploit but retains a narrow boundary hole: a double exactly equal to `2^63` still passes the new guard and is then cast to `std::int64_t` (UB/implementation-defined), and any valid `int64` value that rounds to `2^63` (e.g. `INT64_MAX`) is corrupted to `INT64_MIN` before clamping. Reproduced with a standalone probe against `libtundra_core.a` (see Validation).
+All 11 prior findings were re-checked against the current tree. Findings 2, 3, 4, 5, 7, 9, 10, and 11 are fully fixed with tests/evidence; finding 6 (won't-fix) is confirmed correct against the vendored SDL3 source; finding 8 (Low) was deliberately left as-is and is consistent with sibling flags. Finding 1 is fixed for the demonstrated exploit but retains a narrow boundary hole: a double exactly equal to `2^63` still passes the new guard and is then cast to `std::int64_t` (UB/implementation-defined), and any valid `int64` value that rounds to `2^63` (e.g. `INT64_MAX`) is corrupted to `INT64_MIN` before clamping. Reproduced with a standalone probe against `libblaze4k_core.a` (see Validation).
 
 ## Fix-Verification Table
 
@@ -15,7 +15,7 @@ All 11 prior findings were re-checked against the current tree. Findings 2, 3, 4
 | 2 | `dance_points` narrowed int64→int without bound check | High | **Fixed** | Clamp to `[int::lowest(), int::max()]` before the cast at `high_scores.cpp:231-237`; probe `dp=5000000000` → `INT_MAX`, covered by test 10b (`tests/config_persistence_test.cpp:337-363`). |
 | 3 | Invalid string enums loaded and re-persisted | Medium | **Fixed** | Defaults captured and invalid `speed_mod` (empty) / `scroll` (∉{up,down}) coerced at `config_loader.cpp:217-231`. Test 5b (`tests/config_persistence_test.cpp:184-203`) asserts `"sideways"` is not re-saved. |
 | 4 | `video.fullscreen` persisted but never applied | Medium | **Fixed** | `WindowConfig::fullscreen` added (`window.hpp:14`), applied as `SDL_WINDOW_FULLSCREEN` (`window.cpp:82-84`), copied from config (`main.cpp:147`). |
-| 5 | `TUNDRA_XDG` honored but undocumented | Low | **Fixed** | Documented at `main.cpp:33-34`. |
+| 5 | `BLAZE4K_XDG` honored but undocumented | Low | **Fixed** | Documented at `main.cpp:33-34`. |
 | 6 | `SDL_GetBasePath()` result must be `SDL_free`d | Low | **Won't-fix — reasoning VERIFIED CORRECT** | SDL3 caches the string in a static `CachedBasePath` (`build/_deps/sdl3-src/src/filesystem/SDL_filesystem.c:475-482`) and frees it in `SDL_QuitFilesystem` (`:519-521`); the header does not document caller ownership (unlike SDL2). `data_paths.cpp:33-43` correctly discards it. |
 | 7 | `std::to_string(double)` chart-key tokens are locale-sensitive | Low | **Fixed** | `format_double` uses locale-independent `std::to_chars` (`high_scores.cpp:56-62`, used at `:116`); `<charconv>` included at `:6`. |
 | 8 | `--data-dir` missing arg warns and continues | Low | **Not fixed (deferred)** | `main.cpp:107-112` still warns and falls back — identical to `--gameplay-demo`/`--speed`; acceptable, Low. |

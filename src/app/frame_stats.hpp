@@ -5,7 +5,7 @@
 #include <cstddef>
 #include <vector>
 
-namespace td {
+namespace blaze4k {
 
 // Descriptive per-frame timing samples in milliseconds. Sampling and statistics
 // only: it never generates time and is never consulted by the judgment path.
@@ -104,4 +104,4 @@ private:
     std::vector<double> samples_ms_;
 };
 
-} // namespace td
+} // namespace blaze4k

@@ -8,7 +8,7 @@
 
 #include "input/input_event.hpp"
 
-namespace td {
+namespace blaze4k {
 class ScreenManager;
 class GlQuadRenderer;
 class InputManager;
@@ -94,4 +94,4 @@ public:
     [[nodiscard]] virtual bool back_consumed() const { return false; }
 };
 
-} // namespace td
+} // namespace blaze4k

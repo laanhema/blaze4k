@@ -4,7 +4,7 @@
 #include <algorithm>
 #include <cctype>
 
-namespace td {
+namespace blaze4k {
 
 namespace {
 
@@ -191,4 +191,4 @@ std::string MsdFile::get_tag_value(std::string_view name, size_t param_idx, cons
     return tag->value(param_idx);
 }
 
-} // namespace td
+} // namespace blaze4k

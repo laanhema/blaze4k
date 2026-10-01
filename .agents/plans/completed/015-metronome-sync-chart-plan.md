@@ -19,7 +19,7 @@ The work is test-side only — **no production code changes** — and splits int
 
 **Key design principle:** gameplay time is `MusicClock` time = `frames/sample_rate + global_offset`
 (B1). All drift is modeled as a **discrepancy between the chart's BPM-derived note times and the audio
-clock's timebase** — exactly the failure mode Tundra can suffer. Because the clock source is a
+clock's timebase** — exactly the failure mode Blaze 4k can suffer. Because the clock source is a
 `std::function<SamplePosition()>` (B1), the harness injects a fake frame provider; it never opens an
 audio device and never reads wall-clock or frame delta, so it is fully deterministic and non-flaky.
 
@@ -50,7 +50,7 @@ So that gameplay sync drift is caught as a regression within one judgment window
 | Cores | 16 | `-j16` safe |
 | Dependencies | `build/_deps/` | SDL3 3.2.8, glad (GL 3.3 core), miniaudio 0.11.21, nlohmann_json 3.11.3, stb fetched |
 | Baseline tests | **14/14 pass** | `ctest --test-dir build --output-on-failure` → "100% tests passed out of 14" (0.31 s), recorded this run |
-| `tests/` layout | `tests/*.cpp` + `tests/fixtures/reference_pack/` | Each functional area gets one executable registered via `add_executable`/`target_link_libraries(... tundra_core)`/`add_test` |
+| `tests/` layout | `tests/*.cpp` + `tests/fixtures/reference_pack/` | Each functional area gets one executable registered via `add_executable`/`target_link_libraries(... blaze4k_core)`/`add_test` |
 | Fixture path resolution | `tests/score_keeper_test.cpp:666-674` | Tests try `tests/...`, `../tests/...`, `../../tests/...` because CTest runs from the build tree |
 | Audio availability | `tests/music_clock_test.cpp:97-130` | The reference fixture's `music.ogg` is a 15-byte placeholder whose load fails; the guarded audio block in `music_clock_test` shows the existing pattern is to **skip** when no device. B7 must not depend on a device at all |
 | `MusicClock` | `src/timing/music_clock.hpp:28-54` | `Source = std::function<SamplePosition()>`; `time_seconds() = frames/rate + global_offset`; pure, no platform headers |
@@ -85,7 +85,7 @@ commit `f2c129fe65c65e4a9b3a691ff35e7717b4e8de51` where behavior originates upst
 - Tap classification is `classify_tap(delta)` over the B2 windows; a step beyond Way Off produces no
   event, Miss events come only from expiry (`judgment_engine_test.cpp:60-99`).
 - Closest-note selection searches a single column within **±1.0 s** (OpenITG `StepSearchDistance`,
-  `src/Player.cpp:27,791-823`). Tundra's metronome cycles columns, so the **same column repeats every
+  `src/Player.cpp:27,791-823`). Blaze 4k's metronome cycles columns, so the **same column repeats every
   4 beats = 2.0 s** at 120 BPM, i.e. twice the radius — drift up to 1.0 s still selects the intended
   note instead of a neighbour.
 
@@ -126,8 +126,8 @@ sample rate of the fake provider, and the fixture's own tempo/length.
 | Delta sign / units | `(hit - note) * 1000`, negative = early | `src/gameplay/judgment.hpp:31` (B4); OpenITG `Player.cpp:919,1105-1106` |
 | Closest-note search radius | `1.0 s` | OpenITG `src/Player.cpp:27,791-823` @ `f2c129fe…` |
 | Fake sample rate | `48000 Hz` | Matches B1 default (`music_clock.hpp:10-12`) and the project's audio config |
-| Fixture tempo | `120 BPM`, 1 tap/beat, columns `beat % 4` | Tundra test design (synthetic metronome); no upstream parity claim |
-| Fixture length | 240 beats (120 s) | Tundra test design; long enough that 0.5 % rate drift accumulates ~0.6 s ≫ 1 window |
+| Fixture tempo | `120 BPM`, 1 tap/beat, columns `beat % 4` | Blaze 4k test design (synthetic metronome); no upstream parity claim |
+| Fixture length | 240 beats (120 s) | Blaze 4k test design; long enough that 0.5 % rate drift accumulates ~0.6 s ≫ 1 window |
 
 No unsourced upstream numbers are introduced; fixture tempo/length are explicitly synthetic test
 parameters (flagged in Decisions/Open Questions).
@@ -145,7 +145,7 @@ void set_global_offset_seconds(double offset);
 ```
 ```cpp
 // SOURCE: tests/music_clock_test.cpp:64-66 (fake provider already used by B1 tests)
-td::MusicClock clock([&frames] { return td::SamplePosition{frames, 44100}; });
+blaze4k::MusicClock clock([&frames] { return blaze4k::SamplePosition{frames, 44100}; });
 ```
 
 ### Time-parameterized judgment (never reads a clock)
@@ -159,7 +159,7 @@ void handle_step(int column, double music_time_seconds);
 ```cpp
 // SOURCE: tests/judgment_engine_test.cpp:13-36
 #define TEST_CHECK(expr) do { if (!(expr)) { std::cerr << ...; std::abort(); } } while (0)
-td::Note make_note(int column, double time_seconds, td::NoteType type, double hold_end_time = 0.0);
+blaze4k::Note make_note(int column, double time_seconds, blaze4k::NoteType type, double hold_end_time = 0.0);
 ```
 
 ### Fixture loading + path fallback
@@ -168,14 +168,14 @@ td::Note make_note(int column, double time_seconds, td::NoteType type, double ho
 std::filesystem::path ref = "tests/fixtures/...";
 if (!std::filesystem::exists(ref)) ref = "../tests/fixtures/...";
 if (!std::filesystem::exists(ref)) ref = "../../tests/fixtures/...";
-td::SimfileParser parser; TEST_CHECK(parser.parse_file(ref.string()));
+blaze4k::SimfileParser parser; TEST_CHECK(parser.parse_file(ref.string()));
 ```
 
 ### Test registration
 ```cmake
 # SOURCE: tests/CMakeLists.txt:125-133
 add_executable(score_keeper_test score_keeper_test.cpp)
-target_link_libraries(score_keeper_test PRIVATE tundra_core)
+target_link_libraries(score_keeper_test PRIVATE blaze4k_core)
 add_test(NAME score_keeper_test COMMAND score_keeper_test)
 ```
 
@@ -204,7 +204,7 @@ Execute in order. Each task is atomic and verifiable.
 - **File**: `tests/fixtures/sync_test/metronome.sm`
 - **Action**: CREATE
 - **Implement**:
-  - `#TITLE:Tundra Sync Test (Metronome);`, `#ARTIST:Engine;`, `#MUSIC:music.ogg;` (the file need
+  - `#TITLE:Blaze Sync Test (Metronome);`, `#ARTIST:Engine;`, `#MUSIC:music.ogg;` (the file need
     not exist — the harness never loads audio), `#OFFSET:0.000;`, `#BPMS:0.000=120.000;`,
     `#STOPS:;` (empty).
   - One `dance-single` `#NOTES:` block, difficulty `Challenge`, meter `1`, with **240 note rows**
@@ -213,7 +213,7 @@ Execute in order. Each task is atomic and verifiable.
   - Generate the file with a one-shot script (the implementer's choice), then commit the file. Keep it
     exactly reproducible; the harness in Task 4 re-derives and verifies the pattern.
   - Beat 0's note time is 0 s and beat 239's is 119.5 s, so the chart spans the full 120 s song.
-- **Mirror**: `tests/fixtures/reference_pack/Tundra Pack/Tundra Anthem/Tundra Anthem.sm:12-48` (SM
+- **Mirror**: `tests/fixtures/reference_pack/Blaze Pack/Blaze Anthem/Blaze Anthem.sm:12-48` (SM
   `#NOTES:` block shape) and its `#BPMS`/`#OFFSET` header style.
 - **Validate**: `cmake --build build -j16` (parsing is exercised by Task 4).
 
@@ -224,7 +224,7 @@ Execute in order. Each task is atomic and verifiable.
 - **Implement** (header-only; includes only `<cmath>`, `<cstdint>`, `<vector>`, `<algorithm>`,
   `<string>`/`<iostream>` if it prints — **no** SDL/GL/audio/`<chrono>`):
   ```cpp
-  namespace td::sync_test {
+  namespace blaze4k::sync_test {
 
   // Fake audio clock: the injected SamplePosition source. Models the audio
   // timebase as real_seconds * (1 + rate_error); the MusicClock then applies
@@ -269,7 +269,7 @@ Execute in order. Each task is atomic and verifiable.
   // True iff every note is a Tap exactly on an integer beat's time, one per beat.
   [[nodiscard]] bool is_pure_beats(const Chart& chart, int expected_beats, double eps);
 
-  } // namespace td::sync_test
+  } // namespace blaze4k::sync_test
   ```
   - `run_autoplay_sync` builds a `MusicClock`, sets its source to a fake provider holding a frame
     counter, sets `global_offset_seconds(offset)`, `JudgmentEngine::reset(&chart, &constants)`, then
@@ -329,7 +329,7 @@ Execute in order. Each task is atomic and verifiable.
   )
 
   target_link_libraries(metronome_sync_test PRIVATE
-      tundra_core
+      blaze4k_core
   )
 
   add_test(NAME metronome_sync_test COMMAND metronome_sync_test)
@@ -374,7 +374,7 @@ rg -n "SDL|glad|gl[A-Z]|ma_|AudioEngine|chrono|thread|GetTicksNS|GetPerformanceC
 3. The purity `rg` command finds no SDL/GL/miniaudio/`<chrono>` use in the harness/test, proving the
    regression tool needs **no audio device** and no wall-clock.
 4. Manually load the fixture through the existing demo path for a human sanity play
-   (`./build/tundra-dance --gameplay-demo "tests/fixtures/sync_test/metronome.sm"`); the demo's stub
+   (`./build/blaze-4k --gameplay-demo "tests/fixtures/sync_test/metronome.sm"`); the demo's stub
    clock is a *harness affordance only* and is **not** what B7's regression asserts — B7's authority is
    `MusicClock` + fake source in the test.
 5. Confirm `git status` shows only additions under `tests/` (plus the plan); no `src/` or root

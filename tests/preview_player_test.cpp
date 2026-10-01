@@ -14,13 +14,13 @@
 
 namespace {
 
-using td::PreviewState;
-using td::PreviewPlayer;
+using blaze4k::PreviewState;
+using blaze4k::PreviewPlayer;
 
 // In-memory fake driven through the PreviewPlayer stream seam. Lets the
 // successful load -> Active -> loop/seek-back path be asserted deterministically
 // without an audio device.
-class FakeAudioStream : public td::IAudioStream {
+class FakeAudioStream : public blaze4k::IAudioStream {
 public:
     bool load(const std::string& filepath) override {
         ++load_calls;

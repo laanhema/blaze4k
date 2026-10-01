@@ -5,7 +5,7 @@
 
 #include "screens/screen.hpp"
 
-namespace td {
+namespace blaze4k {
 
 // Owns every registered screen and applies explicit transitions at frame
 // boundaries (exit of the outgoing screen, then enter of the incoming one).
@@ -60,4 +60,4 @@ private:
     double idle_seconds_ = 0.0;
 };
 
-} // namespace td
+} // namespace blaze4k

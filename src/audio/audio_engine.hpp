@@ -5,7 +5,7 @@
 
 struct ma_engine;
 
-namespace td {
+namespace blaze4k {
 
 class AudioEngine {
 public:
@@ -31,4 +31,4 @@ private:
     bool initialized_ = false;
 };
 
-} // namespace td
+} // namespace blaze4k

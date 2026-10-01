@@ -2,7 +2,7 @@
 
 ## Summary
 
-Build Tundra's judgment core as a **pure, event-sourced engine** (PRD §6 pattern 2 / AGENTS.md core
+Build Blaze 4k's judgment core as a **pure, event-sourced engine** (PRD §6 pattern 2 / AGENTS.md core
 principles 1 & 2). Every hit is evaluated against the B2 `JudgmentConstants` timing windows and emitted
 as an immutable `JudgmentEvent {column, note_time, hit_time, delta_ms, window}`; scoring, combo, life,
 results, and future replays all derive from this one append-only log. The work splits into three pure
@@ -72,19 +72,19 @@ So that scoring, combo, life, results — and future replays/stats — all deriv
 
 ## Pinned Semantics
 
-**Authority for B4 is OpenITG** (PRD §15). Tundra re-expresses OpenITG's step/update logic against its
-own `Note`/`MusicClock` domains: OpenITG stores notes by integer row and works in beats; Tundra has
+**Authority for B4 is OpenITG** (PRD §15). Blaze 4k re-expresses OpenITG's step/update logic against its
+own `Note`/`MusicClock` domains: OpenITG stores notes by integer row and works in beats; Blaze 4k has
 absolute `note.time_seconds`, so the same behavior is expressed in seconds (documented where the
 re-expression is not literally identical).
 
 ### Time and delta sign
 
 - OpenITG ages an input with a monotonic timer: `fMusicSeconds = fCurrentMusicSeconds - fTimeSinceStep`
-  (`src/Player.cpp:908-919`). Tundra mirrors this in `music_time_for_event` (input→music time), then the
+  (`src/Player.cpp:908-919`). Blaze 4k mirrors this in `music_time_for_event` (input→music time), then the
   engine only ever sees a music time.
 - `fNoteOffset = note_time - hit_time`; stored `tn.result.fTapNoteOffset = -fNoteOffset = hit_time -
   note_time` — **negative means early, positive means late** (`src/Player.cpp:919,1105-1106`;
-  `src/NoteTypes.h:14-16`). Tundra's event uses this stored convention: `delta_ms = (hit_time -
+  `src/NoteTypes.h:14-16`). Blaze 4k's event uses this stored convention: `delta_ms = (hit_time -
   note_time) * 1000`.
 
 ### Note selection on a step (`GetClosestNote`)
@@ -110,7 +110,7 @@ re-expression is not literally identical).
   music_rate * TW_Boo = 0.180 s` (`src/Player.cpp:440,1666-1669`).
 - Untouched **tap / hold-head / roll-head** → `TNS_MISS`; untouched **mine** → `TNS_AVOIDED_MINE`
   (no penalty) (`src/Player.cpp:1403-1435`). A missed hold head produces **no** hold OK/NG.
-- OpenITG detects expiry per row (one row miss for a jump) and works in beats to honor freezes. Tundra
+- OpenITG detects expiry per row (one row miss for a jump) and works in beats to honor freezes. Blaze 4k
   emits **one event per note** and compares seconds directly (`music_time > note.time_seconds +
   way_off`), which is equivalent for the absolute-time note model. Row aggregation is a B5 concern
   (Open Question 3).
@@ -127,7 +127,7 @@ re-expression is not literally identical).
   bSteppedOnTapNote && fLife > 0` (`src/Player.cpp:585-599`). A hold whose head was missed is **never**
   OK or NG.
 - On judgment, `HandleHoldScore(hns, tns)` is called once (`src/Player.cpp:599-610`).
-- **Tundra re-expression:** OpenITG decrements `fLife` by the per-frame `dt`. Tundra computes life
+- **Blaze 4k re-expression:** OpenITG decrements `fLife` by the per-frame `dt`. Blaze 4k computes life
   **analytically** from music time — `life = clamp(1 - (music_time - last_satisfied_time) / window,
   0, 1)`, where `last_satisfied_time` is the last music time the hold was held (hold) or re-hit
   (roll). This is frame-rate independent and uses only the music clock (AGENTS.md core principle 1).
@@ -149,7 +149,7 @@ re-expression is not literally identical).
 
 - `DisplayJudgedRow` hides a note only when `score >= TNS_GREAT` (or blind); mines are hidden when hit
   (`src/Player.cpp:1284-1302,1075-1078`; `src/NoteField.cpp:721-724`). Decent/Way Off/Miss notes are
-  **not** hidden — they scroll off. Tundra mirrors this exact hidden set; B4 never invents hide rules.
+  **not** hidden — they scroll off. Blaze 4k mirrors this exact hidden set; B4 never invents hide rules.
 
 ---
 
@@ -181,7 +181,7 @@ All behavioral values/semantics below are transcribed from the cloned OpenITG re
 | Combo counts notes, score per row | `ComboIsPerRow=false` | `metrics.ini:18-20` |
 
 No value in this plan is invented; the analytic hold-life re-expression and per-note miss events are
-explicit Tundra decisions (see **Decisions** / **Open Questions**).
+explicit Blaze 4k decisions (see **Decisions** / **Open Questions**).
 
 ---
 
@@ -236,9 +236,9 @@ Plain `int main()` binaries, `TEST_CHECK`, synthetic `Chart` built with the loca
 ### Source + test registration
 ```cmake
 # SOURCE: CMakeLists.txt:96-101 / tests/CMakeLists.txt:103-111
-add_library(tundra_core STATIC ... src/gameplay/note_field.cpp ...)
+add_library(blaze4k_core STATIC ... src/gameplay/note_field.cpp ...)
 add_executable(note_field_test note_field_test.cpp)
-target_link_libraries(note_field_test PRIVATE tundra_core)
+target_link_libraries(note_field_test PRIVATE blaze4k_core)
 add_test(NAME note_field_test COMMAND note_field_test)
 ```
 
@@ -257,7 +257,7 @@ add_test(NAME note_field_test COMMAND note_field_test)
 | `src/app/app.hpp` | UPDATE | Expose `input_reference_ns()` (SDL `GetTicksNS` captured at poll) |
 | `src/app/app.cpp` | UPDATE | Capture the reference ns at the end of `process_events()` |
 | `src/main.cpp` | UPDATE | Poll `InputManager`, forward events + reference ns, pass held columns to gameplay |
-| `CMakeLists.txt` | UPDATE | Add `src/gameplay/judgment_engine.cpp` to `tundra_core` |
+| `CMakeLists.txt` | UPDATE | Add `src/gameplay/judgment_engine.cpp` to `blaze4k_core` |
 | `tests/CMakeLists.txt` | UPDATE | Register `judgment_engine_test` |
 | `tests/judgment_engine_test.cpp` | CREATE | Tap/mine/hold/roll/miss/visual/input-conversion tests |
 
@@ -273,7 +273,7 @@ Execute in order. Each task is atomic and verifiable. No scoring/combo/life/DP c
 - **Action**: CREATE
 - **Implement**:
   ```cpp
-  namespace td {
+  namespace blaze4k {
 
   enum class JudgmentKind {
       Tap,          // tap / hold-head / roll-head graded against a tap window
@@ -301,7 +301,7 @@ Execute in order. Each task is atomic and verifiable. No scoring/combo/life/DP c
       return j == TapJudgment::Fantastic || j == TapJudgment::Excellent || j == TapJudgment::Great;
   }
 
-  } // namespace td
+  } // namespace blaze4k
   ```
   - Includes `<cstdint>`, `"chart/note.hpp"`, `"timing/judgment_constants.hpp"` only.
 - **Mirror**: `src/chart/note.hpp:1-36` (small pure value types), `src/timing/judgment_constants.hpp:21-23`.
@@ -313,7 +313,7 @@ Execute in order. Each task is atomic and verifiable. No scoring/combo/life/DP c
 - **Action**: CREATE
 - **Implement**:
   ```cpp
-  namespace td {
+  namespace blaze4k {
   // Reconstructs the music-clock time at which an SDL-timestamped input occurred,
   // given the music time and SDL nanosecond reference sampled together. Mirrors
   // OpenITG's `fMusicSeconds = fCurrentMusicSeconds - fTimeSinceStep`
@@ -326,7 +326,7 @@ Execute in order. Each task is atomic and verifiable. No scoring/combo/life/DP c
       const double age = static_cast<double>(reference_ns - event_timestamp_ns) / 1e9;
       return reference_music_seconds - age;
   }
-  } // namespace td
+  } // namespace blaze4k
   ```
   - Header-only, includes `<cstdint>` only. Pure; no SDL/`<chrono>`.
 - **Mirror**: `src/gameplay/speed_mod.hpp` (pure header helpers).
@@ -338,7 +338,7 @@ Execute in order. Each task is atomic and verifiable. No scoring/combo/life/DP c
 - **Action**: CREATE
 - **Implement**:
   ```cpp
-  namespace td {
+  namespace blaze4k {
 
   class JudgmentEngine {
   public:
@@ -390,7 +390,7 @@ Execute in order. Each task is atomic and verifiable. No scoring/combo/life/DP c
       double last_update_time_ = 0.0;
   };
 
-  } // namespace td
+  } // namespace blaze4k
   ```
   - Includes `<array>`, `<vector>`, `<cstddef>`, `"chart/chart.hpp"`, `"gameplay/judgment.hpp"`,
     `"timing/judgment_constants.hpp"`. **No** SDL/GL/`<chrono>`.
@@ -523,10 +523,10 @@ Execute in order. Each task is atomic and verifiable. No scoring/combo/life/DP c
         auto events = app.input_manager().poll_events();
         gameplay.handle_input_events(events, app.input_reference_ns());
         const std::array<bool,4> held = {
-            app.input_manager().is_action_down(td::GameAction::Left),
-            app.input_manager().is_action_down(td::GameAction::Down),
-            app.input_manager().is_action_down(td::GameAction::Up),
-            app.input_manager().is_action_down(td::GameAction::Right),
+            app.input_manager().is_action_down(blaze4k::GameAction::Left),
+            app.input_manager().is_action_down(blaze4k::GameAction::Down),
+            app.input_manager().is_action_down(blaze4k::GameAction::Up),
+            app.input_manager().is_action_down(blaze4k::GameAction::Right),
         };
         gameplay.update(fixed_dt, held);
     });
@@ -542,7 +542,7 @@ Execute in order. Each task is atomic and verifiable. No scoring/combo/life/DP c
 - **Files**: `CMakeLists.txt`, `tests/CMakeLists.txt`
 - **Action**: UPDATE
 - **Implement**:
-  - Root: add `src/gameplay/judgment_engine.cpp` to `tundra_core` after `src/gameplay/note_field.cpp`.
+  - Root: add `src/gameplay/judgment_engine.cpp` to `blaze4k_core` after `src/gameplay/note_field.cpp`.
   - Tests: append a `judgment_engine_test` block mirroring `note_field_test`
     (`tests/CMakeLists.txt:103-111`).
 - **Mirror**: `CMakeLists.txt:96-101`, `tests/CMakeLists.txt:103-111`.
@@ -604,8 +604,8 @@ ctest --test-dir build --output-on-failure
 ./build/tests/judgment_engine_test
 
 # Headless harness smoke (stub clock; fixture has taps/holds/rolls/mines)
-./build/tundra-dance --headless --gameplay-demo \
-  "tests/fixtures/reference_pack/Tundra Pack/Tundra Anthem/Tundra Anthem.sm" --smoke-test 120
+./build/blaze-4k --headless --gameplay-demo \
+  "tests/fixtures/reference_pack/Blaze Pack/Blaze Anthem/Blaze Anthem.sm" --smoke-test 120
 
 # Purity check: judgment core must not touch platform/time/GL headers
 rg -n "SDL|glad|gl[A-Z]|ma_|chrono|thread|GetPerformanceCounter|GetTicksNS" \
@@ -645,7 +645,7 @@ rg -n "fixed_dt|delta_time|frame" src/gameplay/judgment_engine.cpp
 | Hold life uses per-frame `dt` upstream; frame delta is banned | Analytic life from music time (`1 - (t - last_satisfied)/window`); test 11 pins frame-rate independence | **In scope** |
 | OpenITG ages inputs with a monotonic timer; SDL event timestamps are not the audio clock | Convert at the input boundary via `music_time_for_event` using a reference ns captured at poll; engine stays pure | **In scope** |
 | `SDL_GetTicksNS()` reference sampled a few µs after `SDL_PollEvent` | Capture once at the end of `App::process_events()`; error is far below a judgment window; documented | **In scope** |
-| Held-over-mine uses row crossing upstream; Tundra uses a time window | Cross when `mine.time <= t` with the column held; equivalent for absolute-time notes; test 10 covers it | **In scope** — documented |
+| Held-over-mine uses row crossing upstream; Blaze 4k uses a time window | Cross when `mine.time <= t` with the column held; equivalent for absolute-time notes; test 10 covers it | **In scope** — documented |
 | A step beyond Way Off yields `TNS_NONE`, not Miss — easy to mis-implement | Explicit guard in `handle_step_tap`; test 1 asserts **no event**; Miss only from expiry | **In scope** |
 | Missed hold head must never produce OK/NG | `hold_head_hit` gate; test 7 | **In scope** |
 | Backward music-time jump (seek) corrupts expiry/hold state | Guard: if `t < last_update_time_`, resync without emitting; no seeking in v1 | **In scope** — documented |

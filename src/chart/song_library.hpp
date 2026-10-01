@@ -7,7 +7,7 @@
 #include <optional>
 #include "chart/song_pack.hpp"
 
-namespace td {
+namespace blaze4k {
 
 class SongLibrary {
 public:
@@ -53,4 +53,4 @@ private:
     ) const;
 };
 
-} // namespace td
+} // namespace blaze4k
