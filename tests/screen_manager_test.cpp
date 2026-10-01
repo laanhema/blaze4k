@@ -25,14 +25,14 @@
 
 namespace {
 
-using td::GameAction;
-using td::InputEvent;
-using td::ScreenContext;
-using td::ScreenId;
+using blaze4k::GameAction;
+using blaze4k::InputEvent;
+using blaze4k::ScreenContext;
+using blaze4k::ScreenId;
 
 std::vector<std::string> g_log;
 
-std::string name_of(ScreenId id) { return std::string(td::screen_id_name(id)); }
+std::string name_of(ScreenId id) { return std::string(blaze4k::screen_id_name(id)); }
 
 InputEvent press(GameAction action) {
     InputEvent event;
@@ -41,7 +41,7 @@ InputEvent press(GameAction action) {
     return event;
 }
 
-class SpyScreen : public td::Screen {
+class SpyScreen : public blaze4k::Screen {
 public:
     explicit SpyScreen(ScreenId screen_id) : sid_(screen_id) {}
 
@@ -59,7 +59,7 @@ public:
             ctx.manager->transition_to(transition_target);
         }
     }
-    void render(ScreenContext& /*ctx*/, td::GlQuadRenderer& /*renderer*/, int /*w*/,
+    void render(ScreenContext& /*ctx*/, blaze4k::GlQuadRenderer& /*renderer*/, int /*w*/,
                 int /*h*/) override {
         ++render_count;
     }
@@ -86,7 +86,7 @@ struct SpyRef {
     SpyScreen* ptr = nullptr;
 };
 
-SpyRef add_spy(td::ScreenManager& manager, ScreenId id) {
+SpyRef add_spy(blaze4k::ScreenManager& manager, ScreenId id) {
     auto owner = std::make_unique<SpyScreen>(id);
     SpyScreen* raw = owner.get();
     manager.add_screen(std::move(owner));
@@ -96,7 +96,7 @@ SpyRef add_spy(td::ScreenManager& manager, ScreenId id) {
 constexpr double kDt = 0.1;
 
 void test_boot_lifecycle() {
-    td::ScreenManager manager;
+    blaze4k::ScreenManager manager;
     SpyRef title = add_spy(manager, ScreenId::Title);
 
     manager.start(ScreenId::Title);
@@ -112,7 +112,7 @@ void test_boot_lifecycle() {
 }
 
 void test_transition_ordering() {
-    td::ScreenManager manager;
+    blaze4k::ScreenManager manager;
     SpyRef title = add_spy(manager, ScreenId::Title);
     SpyRef select = add_spy(manager, ScreenId::Select);
     manager.start(ScreenId::Title);
@@ -130,7 +130,7 @@ void test_transition_ordering() {
 }
 
 void test_deferred_application() {
-    td::ScreenManager manager;
+    blaze4k::ScreenManager manager;
     SpyRef title = add_spy(manager, ScreenId::Title);
     SpyRef select = add_spy(manager, ScreenId::Select);
     title.ptr->transition_on_update = true;
@@ -147,7 +147,7 @@ void test_deferred_application() {
 }
 
 void test_inactive_screens_ticked() {
-    td::ScreenManager manager;
+    blaze4k::ScreenManager manager;
     SpyRef title = add_spy(manager, ScreenId::Title);
     SpyRef select = add_spy(manager, ScreenId::Select);
     manager.start(ScreenId::Title);
@@ -165,7 +165,7 @@ void test_inactive_screens_ticked() {
 }
 
 void test_unregistered_target() {
-    td::ScreenManager manager;
+    blaze4k::ScreenManager manager;
     SpyRef title = add_spy(manager, ScreenId::Title);
     manager.start(ScreenId::Title);
 
@@ -182,7 +182,7 @@ void test_idle_attract_policy() {
     // without float-accumulation drift at the timeout boundary.
     constexpr double idle_dt = 0.125;
 
-    td::ScreenManager manager(1.0);
+    blaze4k::ScreenManager manager(1.0);
     SpyRef title = add_spy(manager, ScreenId::Title);
     SpyRef attract = add_spy(manager, ScreenId::Attract);
     manager.start(ScreenId::Title);
@@ -198,7 +198,7 @@ void test_idle_attract_policy() {
     TEST_CHECK(attract.ptr->enter_count == 1);
 
     // A press before the timeout resets the accumulator.
-    td::ScreenManager reset_manager(1.0);
+    blaze4k::ScreenManager reset_manager(1.0);
     add_spy(reset_manager, ScreenId::Title);
     add_spy(reset_manager, ScreenId::Attract);
     reset_manager.start(ScreenId::Title);
@@ -216,7 +216,7 @@ void test_idle_attract_policy() {
 }
 
 void test_idle_only_from_title_select() {
-    td::ScreenManager manager(1.0);
+    blaze4k::ScreenManager manager(1.0);
     SpyRef gameplay = add_spy(manager, ScreenId::Gameplay);
     manager.start(ScreenId::Gameplay);
     for (int i = 0; i < 20; ++i) {
@@ -229,7 +229,7 @@ void test_idle_only_from_title_select() {
 
 void test_idle_disable() {
     // A zero timeout via the setter disables idle -> Attract.
-    td::ScreenManager manager;
+    blaze4k::ScreenManager manager;
     add_spy(manager, ScreenId::Title);
     add_spy(manager, ScreenId::Attract);
     manager.set_idle_timeout_seconds(0.0);
@@ -240,7 +240,7 @@ void test_idle_disable() {
     TEST_CHECK(manager.active_id() == ScreenId::Title);
 
     // A negative timeout (constructor or CLI) also disables it.
-    td::ScreenManager negative(-5.0);
+    blaze4k::ScreenManager negative(-5.0);
     add_spy(negative, ScreenId::Title);
     add_spy(negative, ScreenId::Attract);
     negative.start(ScreenId::Title);
@@ -254,7 +254,7 @@ void test_idle_disable() {
 void test_attract_return() {
     // From Title.
     {
-        td::ScreenManager manager(1.0);
+        blaze4k::ScreenManager manager(1.0);
         add_spy(manager, ScreenId::Title);
         add_spy(manager, ScreenId::Attract);
         manager.start(ScreenId::Title);
@@ -265,7 +265,7 @@ void test_attract_return() {
     }
     // From Select.
     {
-        td::ScreenManager manager(1.0);
+        blaze4k::ScreenManager manager(1.0);
         add_spy(manager, ScreenId::Title);
         add_spy(manager, ScreenId::Select);
         add_spy(manager, ScreenId::Attract);
@@ -280,7 +280,7 @@ void test_attract_return() {
 }
 
 void test_back_navigation() {
-    td::ScreenManager manager(1.0);
+    blaze4k::ScreenManager manager(1.0);
     add_spy(manager, ScreenId::Title);
     add_spy(manager, ScreenId::Select);
     add_spy(manager, ScreenId::Attract);
@@ -302,7 +302,7 @@ void test_back_navigation() {
 }
 
 void test_calibration_back_navigation() {
-    td::ScreenManager manager(0.0);
+    blaze4k::ScreenManager manager(0.0);
     add_spy(manager, ScreenId::Title);
     add_spy(manager, ScreenId::Calibration);
     add_spy(manager, ScreenId::Select);
@@ -315,7 +315,7 @@ void test_calibration_back_navigation() {
 }
 
 void test_input_remap_back_navigation() {
-    td::ScreenManager manager(0.0);
+    blaze4k::ScreenManager manager(0.0);
     add_spy(manager, ScreenId::Title);
     add_spy(manager, ScreenId::InputRemap);
     add_spy(manager, ScreenId::Select);
@@ -328,7 +328,7 @@ void test_input_remap_back_navigation() {
 }
 
 void test_results_back_navigation() {
-    td::ScreenManager manager(0.0);
+    blaze4k::ScreenManager manager(0.0);
     add_spy(manager, ScreenId::Title);
     add_spy(manager, ScreenId::Results);
     add_spy(manager, ScreenId::Select);
@@ -341,8 +341,8 @@ void test_results_back_navigation() {
 }
 
 void test_render_dispatch_headless() {
-    td::GlQuadRenderer renderer; // uninitialized: draws are no-ops
-    td::ScreenManager manager;
+    blaze4k::GlQuadRenderer renderer; // uninitialized: draws are no-ops
+    blaze4k::ScreenManager manager;
     SpyRef title = add_spy(manager, ScreenId::Title);
     SpyRef select = add_spy(manager, ScreenId::Select);
     manager.start(ScreenId::Title);
@@ -358,11 +358,11 @@ void test_render_dispatch_headless() {
 }
 
 void test_real_screens() {
-    td::GlQuadRenderer renderer;
-    td::ScreenManager manager(0.5);
-    manager.add_screen(std::make_unique<td::TitleScreen>());
-    manager.add_screen(std::make_unique<td::AttractScreen>());
-    manager.add_screen(std::make_unique<td::SelectPlaceholderScreen>());
+    blaze4k::GlQuadRenderer renderer;
+    blaze4k::ScreenManager manager(0.5);
+    manager.add_screen(std::make_unique<blaze4k::TitleScreen>());
+    manager.add_screen(std::make_unique<blaze4k::AttractScreen>());
+    manager.add_screen(std::make_unique<blaze4k::SelectPlaceholderScreen>());
     manager.start(ScreenId::Title);
 
     // Title + Confirm -> Select.
@@ -386,36 +386,36 @@ void test_real_screens() {
 }
 
 void test_font_sanity() {
-    td::GlQuadRenderer renderer; // uninitialized no-op
-    TEST_CHECK(td::text_width("PRESS START", 3.0f) > 0.0f);
-    TEST_CHECK(td::text_width("", 3.0f) == 0.0f);
+    blaze4k::GlQuadRenderer renderer; // uninitialized no-op
+    TEST_CHECK(blaze4k::text_width("PRESS START", 3.0f) > 0.0f);
+    TEST_CHECK(blaze4k::text_width("", 3.0f) == 0.0f);
     // Monospace cell arithmetic: each glyph advances 6*pixel.
-    TEST_CHECK(td::text_width("A", 1.0f) == 6.0f);
-    TEST_CHECK(td::text_width("AB", 2.0f) == 24.0f);
+    TEST_CHECK(blaze4k::text_width("A", 1.0f) == 6.0f);
+    TEST_CHECK(blaze4k::text_width("AB", 2.0f) == 24.0f);
 
-    const std::string text = "TUNDRA DANCE";
+    const std::string text = "BLAZE 4K";
     const float pixel = 4.0f;
     // Pixel-accurate centering is not observable through the no-op renderer seam;
     // exercise the call and verify the width it centers against.
-    TEST_CHECK(td::text_width(text, pixel) == static_cast<float>(text.size()) * 6.0f * pixel);
-    td::draw_text(renderer, "PRESS START", 0.0f, 0.0f, 3.0f, td::Color{});
-    td::draw_text_centered(renderer, text, 640.0f, 0.0f, pixel, td::Color{});
+    TEST_CHECK(blaze4k::text_width(text, pixel) == static_cast<float>(text.size()) * 6.0f * pixel);
+    blaze4k::draw_text(renderer, "PRESS START", 0.0f, 0.0f, 3.0f, blaze4k::Color{});
+    blaze4k::draw_text_centered(renderer, text, 640.0f, 0.0f, pixel, blaze4k::Color{});
     std::cout << "  - bitmap font sanity ok.\n";
 }
 
 void test_app_shell_smoke() {
-    td::AppConfig cfg;
+    blaze4k::AppConfig cfg;
     cfg.window.headless = true;
     cfg.smoke_test_frames = 30;
 
-    td::ScreenManager manager;
-    manager.add_screen(std::make_unique<td::TitleScreen>());
-    manager.add_screen(std::make_unique<td::AttractScreen>());
-    manager.add_screen(std::make_unique<td::SelectPlaceholderScreen>());
+    blaze4k::ScreenManager manager;
+    manager.add_screen(std::make_unique<blaze4k::TitleScreen>());
+    manager.add_screen(std::make_unique<blaze4k::AttractScreen>());
+    manager.add_screen(std::make_unique<blaze4k::SelectPlaceholderScreen>());
     manager.start(ScreenId::Title);
 
-    td::GlQuadRenderer renderer;
-    td::App app(cfg);
+    blaze4k::GlQuadRenderer renderer;
+    blaze4k::App app(cfg);
     app.set_update_callback([&](double fixed_dt) {
         manager.update(fixed_dt, app.input_manager().poll_events());
     });
@@ -436,10 +436,10 @@ void test_app_shell_smoke() {
 // Real Title/Attract/SelectPlaceholder screens supply the Title->Select edge;
 // Gameplay/Results are spies so the test needs no audio device or play request.
 void test_arcade_loop_no_dead_ends() {
-    td::ScreenManager manager(0.0);
-    manager.add_screen(std::make_unique<td::TitleScreen>());
-    manager.add_screen(std::make_unique<td::AttractScreen>());
-    manager.add_screen(std::make_unique<td::SelectPlaceholderScreen>());
+    blaze4k::ScreenManager manager(0.0);
+    manager.add_screen(std::make_unique<blaze4k::TitleScreen>());
+    manager.add_screen(std::make_unique<blaze4k::AttractScreen>());
+    manager.add_screen(std::make_unique<blaze4k::SelectPlaceholderScreen>());
     SpyRef gameplay = add_spy(manager, ScreenId::Gameplay);
     SpyRef results = add_spy(manager, ScreenId::Results);
 

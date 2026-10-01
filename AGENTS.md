@@ -4,7 +4,7 @@ This file provides guidance to agents when working with code in this repository.
 
 ## Project Overview
 
-**Tundra Dance** is a 4-panel arrow rhythm game for desktop (Windows, macOS, Linux) — a faithful homage to *In The Groove*, *Mungyodance*, and *StepMania*. Players hit scrolling arrows in time with music via keyboard or USB dance pad, judged with ITG-tight timing windows and scored with the OpenITG dance-point/grade system. Fully offline; reads SM/SSC simfiles; ships engine-only (users import their own song packs).
+**Blaze 4k** is a 4-panel arrow rhythm game for desktop (Windows, macOS, Linux) — a faithful homage to *In The Groove*, *Mungyodance*, and *StepMania*. Players hit scrolling arrows in time with music via keyboard or USB dance pad, judged with ITG-tight timing windows and scored with the OpenITG dance-point/grade system. Fully offline; reads SM/SSC simfiles; ships engine-only (users import their own song packs).
 
 **Status: pre-implementation.** The repo currently contains only the PRD (`.agents/PRDs/PRD.md`). All structure/commands below describe the planned layout from the PRD — create files accordingly.
 
@@ -58,7 +58,7 @@ ctest --test-dir build --output-on-failure
 Planned layout (from PRD §6):
 
 ```
-tundra-dance/
+blaze-4k/
 ├── CMakeLists.txt
 ├── src/
 │   ├── main.cpp

@@ -5,7 +5,7 @@ The default gameplay noteskin: the base "Cel - Workshop" skin from
 (commit `5ba831a`), itself based on the ITG default "Cel" skin. Released into the
 public domain under the Unlicense (see `LICENSE`).
 
-Only the textures Tundra Dance draws are vendored, under their original file
+Only the textures Blaze 4k draws are vendored, under their original file
 names. That means any PNG from the Workshop's `Customizations/.../Cel/<variant>/`
 folders can be dropped in here to replace the matching file (e.g. another arrow
 color set or hold color).

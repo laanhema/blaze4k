@@ -11,7 +11,7 @@ follows the repo's proven D2 seam: a new **pure, SDL/GL/audio/clock-free `Result
 (`src/screens/results_anim.{hpp,cpp}`, mirroring `gameplay/judgment_animator.*`) whose outputs are
 pure functions of an accumulated `fixed_dt` (presentation only), plus a thin rewrite of
 `ResultsScreen::render`/`update` that consumes it. No judgment/scoring/timing/persistence path
-changes; no new numerical parity values are introduced (all curves are "Tundra presentation,
+changes; no new numerical parity values are introduced (all curves are "Blaze 4k presentation,
 unsourced" under the locked 2D-only decision). `fixed_dt` drives only the reveal, exactly as it
 drives only the D2 pop fade.
 
@@ -61,7 +61,7 @@ text only). Gameplay judgment SFX and additional UI sounds are out of scope (D2 
 | Results palette | `src/screens/results_screen.cpp:19-43` | Local constants incl. `grade_color(percent)` tier coloring |
 | UI sound trigger | `src/screens/screen_manager.cpp:210-220` | Manager fires Move/Confirm/Back on menu screens before `active->update`; Results is a menu screen — a skip press already beeps Confirm |
 | Test idiom | `tests/results_screen_test.cpp:22-29,104-126` | `TEST_CHECK` abort macro; `ScreenManager(0.0)` fixture + `SelectSpy`; cases 4/5/7 assert Confirm/Back → Select |
-| Test registration | `tests/CMakeLists.txt:282-290` | One `add_executable`/`target_link_libraries(tundra_core)`/`add_test` per target |
+| Test registration | `tests/CMakeLists.txt:282-290` | One `add_executable`/`target_link_libraries(blaze4k_core)`/`add_test` per target |
 
 **Start green, stay green:** 31 tests pass; this plan adds **1** target (`results_anim_test`) and
 extends `results_screen_test` in place → **32 expected**. No changes to `src/gameplay/*`,
@@ -75,7 +75,7 @@ extends `results_screen_test` in place → **32 expected**. No changes to `src/g
 Authority: **PRD §12 Phase D / §15**, issue **#25 AC1–AC3**, and the existing **C7 `ResultsScreen`**
 + **D2 `JudgmentAnimator`** contracts. No OpenITG value is required: grade thresholds/labels and
 percent/grade formatting are reused from C7 (`hud_renderer.*`); every animation curve, duration, and
-the NEW RECORD flourish is "Tundra presentation, unsourced". The only locked constraint is **2D only**
+the NEW RECORD flourish is "Blaze 4k presentation, unsourced". The only locked constraint is **2D only**
 (textured/solid quads + bitmap text; no video/3D/dancers).
 
 ### Pure reveal model (`ResultsAnimator`)
@@ -86,11 +86,11 @@ judgment path (the results screen has no judgment path at all). All outputs are 
 
 ```cpp
 // src/screens/results_anim.hpp — no SDL/GL/audio/<chrono>/<ctime>; <cmath> only.
-namespace td {
+namespace blaze4k {
 
 class ResultsAnimator {
 public:
-    // Tundra presentation constants (unsourced; no OpenITG parity requirement).
+    // Blaze 4k presentation constants (unsourced; no OpenITG parity requirement).
     static constexpr double kGradeDelay = 0.15;        // s after enter
     static constexpr double kGradePopSeconds = 0.85;   // arcade "slam" from 2.4x to 1.0
     static constexpr double kPercentDelay = 0.45;
@@ -188,7 +188,7 @@ invariants, not the exact easing):
 | Grade thresholds/labels and percent/grade formatting | Reused C7 (`hud_renderer.hpp:15,22`; `judgment_constants.cpp`) | Sourced (reused, unchanged) |
 | NEW RECORD rule (`new_record_` from `submit_high_score`) | Reused C7 (`results_screen.cpp:62-64`, `high_scores.cpp`) | Sourced (reused, unchanged) |
 | Results palette incl. `grade_color` | Reused C7 (`results_screen.cpp:19-43`) | Sourced (reused, presentation) |
-| All reveal delays/durations/curves, pulse, flash | PRD/issue silent; "Tundra presentation, unsourced" (cf. D2 constants) | **Design decision — OQ2** |
+| All reveal delays/durations/curves, pulse, flash | PRD/issue silent; "Blaze 4k presentation, unsourced" (cf. D2 constants) | **Design decision — OQ2** |
 | Skip press set + two-press Confirm behavior | Issue AC3 silent on which press / whether it also exits | **Design decision — OQ1** |
 | First-ever clear gets the full NEW RECORD finale | Carried from C7 `submit_high_score` semantics | **Design decision — OQ3** |
 | `fixed_dt` as the reveal clock | Presentation only; results has no judgment path; `PreviewPlayer`/`JudgmentAnimator` precedent | Sourced (pattern) |
@@ -242,7 +242,7 @@ void ResultsScreen::update(ScreenContext& ctx, double /*fixed_dt*/, const std::v
 // SOURCE: tests/results_screen_test.cpp:22-29,104-126; tests/CMakeLists.txt:282-290
 #define TEST_CHECK(expr) do { if (!(expr)) { std::cerr << ...; std::abort(); } } while (0)
 add_executable(results_anim_test results_anim_test.cpp)
-target_link_libraries(results_anim_test PRIVATE tundra_core)
+target_link_libraries(results_anim_test PRIVATE blaze4k_core)
 add_test(NAME results_anim_test COMMAND results_anim_test)
 ```
 
@@ -259,7 +259,7 @@ add_test(NAME results_anim_test COMMAND results_anim_test)
 | `tests/results_anim_test.cpp` | CREATE | Pure curve/timeline/skip tests (no GL) |
 | `tests/results_screen_test.cpp` | UPDATE | Confirm now skips then exits; add skip/new-record-finale/reveal-active cases; keep all other cases green |
 | `tests/CMakeLists.txt` | UPDATE | Register `results_anim_test` |
-| `CMakeLists.txt` | UPDATE | Add `src/screens/results_anim.cpp` to `tundra_core` |
+| `CMakeLists.txt` | UPDATE | Add `src/screens/results_anim.cpp` to `blaze4k_core` |
 
 Not modified: `src/screens/results.{hpp,cpp}`, `src/screens/screen_manager.*`,
 `src/screens/screen.hpp`, `src/main.cpp`, `src/gameplay/*`, `src/timing/*`, `src/chart/*`,
@@ -357,7 +357,7 @@ Execute in order. Each task is atomic and verifiable.
 
 - **File**: `CMakeLists.txt`, `tests/CMakeLists.txt`
 - **Action**: UPDATE
-- **Implement**: add `src/screens/results_anim.cpp` to the `tundra_core` source list (next to
+- **Implement**: add `src/screens/results_anim.cpp` to the `blaze4k_core` source list (next to
   `src/screens/results.cpp` / `results_screen.cpp`), and append the `results_anim_test` block
   mirroring `tests/CMakeLists.txt:282-290`.
 - **Validate**: `cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j16`.
@@ -419,9 +419,9 @@ developer's real `data/` is untouched.
 5. **Regression suite**: `ctest --test-dir build --output-on-failure` → **32/32**.
 6. **Smoke (optional)**: a fresh data dir, run the shell headless and confirm clean exit; e.g.
    ```bash
-   rm -rf /tmp/td-e2e-d3 && mkdir -p /tmp/td-e2e-d3
-   ./build/tundra-dance --headless --smoke-test 30 --start-screen select \
-     --songs tests/fixtures/reference_pack --data-dir /tmp/td-e2e-d3
+   rm -rf /tmp/blaze4k-e2e-d3 && mkdir -p /tmp/blaze4k-e2e-d3
+   ./build/blaze-4k --headless --smoke-test 30 --start-screen select \
+     --songs tests/fixtures/reference_pack --data-dir /tmp/blaze4k-e2e-d3
    # exit 0
    ```
 7. `git status` shows new files under `src/screens/` (`results_anim.*`) and `tests/`
@@ -460,7 +460,7 @@ developer's real `data/` is untouched.
   and failures never trigger it, so the sequence is unambiguous.
 - **No new sounds, no settings, no schema.** D2 covered UI sounds; "reduce motion" is deferred
   (OQ5). Scores/structure untouched.
-- **All reveal constants are unsourced presentation**, consistent with D2 ("Tundra presentation, no
+- **All reveal constants are unsourced presentation**, consistent with D2 ("Blaze 4k presentation, no
   OpenITG parity requirement"); no Value Provenance parity claim is made.
 
 ---

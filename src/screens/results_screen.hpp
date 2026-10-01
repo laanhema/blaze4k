@@ -6,7 +6,7 @@
 #include "screens/results_anim.hpp"
 #include "screens/screen.hpp"
 
-namespace td {
+namespace blaze4k {
 
 // C7/D3 results screen (PRD section 7.3 / section 5 story 6, section 12 Phase D).
 // Reads the finished run's ResultsSummary published by GameplayScreen through
@@ -59,4 +59,4 @@ private:
     ResultsAnimator animator_{};
 };
 
-} // namespace td
+} // namespace blaze4k

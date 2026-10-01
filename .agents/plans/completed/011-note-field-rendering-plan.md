@@ -2,7 +2,7 @@
 
 ## Summary
 
-Build the gameplay rendering foundation for Tundra Dance: a scrolling 4-panel note field with a fixed
+Build the gameplay rendering foundation for Blaze 4k: a scrolling 4-panel note field with a fixed
 receptor row, driven **exclusively** by the B1 `MusicClock` (PRD §6 pattern 1 / AGENTS.md core
 principle 1). The work splits into a pure, unit-testable layout core and a thin OpenGL 3.3 layer:
 
@@ -45,10 +45,10 @@ So that I can read charts at my preferred speed regardless of BPM changes.
 | CMake | 4.4.3 | `cmake --build build -j16` verified working |
 | C++ Compiler | GCC 16.2.1 | C++20; `-Wall -Wextra -Wpedantic` enabled in root CMake |
 | Cores | 16 | `-j16` safe |
-| Dependencies | `build/_deps/` | SDL3, glad (GL 3.3 core), miniaudio, nlohmann_json, stb already fetched; `glad` linked `PUBLIC` to `tundra_core` (`CMakeLists.txt:101-108`) |
+| Dependencies | `build/_deps/` | SDL3, glad (GL 3.3 core), miniaudio, nlohmann_json, stb already fetched; `glad` linked `PUBLIC` to `blaze4k_core` (`CMakeLists.txt:101-108`) |
 | Baseline tests | 10/10 pass | `ctest --test-dir build --output-on-failure` → "100% tests passed out of 10" (0.22s) |
-| `src/render/` | does not exist | Must be created; add sources to `tundra_core` |
-| `src/gameplay/` | does not exist | Must be created; add sources to `tundra_core` |
+| `src/render/` | does not exist | Must be created; add sources to `blaze4k_core` |
+| `src/gameplay/` | does not exist | Must be created; add sources to `blaze4k_core` |
 | Rendering context | `Window::init()` creates GL 3.3 core + glad (`src/app/window.cpp:71-123`) | Headless mode creates **no** GL context (`window.cpp:48-52`) → GL cannot be unit-tested headless; test pure math + E2E on a display |
 | stb_image | `stb/stb_image.h` fetched | **Not used in B3** — placeholder noteskin is procedural, so no image decode/implementation macro is added (D1/D2 owns image loading) |
 | Upstream source | `/tmp/opencode/openitg` @ `f2c129fe65c65e4a9b3a691ff35e7717b4e8de51` | Cloned for provenance |
@@ -59,12 +59,12 @@ So that I can read charts at my preferred speed regardless of BPM changes.
 
 ## Pinned Semantics
 
-Authority for B3 is **OpenITG** (PRD §15). Tundra reproduces OpenITG's mod math but re-expresses it
+Authority for B3 is **OpenITG** (PRD §15). Blaze 4k reproduces OpenITG's mod math but re-expresses it
 against its own `TimingData` (A5/A6) and `MusicClock` (B1) domains.
 
 ### Mod parsing (`src/PlayerOptions.cpp:263-287`)
 
-| Tundra input | OpenITG branch | Effect |
+| Blaze 4k input | OpenITG branch | Effect |
 |--------------|----------------|--------|
 | `Nx` | regex `^([0-9]+(\.[0-9]+)?)x$` | `XMod`: `scroll_speed = N`, beat spacing (time spacing 0) |
 | `cN` | `sscanf("c%f")` | `CMod`: `scroll_bpm = N`, time spacing 1 |
@@ -86,7 +86,7 @@ time spacing (C-mod):         y = (note.time_seconds   - t)                  * (
 - For M-mod: `x_speed = m_value / max_bpm(chart)` — OpenITG converts M-mod to an X-mod per-song:
   "set an X-mod equal to Mnum / fMaxBPM (e.g. M600 with 150 becomes 4x)" (`Player.cpp:234-236`). The
   divisor `fMaxBPM` is `DisplayBpms.GetMax()` when not secret (`Player.cpp:206-210`), else the actual
-  max BPM via `GetActualBPM` (`Player.cpp:213-230`). Tundra has no `#DISPLAYBPM` parse, so it uses the
+  max BPM via `GetActualBPM` (`Player.cpp:213-230`). Blaze 4k has no `#DISPLAYBPM` parse, so it uses the
   actual max over `TimingData::bpms()`.
 - `y > 0` means the note is still **ahead** of the receptor (not yet hit); `y < 0` means passed.
 - OpenITG multiplies `fYOffset` by `fScrollSpeed` at the end (`ArrowEffects.cpp:135`); for C-mod
@@ -105,17 +105,17 @@ time spacing (C-mod):         y = (note.time_seconds   - t)                  * (
 
 `ArrowGetReverseShiftAndScale` sets `fScale = SCALE(percent_reverse, 0, 1, 1, -1)`; `percent_reverse`
 is `1` for `SCROLL_REVERSE` (downscroll), `0` by default (upscroll) (`PlayerOptions.cpp:539-556`).
-Tundra models this as a pure mirror about the receptor row:
+Blaze 4k models this as a pure mirror about the receptor row:
 
 ```
 upscroll   (default): screen_y = receptor_y + y
 downscroll (reverse): screen_y = receptor_y - y
 ```
 
-(The full ITG reverse shift also re-centers by half the reverse offset; Tundra's pure mirror is a
+(The full ITG reverse shift also re-centers by half the reverse offset; Blaze 4k's pure mirror is a
 documented simplification — Open Question 3.)
 
-### Note field geometry (Tundra-owned, placeholder)
+### Note field geometry (Blaze 4k-owned, placeholder)
 
 - 4 columns of width `ARROW_SIZE = 64` centered on the playfield; column centers ordered L,D,U,R.
 - One receptor per column at `receptor_y`. Upscroll receptor near the top of the screen, downscroll
@@ -149,7 +149,7 @@ All behavioral values below are transcribed from the cloned OpenITG repository a
 | Reverse scale | `SCALE(percent_reverse, 0,1, 1,-1)` | `src/ArrowEffects.cpp:151-156` |
 | Reverse percent | `SCROLL_REVERSE` adds `1` (default 0) | `src/PlayerOptions.cpp:539-556` |
 
-No value in this plan is invented; pixel geometry beyond `ARROW_SIZE` is explicitly Tundra-owned
+No value in this plan is invented; pixel geometry beyond `ARROW_SIZE` is explicitly Blaze 4k-owned
 placeholder config (flagged in Open Questions).
 
 ---
@@ -234,9 +234,9 @@ Plain `int main()` binaries, `TEST_CHECK`, deterministic and hardware-independen
 ### Source + test registration
 ```cmake
 # SOURCE: CMakeLists.txt:80-95 / tests/CMakeLists.txt:92-100
-add_library(tundra_core STATIC ... src/timing/music_clock.cpp ...)
+add_library(blaze4k_core STATIC ... src/timing/music_clock.cpp ...)
 add_executable(note_field_test note_field_test.cpp)
-target_link_libraries(note_field_test PRIVATE tundra_core)
+target_link_libraries(note_field_test PRIVATE blaze4k_core)
 add_test(NAME note_field_test COMMAND note_field_test)
 ```
 
@@ -262,7 +262,7 @@ add_test(NAME note_field_test COMMAND note_field_test)
 | `src/gameplay/gameplay_view.hpp` | CREATE | Host: chart + audio + `MusicClock` + field + renderer |
 | `src/gameplay/gameplay_view.cpp` | CREATE | Load chart/audio, clock binding, update/render |
 | `src/main.cpp` | UPDATE | Add temporary `--gameplay-demo`, `--speed`, `--downscroll` harness |
-| `CMakeLists.txt` | UPDATE | Add render/ + gameplay/ sources to `tundra_core` |
+| `CMakeLists.txt` | UPDATE | Add render/ + gameplay/ sources to `blaze4k_core` |
 | `tests/note_field_test.cpp` | CREATE | Speed-mod, layout, scroll, stop, note-type tests |
 | `tests/CMakeLists.txt` | UPDATE | Register `note_field_test` |
 
@@ -278,7 +278,7 @@ Execute in order. Each task is atomic and verifiable. No production judgment/sco
 - **Action**: CREATE
 - **Implement**:
   ```cpp
-  namespace td {
+  namespace blaze4k {
   struct Color { float r=1, g=1, b=1, a=1; };
   struct Rect  { float x=0, y=0, w=0, h=0; }; // top-left origin, pixels
   struct UVRect{ float u0=0, v0=0, u1=1, v1=1; };
@@ -337,7 +337,7 @@ Execute in order. Each task is atomic and verifiable. No production judgment/sco
 - **Action**: CREATE
 - **Implement**:
   ```cpp
-  namespace td {
+  namespace blaze4k {
   enum class SpeedModType { CMod, XMod, MMod };
 
   struct SpeedMod {
@@ -367,7 +367,7 @@ Execute in order. Each task is atomic and verifiable. No production judgment/sco
 - **Action**: CREATE
 - **Implement**:
   ```cpp
-  namespace td {
+  namespace blaze4k {
   enum class ScrollDirection { Up, Down };
 
   struct NoteFieldConfig {
@@ -420,7 +420,7 @@ Execute in order. Each task is atomic and verifiable. No production judgment/sco
 - **Action**: CREATE
 - **Implement**:
   ```cpp
-  namespace td {
+  namespace blaze4k {
   struct NoteStyle {
       Color head_color;
       Color body_color;
@@ -474,7 +474,7 @@ Execute in order. Each task is atomic and verifiable. No production judgment/sco
 - **Action**: CREATE
 - **Implement**:
   ```cpp
-  namespace td {
+  namespace blaze4k {
   struct GameplayOptions {
       SpeedMod speed{};
       ScrollDirection scroll = ScrollDirection::Up;
@@ -540,7 +540,7 @@ Execute in order. Each task is atomic and verifiable. No production judgment/sco
 - **Implement**:
   - Root: add `src/render/texture.cpp`, `src/render/gl_quad_renderer.cpp`,
     `src/gameplay/speed_mod.cpp`, `src/gameplay/note_field.cpp`, `src/gameplay/noteskin.cpp`,
-    `src/gameplay/note_field_renderer.cpp`, `src/gameplay/gameplay_view.cpp` to `tundra_core`
+    `src/gameplay/note_field_renderer.cpp`, `src/gameplay/gameplay_view.cpp` to `blaze4k_core`
     (after the `src/timing/` entries).
   - Tests: append the `note_field_test` block mirroring `music_clock_test` (`tests/CMakeLists.txt:82-90`).
 - **Mirror**: `CMakeLists.txt:80-95`, `tests/CMakeLists.txt:82-100`.
@@ -595,17 +595,17 @@ ctest --test-dir build --output-on-failure
 ./build/tests/note_field_test
 
 # Headless harness smoke (uses the stub clock; fixture has real audio + holds/mines)
-./build/tundra-dance --headless --gameplay-demo \
-  "tests/fixtures/reference_pack/Tundra Pack/Tundra Anthem/Tundra Anthem.sm" --smoke-test 60
+./build/blaze-4k --headless --gameplay-demo \
+  "tests/fixtures/reference_pack/Blaze Pack/Blaze Anthem/Blaze Anthem.sm" --smoke-test 60
 
 # Same with a C-mod and downscroll
-./build/tundra-dance --headless --gameplay-demo \
-  "tests/fixtures/reference_pack/Tundra Pack/Tundra Anthem/Tundra Anthem.sm" \
+./build/blaze-4k --headless --gameplay-demo \
+  "tests/fixtures/reference_pack/Blaze Pack/Blaze Anthem/Blaze Anthem.sm" \
   --speed C400 --downscroll --smoke-test 60
 
 # With a display: real GL path and live audio clock (manual visual check)
-./build/tundra-dance --gameplay-demo \
-  "tests/fixtures/reference_pack/Tundra Pack/Tundra Anthem/Tundra Anthem.sm" --speed 2x --smoke-test 300
+./build/blaze-4k --gameplay-demo \
+  "tests/fixtures/reference_pack/Blaze Pack/Blaze Anthem/Blaze Anthem.sm" --speed 2x --smoke-test 300
 ```
 
 ## End-to-End Verification
@@ -658,7 +658,7 @@ ctest --test-dir build --output-on-failure
 - **Speed-mod math pinned to OpenITG** `ArrowEffects.cpp` / `PlayerOptions.cpp` / `Player.cpp`; M-mod is
   resolved once to an X multiplier from the chart's max BPM, exactly as OpenITG does at song load.
 - **`ARROW_SIZE = 64 px`** is the only pinned pixel value; receptor placement and column geometry are
-  Tundra placeholder config.
+  Blaze 4k placeholder config.
 - **Scroll direction as a pure mirror** about the receptor row — simpler than ITG's reverse shift and
   sufficient for up/down toggling in v1 (Open Question 3).
 - **Placeholder noteskin is procedural** (colored textured quads, distinct per type) with no image
@@ -672,10 +672,10 @@ ctest --test-dir build --output-on-failure
 
 1. **Default speed mod / direction (needs confirmation).** Proposed default `X-mod 1.0x`, upscroll
    (OpenITG's own default is `scrollSpeed=1.0`, `timeSpacing=0`, `PlayerOptions.cpp:17-20`). Confirm
-   whether Tundra should instead default to a C-mod value (e.g. `C400`, as the issue example uses) on
+   whether Blaze 4k should instead default to a C-mod value (e.g. `C400`, as the issue example uses) on
    first run.
 2. **Receptor placement and playfield scale.** Proposed upscroll receptor at ≈15% of screen height,
-   downscroll at ≈85%, columns 64px wide centered. These are Tundra presentation values, not
+   downscroll at ≈85%, columns 64px wide centered. These are Blaze 4k presentation values, not
    ITG-derived. Confirm acceptable as placeholders until D2.
 3. **Downscroll fidelity.** Proposed pure mirror about `receptor_y`. OpenITG's reverse also applies a
    half-reverse-offset shift for centering (`ArrowEffects.cpp:141-157`). Confirm the simplified mirror is

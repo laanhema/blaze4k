@@ -3,7 +3,7 @@
 #include <array>
 #include <string>
 
-namespace td {
+namespace blaze4k {
 
 // Data-driven judgment/scoring constants (PRD section 6 pattern 3).
 //
@@ -102,4 +102,4 @@ struct JudgmentConstants {
     [[nodiscard]] const GradeTier& grade_for_percent(double percent) const;
 };
 
-} // namespace td
+} // namespace blaze4k

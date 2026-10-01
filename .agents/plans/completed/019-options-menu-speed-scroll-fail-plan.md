@@ -52,7 +52,7 @@ So that I can configure gameplay without editing files.
 | Speed parse/format | `src/gameplay/speed_mod.hpp:22-31` | `parse_speed_mod` accepts `"1x"`/`"X1.5"`, `"C400"`, `"M600"`; `SpeedModType{CMod,XMod,MMod}` |
 | Input actions | `src/input/input_event.hpp:8-24`, `input_manager.cpp:36-72` | Directions (arrows/DFJK + pad D-pad/face), `Confirm` (Return/KP_Enter/Start), `Back` (Escape/Back). `MenuUp/Down/Left/Right` are **unmapped**. No spare button exists today |
 | Config bindings | `config_loader.cpp:246-262`, `config_persistence_test.cpp:85-86` | Bindings are opaque and **not applied** by `InputManager` (hardcoded map); test asserts defaults are 6 key / 2 pad → do **not** change defaults |
-| Test idiom / registration | `tests/select_screen_test.cpp:24-31`, `tests/CMakeLists.txt:176-194` | `TEST_CHECK` + temp-dir synth packs; one `add_executable`/`target_link_libraries(... tundra_core)`/`add_test` block per target |
+| Test idiom / registration | `tests/select_screen_test.cpp:24-31`, `tests/CMakeLists.txt:176-194` | `TEST_CHECK` + temp-dir synth packs; one `add_executable`/`target_link_libraries(... blaze4k_core)`/`add_test` block per target |
 
 **Start green, stay green:** 20 tests pass; this plan adds **1** target (`options_menu_test`) and
 extends `select_screen_test` in place → **21 expected**. No timing/judgment/scoring/note-field
@@ -196,7 +196,7 @@ gamepad_button_map_[SDL_GAMEPAD_BUTTON_START] = GameAction::Confirm;
 | `src/screens/screen.hpp` | UPDATE | Add defaulted `virtual bool handle_back(ScreenContext&) { return false; }` |
 | `src/screens/screen_manager.cpp` | UPDATE | `handle_back()` consults the active screen's hook first |
 | `src/screens/screen_manager.hpp` | UPDATE | (comment only) document the hook in the back-navigation contract |
-| `CMakeLists.txt` | UPDATE | Add `src/screens/options_menu.cpp` to `tundra_core` |
+| `CMakeLists.txt` | UPDATE | Add `src/screens/options_menu.cpp` to `blaze4k_core` |
 | `tests/CMakeLists.txt` | UPDATE | Register `options_menu_test` |
 | `tests/options_menu_test.cpp` | CREATE | Pure model: seeding, row/value adjust, clamps, formatting, apply/round-trip, invalid input |
 | `tests/select_screen_test.cpp` | UPDATE | Open/adjust/close via real `ScreenManager`; wheel suspended; Back closes then second Back → Title; Confirm publishes changed options; save/load persistence; empty-library safety |
@@ -233,7 +233,7 @@ Execute in order. Each task is atomic and verifiable.
 - **Implement**:
   ```cpp
   // options_menu.hpp  (pure: <string> + gameplay/speed_mod.hpp only)
-  namespace td {
+  namespace blaze4k {
   struct GameConfig;
   enum class OptionsRow : int { SpeedType = 0, SpeedValue, Scroll, Fail, Count };
   inline constexpr int kOptionsRowCount = static_cast<int>(OptionsRow::Count);
@@ -252,7 +252,7 @@ Execute in order. Each task is atomic and verifiable.
   [[nodiscard]] double options_speed_step(SpeedModType);
   [[nodiscard]] std::string options_row_name(int row);
   [[nodiscard]] std::string options_row_value_text(const OptionsMenu&, int row);
-  } // namespace td
+  } // namespace blaze4k
   ```
   `options_menu_from_config` uses `parse_speed_mod(config.gameplay.speed_mod, mod)`; on success sets
   `speed_type` + the matching slot to `mod.value`. `scroll_down = (config.gameplay.scroll=="down")`,
@@ -315,7 +315,7 @@ Execute in order. Each task is atomic and verifiable.
 
 - **Files**: `CMakeLists.txt`, `tests/CMakeLists.txt`
 - **Action**: UPDATE
-- **Implement**: add `src/screens/options_menu.cpp` to the `tundra_core` list
+- **Implement**: add `src/screens/options_menu.cpp` to the `blaze4k_core` list
   (`CMakeLists.txt:114-119` area); append an `options_menu_test` block mirroring
   `tests/CMakeLists.txt:176-184`.
 - **Mirror**: `CMakeLists.txt:80-120`, `tests/CMakeLists.txt:176-184`.
@@ -405,9 +405,9 @@ the developer's real `data/` and library are untouched.
 
 1. **Real binary boots into Select with the new code** (no regression):
    ```bash
-   rm -rf /tmp/td-e2e-opt
-   ./build/tundra-dance --headless --smoke-test 30 \
-     --start-screen select --songs tests/fixtures/reference_pack --data-dir /tmp/td-e2e-opt
+   rm -rf /tmp/blaze4k-e2e-opt
+   ./build/blaze-4k --headless --smoke-test 30 \
+     --start-screen select --songs tests/fixtures/reference_pack --data-dir /tmp/blaze4k-e2e-opt
    # exit 0; logs "[SongLibrary] ...", "[SelectScreen] library: 4 songs, 6 charts",
    # "[ScreenManager] enter Select"; window/GL/audio device not required
    ```
@@ -415,9 +415,9 @@ the developer's real `data/` and library are untouched.
    ```bash
    # seed gameplay options, boot + clean-exit, confirm they survive
    printf '{"version":1,"gameplay":{"speed_mod":"C400","scroll":"down","fail_enabled":false}}\n' \
-     > /tmp/td-e2e-opt/config.json
-   ./build/tundra-dance --headless --smoke-test 5 --start-screen select --data-dir /tmp/td-e2e-opt
-   # exit 0; /tmp/td-e2e-opt/config.json still contains "C400", "down", false
+     > /tmp/blaze4k-e2e-opt/config.json
+   ./build/blaze-4k --headless --smoke-test 5 --start-screen select --data-dir /tmp/blaze4k-e2e-opt
+   # exit 0; /tmp/blaze4k-e2e-opt/config.json still contains "C400", "down", false
    ```
 3. **Menu adjust + Back + persistence via the real screen/machine and C2 path** (AC1/AC3/AC4):
    ```bash

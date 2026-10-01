@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace td {
+namespace blaze4k {
 
 namespace {
 constexpr double kTwoPi = 6.28318530717958647692;
@@ -120,4 +120,4 @@ float ResultsAnimator::failed_alpha(double elapsed) {
     return reveal_alpha(elapsed, kStatsDelay, kFailedFadeSeconds);
 }
 
-} // namespace td
+} // namespace blaze4k

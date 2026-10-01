@@ -5,7 +5,7 @@
 
 #include "chart/chart.hpp"
 
-namespace td {
+namespace blaze4k {
 
 // Pure assist-tick timeline: one tick per chart row holding a tap, hold head or
 // roll head (mines never tick; a jump/hand ticks once). Mirrors StepMania's
@@ -28,4 +28,4 @@ private:
     std::size_t next_ = 0;
 };
 
-} // namespace td
+} // namespace blaze4k

@@ -4,7 +4,7 @@
 
 #include "data/config.hpp"
 
-namespace td {
+namespace blaze4k {
 
 GameplayOptions gameplay_options_from_config(const GameConfig& config) {
     GameplayOptions options;
@@ -23,4 +23,4 @@ GameplayOptions gameplay_options_from_config(const GameConfig& config) {
     return options;
 }
 
-} // namespace td
+} // namespace blaze4k

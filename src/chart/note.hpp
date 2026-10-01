@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <string_view>
 
-namespace td {
+namespace blaze4k {
 
 enum class NoteType {
     Tap,
@@ -68,4 +68,4 @@ struct Note {
     }
 };
 
-} // namespace td
+} // namespace blaze4k

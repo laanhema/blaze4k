@@ -5,7 +5,7 @@
 
 #include <glad/glad.h>
 
-namespace td {
+namespace blaze4k {
 
 namespace {
 
@@ -291,4 +291,4 @@ void GlQuadRenderer::end() {
     bound_texture_ = 0;
 }
 
-} // namespace td
+} // namespace blaze4k

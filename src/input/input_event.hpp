@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <string_view>
 
-namespace td {
+namespace blaze4k {
 
 enum class GameAction {
     // 4 rhythm gameplay panels
@@ -59,4 +59,4 @@ struct InputEvent {
     uint32_t raw_code = 0; // SDL_Keycode or SDL_GamepadButton
 };
 
-} // namespace td
+} // namespace blaze4k

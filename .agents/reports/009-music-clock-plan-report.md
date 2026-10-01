@@ -55,7 +55,7 @@ wiring was added (deferred to C4/C5).
 - The header's no-forbidden-deps doc comment was reworded to avoid the literal tokens `chrono`/`thread`
   so the plan's architecture grep (`rg ... src/timing/`) returns no matches. No code change; comment only.
 - No other deviations. `apply_offset` is `sample_seconds + offset_seconds` per the user's resolved
-  decision (Tundra sign, positive = later). Non-finite offsets reset to `0.0` (chosen documented behavior).
+  decision (Blaze 4k sign, positive = later). Non-finite offsets reset to `0.0` (chosen documented behavior).
 
 ## Tests Written
 

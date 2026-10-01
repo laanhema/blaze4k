@@ -10,7 +10,7 @@
 #include "render/bitmap_font.hpp"
 #include "render/gl_quad_renderer.hpp"
 
-namespace td {
+namespace blaze4k {
 
 namespace {
 
@@ -245,4 +245,4 @@ bool InputRemapScreen::handle_back(ScreenContext& ctx) {
     return false;
 }
 
-} // namespace td
+} // namespace blaze4k

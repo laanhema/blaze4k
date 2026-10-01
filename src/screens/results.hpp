@@ -8,7 +8,7 @@
 #include "data/high_scores.hpp"
 #include "gameplay/score_keeper.hpp"
 
-namespace td {
+namespace blaze4k {
 
 // Pure, SDL/GL/audio/clock-free snapshot of one finished run (mirrors the
 // OptionsMenu / InputRemapModel seam). `GameplayScreen` copies the already
@@ -46,4 +46,4 @@ struct ResultsSummary {
 [[nodiscard]] bool results_submit_score(HighScores& scores, const ResultsSummary& summary,
                                         std::int64_t timestamp_unix);
 
-} // namespace td
+} // namespace blaze4k

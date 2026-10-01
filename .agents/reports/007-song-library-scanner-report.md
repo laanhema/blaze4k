@@ -18,6 +18,6 @@ Implemented the recursive song library scanner (`SongLibrary`) supporting `Songs
        - Engine fallback configuration (`set_fallback_banner`, `set_fallback_background`).
      - Graceful filtering: Skips songs without valid 4-panel charts or with corrupt simfiles cleanly with log output without crashing.
 3. **Build System & Tests**:
-   - Updated `CMakeLists.txt` adding `song_library.cpp` to `tundra_core`.
+   - Updated `CMakeLists.txt` adding `song_library.cpp` to `blaze4k_core`.
    - Added `tests/song_library_test.cpp` and registered target in `tests/CMakeLists.txt`.
    - Tests verify pack grouping, exact art matching, case-insensitive art matching, keyword fallback matching, engine default art, non-4-panel skipping, and corrupt simfile recovery. 100% CTest pass.

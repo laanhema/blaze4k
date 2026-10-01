@@ -26,12 +26,12 @@ void write_file(const std::filesystem::path& path, std::string_view content) {
 int main() {
     std::cout << "[song_library_test] Starting song library scanner tests...\n";
 
-    std::filesystem::path test_root = std::filesystem::temp_directory_path() / "tundra_test_songs";
+    std::filesystem::path test_root = std::filesystem::temp_directory_path() / "blaze4k_test_songs";
     std::filesystem::remove_all(test_root);
     std::filesystem::create_directories(test_root);
 
     // Build Pack 1
-    std::filesystem::path pack1_dir = test_root / "Tundra Pack 1";
+    std::filesystem::path pack1_dir = test_root / "Blaze Pack 1";
     write_file(pack1_dir / "banner.png", "fake_pack_banner");
 
     // Song 1: Standard SM with exact art
@@ -41,7 +41,7 @@ int main() {
     write_file(song1_dir / "audio.ogg", "fake_audio_1");
     write_file(song1_dir / "Song One.sm",
         "#TITLE:Song One;\n"
-        "#ARTIST:Tundra Artist;\n"
+        "#ARTIST:Blaze Artist;\n"
         "#BANNER:banner.png;\n"
         "#BACKGROUND:bg.png;\n"
         "#MUSIC:audio.ogg;\n"
@@ -112,7 +112,7 @@ int main() {
     write_file(song5_dir / "Corrupt.sm", "INVALID MSD NOT CLOSED #TITLE:Broken");
 
     // Build Pack 2
-    std::filesystem::path pack2_dir = test_root / "Tundra Pack 2";
+    std::filesystem::path pack2_dir = test_root / "Blaze Pack 2";
     std::filesystem::path song6_dir = pack2_dir / "Song Four";
     write_file(song6_dir / "Song Four.sm",
         "#TITLE:Song Four;\n"
@@ -133,7 +133,7 @@ int main() {
     write_file(fallback_banner, "global_fallback_banner");
     write_file(fallback_bg, "global_fallback_bg");
 
-    td::SongLibrary library;
+    blaze4k::SongLibrary library;
     library.set_fallback_banner(fallback_banner);
     library.set_fallback_background(fallback_bg);
 
@@ -150,11 +150,11 @@ int main() {
     TEST_CHECK(library.total_songs() == 4); // 3 from Pack 1 (Song 1, 2, 3), 1 from Pack 2 (Song 4)
     TEST_CHECK(library.total_charts() == 4);
 
-    const td::SongPack* p1 = nullptr;
-    const td::SongPack* p2 = nullptr;
+    const blaze4k::SongPack* p1 = nullptr;
+    const blaze4k::SongPack* p2 = nullptr;
     for (const auto& p : library.packs()) {
-        if (p.name == "Tundra Pack 1") p1 = &p;
-        if (p.name == "Tundra Pack 2") p2 = &p;
+        if (p.name == "Blaze Pack 1") p1 = &p;
+        if (p.name == "Blaze Pack 2") p2 = &p;
     }
     TEST_CHECK(p1 != nullptr);
     TEST_CHECK(p2 != nullptr);
@@ -163,7 +163,7 @@ int main() {
     TEST_CHECK(!p1->banner_path.empty());
 
     // 3. Validate Song 1 (exact art match)
-    const td::Song* s1 = library.find_song("Tundra Pack 1", "Song One");
+    const blaze4k::Song* s1 = library.find_song("Blaze Pack 1", "Song One");
     TEST_CHECK(s1 != nullptr);
     TEST_CHECK(s1->has_custom_banner);
     TEST_CHECK(s1->has_custom_background);
@@ -174,14 +174,14 @@ int main() {
     std::cout << "  - Exact art resolution verified.\n";
 
     // 4. Validate Song 2 (case-insensitive banner match)
-    const td::Song* s2 = library.find_song("Tundra Pack 1", "Song Two SSC");
+    const blaze4k::Song* s2 = library.find_song("Blaze Pack 1", "Song Two SSC");
     TEST_CHECK(s2 != nullptr);
     TEST_CHECK(s2->has_custom_banner);
     TEST_CHECK(std::filesystem::exists(s2->resolved_banner_path));
     std::cout << "  - Case-insensitive art resolution verified.\n";
 
     // 5. Validate Song 3 (fallback art keywords matched)
-    const td::Song* s3 = library.find_song("Tundra Pack 1", "Song Three Fallback");
+    const blaze4k::Song* s3 = library.find_song("Blaze Pack 1", "Song Three Fallback");
     TEST_CHECK(s3 != nullptr);
     TEST_CHECK(s3->has_custom_banner);
     TEST_CHECK(s3->has_custom_background);
@@ -191,7 +191,7 @@ int main() {
     std::cout << "  - Fallback keyword art resolution verified.\n";
 
     // 6. Validate Song 4 (global fallback art applied)
-    const td::Song* s4 = library.find_song("Tundra Pack 2", "Song Four");
+    const blaze4k::Song* s4 = library.find_song("Blaze Pack 2", "Song Four");
     TEST_CHECK(s4 != nullptr);
     TEST_CHECK(!s4->has_custom_banner);
     TEST_CHECK(!s4->has_custom_background);
@@ -201,8 +201,8 @@ int main() {
     std::cout << "  - Global missing-art fallback verified.\n";
 
     // 7. Validate non-4-panel and corrupt simfiles skipped
-    TEST_CHECK(library.find_song("Tundra Pack 1", "Double Only") == nullptr);
-    TEST_CHECK(library.find_song("Tundra Pack 1", "Corrupt") == nullptr);
+    TEST_CHECK(library.find_song("Blaze Pack 1", "Double Only") == nullptr);
+    TEST_CHECK(library.find_song("Blaze Pack 1", "Corrupt") == nullptr);
     std::cout << "  - Graceful skipping of non-4-panel and corrupt files verified.\n";
 
     // Clean up fixture

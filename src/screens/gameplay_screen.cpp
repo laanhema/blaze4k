@@ -10,7 +10,7 @@
 #include "screens/screen_manager.hpp"
 #include "timing/judgment_constants.hpp"
 
-namespace td {
+namespace blaze4k {
 
 GameplayScreen::GameplayScreen(std::filesystem::path assist_tick_wav_path)
     : assist_tick_path_(std::move(assist_tick_wav_path)) {}
@@ -115,4 +115,4 @@ void GameplayScreen::exit(ScreenContext& /*ctx*/) {
     active_ = false;
 }
 
-} // namespace td
+} // namespace blaze4k

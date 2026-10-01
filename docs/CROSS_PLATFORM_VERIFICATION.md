@@ -71,7 +71,7 @@ Capture the command output or artifact named in the last column.
 ### AC2 — real frame rate over a full song
 
 - [ ] Owner-verified on a mid-range machine with a GPU:
-  1. Launch with a real song pack: `./build/tundra-dance --perf-report --songs <pack>`
+  1. Launch with a real song pack: `./build/blaze-4k --perf-report --songs <pack>`
   2. Play one full song, then exit cleanly.
   3. Read the `[perf]` block and compare `p99`/`max` to the display's vsync
      period (pass `--perf-budget-ms <period>` to have the verdict use it, e.g.
@@ -95,7 +95,7 @@ Capture the command output or artifact named in the last column.
 ### AC4 — OpenITG side-by-side feel test (PRD §12D)
 
 - [ ] Owner-verified: on pad hardware, play the same chart back-to-back in
-  Tundra Dance and OpenITG and compare:
+  Blaze 4k and OpenITG and compare:
   - hit-delta spread has no systematic early/late bias (calibrate the global
     offset first with the in-game wizard),
   - scroll speed and note spacing feel equivalent at matched mods,

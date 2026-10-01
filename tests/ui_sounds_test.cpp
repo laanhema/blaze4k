@@ -23,10 +23,10 @@
 
 namespace {
 
-using td::GameAction;
-using td::InputEvent;
-using td::ScreenId;
-using td::UiSound;
+using blaze4k::GameAction;
+using blaze4k::InputEvent;
+using blaze4k::ScreenId;
+using blaze4k::UiSound;
 
 std::uint16_t read_u16(const std::vector<unsigned char>& bytes, std::size_t offset) {
     return static_cast<std::uint16_t>(bytes[offset]) |
@@ -72,13 +72,13 @@ std::uint32_t check_wav(const std::filesystem::path& path) {
 
 void test_wav_synth() {
     const std::filesystem::path root =
-        std::filesystem::temp_directory_path() / "tundra_ui_sounds_test";
+        std::filesystem::temp_directory_path() / "blaze4k_ui_sounds_test";
     std::filesystem::remove_all(root);
     std::filesystem::create_directories(root);
 
-    TEST_CHECK(td::write_ui_sound_wav(root / "move.wav", UiSound::Move));
-    TEST_CHECK(td::write_ui_sound_wav(root / "confirm.wav", UiSound::Confirm));
-    TEST_CHECK(td::write_ui_sound_wav(root / "back.wav", UiSound::Back));
+    TEST_CHECK(blaze4k::write_ui_sound_wav(root / "move.wav", UiSound::Move));
+    TEST_CHECK(blaze4k::write_ui_sound_wav(root / "confirm.wav", UiSound::Confirm));
+    TEST_CHECK(blaze4k::write_ui_sound_wav(root / "back.wav", UiSound::Back));
 
     const std::uint32_t move = check_wav(root / "move.wav");
     const std::uint32_t confirm = check_wav(root / "confirm.wav");
@@ -86,7 +86,7 @@ void test_wav_synth() {
     TEST_CHECK(move != confirm && confirm != back && move != back);
 
     // Empty path is rejected.
-    TEST_CHECK(!td::write_ui_sound_wav(std::filesystem::path{}, UiSound::Move));
+    TEST_CHECK(!blaze4k::write_ui_sound_wav(std::filesystem::path{}, UiSound::Move));
 
     std::filesystem::remove_all(root);
     std::cout << "  - synthesized distinct 16-bit mono PCM WAVs ok.\n";
@@ -99,13 +99,13 @@ InputEvent press(GameAction action) {
     return event;
 }
 
-class FakeSink : public td::IUiSoundSink {
+class FakeSink : public blaze4k::IUiSoundSink {
 public:
     void play(UiSound sound) override { played.push_back(sound); }
     std::vector<UiSound> played;
 };
 
-class FakeScreen : public td::Screen {
+class FakeScreen : public blaze4k::Screen {
 public:
     explicit FakeScreen(ScreenId id) : id_(id) {}
     [[nodiscard]] ScreenId id() const override { return id_; }
@@ -117,7 +117,7 @@ private:
     ScreenId id_;
 };
 
-FakeScreen* add_fake(td::ScreenManager& manager, ScreenId id) {
+FakeScreen* add_fake(blaze4k::ScreenManager& manager, ScreenId id) {
     auto screen = std::make_unique<FakeScreen>(id);
     FakeScreen* raw = screen.get();
     manager.add_screen(std::move(screen));
@@ -126,7 +126,7 @@ FakeScreen* add_fake(td::ScreenManager& manager, ScreenId id) {
 
 void test_menu_triggers() {
     FakeSink sink;
-    td::ScreenManager manager(0.0);
+    blaze4k::ScreenManager manager(0.0);
     add_fake(manager, ScreenId::Title);
     add_fake(manager, ScreenId::Attract);
     add_fake(manager, ScreenId::Select);
@@ -163,7 +163,7 @@ void test_menu_triggers() {
 
 void test_options_toggle_triggers() {
     FakeSink sink;
-    td::ScreenManager manager(0.0);
+    blaze4k::ScreenManager manager(0.0);
     add_fake(manager, ScreenId::Title);
     FakeScreen* select = add_fake(manager, ScreenId::Select);
     manager.context().ui_sounds = &sink;
@@ -196,7 +196,7 @@ void test_options_toggle_triggers() {
 
 void test_non_menu_screens_silent() {
     FakeSink sink;
-    td::ScreenManager manager(0.0);
+    blaze4k::ScreenManager manager(0.0);
     add_fake(manager, ScreenId::Title);
     add_fake(manager, ScreenId::Select);
     add_fake(manager, ScreenId::Gameplay);
@@ -215,7 +215,7 @@ void test_non_menu_screens_silent() {
     }
 
     // Null sink stays a safe no-op.
-    td::ScreenManager bare(0.0);
+    blaze4k::ScreenManager bare(0.0);
     add_fake(bare, ScreenId::Select);
     bare.start(ScreenId::Select);
     bare.update(0.1, {press(GameAction::Left), press(GameAction::Confirm), press(GameAction::Back)});
@@ -223,7 +223,7 @@ void test_non_menu_screens_silent() {
 }
 
 void test_unavailable_player_is_silent() {
-    td::UiSoundPlayer player;
+    blaze4k::UiSoundPlayer player;
     TEST_CHECK(!player.init(std::filesystem::path{}));
     TEST_CHECK(!player.is_ready());
     player.play(UiSound::Move); // must not crash

@@ -3,7 +3,7 @@
 #include <string_view>
 #include "chart/timing_data.hpp"
 
-namespace td {
+namespace blaze4k {
 
 // Scroll speed modifiers, mirroring OpenITG's PlayerOptions semantics.
 enum class SpeedModType {
@@ -30,4 +30,4 @@ struct SpeedMod {
 //   CMod -> value (not used by the layout path, which uses time spacing directly)
 [[nodiscard]] double resolve_x_speed(const SpeedMod& mod, const TimingData& timing);
 
-} // namespace td
+} // namespace blaze4k

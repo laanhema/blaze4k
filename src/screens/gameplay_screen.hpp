@@ -8,7 +8,7 @@
 #include "gameplay/gameplay_view.hpp"
 #include "screens/screen.hpp"
 
-namespace td {
+namespace blaze4k {
 
 // Deliberately thin host around the already-tested `GameplayView`: it consumes the
 // `PlayRequest` published by Select, forwards input/update/render, and reports a
@@ -51,4 +51,4 @@ private:
     double end_delay_elapsed_ = 0.0;
 };
 
-} // namespace td
+} // namespace blaze4k

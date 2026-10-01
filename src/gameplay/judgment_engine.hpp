@@ -7,7 +7,7 @@
 #include "gameplay/judgment.hpp"
 #include "timing/judgment_constants.hpp"
 
-namespace td {
+namespace blaze4k {
 
 // Deterministic, event-sourced judgment engine.
 //
@@ -80,4 +80,4 @@ private:
     double last_update_time_ = 0.0;
 };
 
-} // namespace td
+} // namespace blaze4k

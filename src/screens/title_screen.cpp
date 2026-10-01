@@ -7,11 +7,11 @@
 #include "render/gl_quad_renderer.hpp"
 #include "screens/screen_manager.hpp"
 
-namespace td {
+namespace blaze4k {
 
 namespace {
 
-// Tundra presentation palette (unsourced; no reference parity requirement).
+// Blaze 4k presentation palette (unsourced; no reference parity requirement).
 constexpr Color kLogoColor{0.86f, 0.93f, 1.00f, 1.0f};
 constexpr Color kPromptColor{1.00f, 0.92f, 0.35f, 1.0f};
 constexpr Color kLeftColor{0.95f, 0.25f, 0.75f, 1.0f};
@@ -49,7 +49,7 @@ void TitleScreen::render(ScreenContext& /*ctx*/, GlQuadRenderer& renderer, int w
 
     const float logo_pixel = std::max(2.0f, width * 0.006f);
     const float logo_y = height * 0.28f;
-    draw_text_centered(renderer, "TUNDRA DANCE", width * 0.5f, logo_y, logo_pixel, kLogoColor);
+    draw_text_centered(renderer, "BLAZE 4K", width * 0.5f, logo_y, logo_pixel, kLogoColor);
 
     // Receptor row: four solid arrows' worth of color, no asset (PRD logo is an
     // open item; text quads only).
@@ -70,4 +70,4 @@ void TitleScreen::render(ScreenContext& /*ctx*/, GlQuadRenderer& renderer, int w
     }
 }
 
-} // namespace td
+} // namespace blaze4k

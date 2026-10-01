@@ -117,7 +117,7 @@ No failures occurred; no verbatim error output to report.
 | `src/screens/screen.hpp` | UPDATE | Defaulted `virtual bool handle_back(ScreenContext&)` |
 | `src/screens/screen_manager.cpp` | UPDATE | `handle_back()` consults the active screen hook first |
 | `src/screens/screen_manager.hpp` | UPDATE | Back-navigation contract comment |
-| `CMakeLists.txt` | UPDATE | `src/screens/options_menu.cpp` in `tundra_core` |
+| `CMakeLists.txt` | UPDATE | `src/screens/options_menu.cpp` in `blaze4k_core` |
 | `tests/CMakeLists.txt` | UPDATE | `options_menu_test` target/test |
 | `tests/options_menu_test.cpp` | CREATE | Pure model coverage |
 | `tests/select_screen_test.cpp` | UPDATE | Overlay integration + persistence + empty-library safety |

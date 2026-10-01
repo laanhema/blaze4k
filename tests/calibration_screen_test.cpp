@@ -32,12 +32,12 @@ namespace fs = std::filesystem;
 
 namespace {
 
-using td::CalibrationConfig;
-using td::GameAction;
-using td::InputEvent;
-using td::MusicClock;
-using td::ScreenContext;
-using td::ScreenId;
+using blaze4k::CalibrationConfig;
+using blaze4k::GameAction;
+using blaze4k::InputEvent;
+using blaze4k::MusicClock;
+using blaze4k::ScreenContext;
+using blaze4k::ScreenId;
 
 constexpr uint64_t kRefNs = 1'000'000'000; // 1 s SDL reference
 constexpr double kSampleRate = 48000.0;
@@ -46,7 +46,7 @@ bool near(double a, double b, double eps = 1e-9) { return std::fabs(a - b) <= ep
 
 // In-memory fake driven through the IAudioStream seam (mirrors
 // tests/preview_player_test.cpp). Lets the wizard be exercised headless.
-class FakeAudioStream : public td::IAudioStream {
+class FakeAudioStream : public blaze4k::IAudioStream {
 public:
     bool load(const std::string& filepath) override {
         loaded_path = filepath;
@@ -80,7 +80,7 @@ struct FrameState {
     uint32_t rate = 48000;
 };
 
-class SelectSpy : public td::Screen {
+class SelectSpy : public blaze4k::Screen {
 public:
     explicit SelectSpy(int* enters = nullptr) : enters_(enters) {}
     [[nodiscard]] ScreenId id() const override { return ScreenId::Select; }
@@ -112,19 +112,19 @@ void set_frame(FrameState& frame, double music_seconds) {
 struct Fixture {
     FrameState frame;
     FakeAudioStream stream;
-    td::GameConfig config;
+    blaze4k::GameConfig config;
     CalibrationConfig ccfg;
-    td::ScreenManager manager{0.0};
-    td::CalibrationScreen* cal = nullptr;
+    blaze4k::ScreenManager manager{0.0};
+    blaze4k::CalibrationScreen* cal = nullptr;
     int select_enters = 0;
 
     explicit Fixture(CalibrationConfig config = {}) : ccfg(config) {}
 
     void start(double initial_offset = 0.0) {
         config.offset.global_offset_seconds = initial_offset;
-        auto owner = std::make_unique<td::CalibrationScreen>(
+        auto owner = std::make_unique<blaze4k::CalibrationScreen>(
             stream,
-            [this] { return td::SamplePosition{frame.frames, frame.rate}; },
+            [this] { return blaze4k::SamplePosition{frame.frames, frame.rate}; },
             ccfg);
         cal = owner.get();
         manager.add_screen(std::move(owner));
@@ -163,7 +163,7 @@ void test_measure_through_gameplay_path() {
         const double reference = fx.ccfg.beat_time(i) + bias + static_cast<double>(age_ns) / 1e9;
         const uint64_t ts = kRefNs - age_ns;
         // Called directly: proves the screen went through the exact same helper.
-        expected_sum += td::music_time_for_event(ts, kRefNs, reference) - fx.ccfg.beat_time(i);
+        expected_sum += blaze4k::music_time_for_event(ts, kRefNs, reference) - fx.ccfg.beat_time(i);
         fx.tap(reference, ts);
     }
 
@@ -199,10 +199,10 @@ void test_b1_application() {
     fx.manager.update(0.0, {press(GameAction::Confirm, kRefNs)});
 
     const double offset = fx.config.offset.global_offset_seconds;
-    const td::GameplayOptions options = td::gameplay_options_from_config(fx.config);
+    const blaze4k::GameplayOptions options = blaze4k::gameplay_options_from_config(fx.config);
     TEST_CHECK(near(options.global_offset_seconds, offset, 1e-12));
 
-    MusicClock clock([] { return td::SamplePosition{48000, 48000}; });
+    MusicClock clock([] { return blaze4k::SamplePosition{48000, 48000}; });
     clock.set_global_offset_seconds(options.global_offset_seconds);
     TEST_CHECK(near(clock.sample_time_seconds(), 1.0, 1e-9));
     TEST_CHECK(near(clock.time_seconds(), 1.0 + offset, 1e-9));
@@ -221,11 +221,11 @@ void test_persistence_round_trip() {
     fs::remove_all(dir);
     const fs::path config_path = dir / "config.json";
     std::string message;
-    TEST_CHECK(td::save_config(config_path, fx.config, &message));
+    TEST_CHECK(blaze4k::save_config(config_path, fx.config, &message));
 
-    td::ConfigLoadStatus status = td::ConfigLoadStatus::UsedDefaults;
-    const td::GameConfig loaded = td::load_config(config_path, &message, &status);
-    TEST_CHECK(status == td::ConfigLoadStatus::LoadedFromFile);
+    blaze4k::ConfigLoadStatus status = blaze4k::ConfigLoadStatus::UsedDefaults;
+    const blaze4k::GameConfig loaded = blaze4k::load_config(config_path, &message, &status);
+    TEST_CHECK(status == blaze4k::ConfigLoadStatus::LoadedFromFile);
     TEST_CHECK(near(loaded.offset.global_offset_seconds, offset, 1e-12));
     fs::remove_all(dir);
     std::cout << "  - save/load config round-trip preserves the offset ok.\n";
@@ -247,13 +247,13 @@ void test_synthetic_refuses_to_save() {
     FakeAudioStream failing;
     failing.load_result = false;
 
-    td::GameConfig config;
+    blaze4k::GameConfig config;
     config.offset.global_offset_seconds = 0.05;
 
-    auto owner = std::make_unique<td::CalibrationScreen>(
+    auto owner = std::make_unique<blaze4k::CalibrationScreen>(
         failing, MusicClock::Source{}, CalibrationConfig{});
-    td::CalibrationScreen* cal = owner.get();
-    td::ScreenManager manager(0.0);
+    blaze4k::CalibrationScreen* cal = owner.get();
+    blaze4k::ScreenManager manager(0.0);
     manager.add_screen(std::move(owner));
     manager.add_screen(std::make_unique<SelectSpy>());
     manager.context().config = &config;
@@ -300,13 +300,13 @@ void test_render_and_reenter_reset() {
     collect_eight_late_taps(fx);
     TEST_CHECK(fx.cal->sample_count() == 8);
 
-    td::GlQuadRenderer renderer; // uninitialized: draws are no-ops
+    blaze4k::GlQuadRenderer renderer; // uninitialized: draws are no-ops
     fx.manager.render(renderer, 1280, 720);
 
     fx.cal->exit(fx.manager.context());
     fx.cal->enter(fx.manager.context());
     TEST_CHECK(fx.cal->sample_count() == 0);
-    TEST_CHECK(fx.cal->phase() == td::CalibrationPhase::CountIn);
+    TEST_CHECK(fx.cal->phase() == blaze4k::CalibrationPhase::CountIn);
     TEST_CHECK(!fx.cal->saved());
     std::cout << "  - headless render + re-enter reset ok.\n";
 }
@@ -317,10 +317,10 @@ void test_click_track_and_metronome() {
     fs::create_directories(dir);
     const fs::path wav = dir / "click.wav";
 
-    td::MetronomeConfig mc;
+    blaze4k::MetronomeConfig mc;
     mc.beats = 4;
     mc.lead_in_seconds = 0.5;
-    TEST_CHECK(td::write_click_track(wav, mc));
+    TEST_CHECK(blaze4k::write_click_track(wav, mc));
     TEST_CHECK(fs::exists(wav));
     TEST_CHECK(fs::file_size(wav) > 44);
 
@@ -335,7 +335,7 @@ void test_click_track_and_metronome() {
     }
 
     FakeAudioStream stream;
-    td::Metronome metronome(stream);
+    blaze4k::Metronome metronome(stream);
     TEST_CHECK(!metronome.prepare({}, mc)); // empty path -> stub, no device
     TEST_CHECK(metronome.using_stub());
 

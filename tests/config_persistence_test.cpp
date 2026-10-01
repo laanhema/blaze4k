@@ -45,9 +45,9 @@ std::string read_file(const fs::path& path) {
 }
 
 std::map<std::string, std::vector<std::string>> to_map(
-    const std::vector<td::InputBinding>& bindings) {
+    const std::vector<blaze4k::InputBinding>& bindings) {
     std::map<std::string, std::vector<std::string>> result;
-    for (const td::InputBinding& binding : bindings) {
+    for (const blaze4k::InputBinding& binding : bindings) {
         result[binding.first] = binding.second;
     }
     return result;
@@ -63,13 +63,13 @@ int main() {
     fs::create_directories(temp_dir);
 
     std::string message;
-    td::ConfigLoadStatus status = td::ConfigLoadStatus::UsedDefaults;
-    td::ScoresLoadStatus scores_status = td::ScoresLoadStatus::UsedDefaults;
+    blaze4k::ConfigLoadStatus status = blaze4k::ConfigLoadStatus::UsedDefaults;
+    blaze4k::ScoresLoadStatus scores_status = blaze4k::ScoresLoadStatus::UsedDefaults;
 
     // 1. Documented defaults + pure validation.
     {
-        td::GameConfig defaults;
-        TEST_CHECK(defaults.version == td::kConfigVersion);
+        blaze4k::GameConfig defaults;
+        TEST_CHECK(defaults.version == blaze4k::kConfigVersion);
         TEST_CHECK(defaults.video.width == 1280);
         TEST_CHECK(defaults.video.height == 720);
         TEST_CHECK(defaults.video.vsync);
@@ -88,35 +88,35 @@ int main() {
 
         // C6: the persisted defaults are the single binding authority and now
         // carry the full runtime set (Tab -> Options; pad-Back -> Back).
-        const auto default_keys = to_map(td::default_key_bindings());
+        const auto default_keys = to_map(blaze4k::default_key_bindings());
         TEST_CHECK(default_keys.count("Options") == 1);
         TEST_CHECK(default_keys.at("Options") == std::vector<std::string>{"Tab"});
-        const auto default_pads = to_map(td::default_gamepad_bindings());
+        const auto default_pads = to_map(blaze4k::default_gamepad_bindings());
         TEST_CHECK(default_pads.count("Back") == 1);
         TEST_CHECK(default_pads.at("Back") == std::vector<std::string>{"back"});
 
         std::string error;
-        TEST_CHECK(td::validate_game_config(defaults, &error));
+        TEST_CHECK(blaze4k::validate_game_config(defaults, &error));
 
-        td::GameConfig bad = defaults;
+        blaze4k::GameConfig bad = defaults;
         bad.audio.master_volume = 1.5;
-        TEST_CHECK(!td::validate_game_config(bad, &error));
+        TEST_CHECK(!blaze4k::validate_game_config(bad, &error));
         bad = defaults;
         bad.video.width = 100;
-        TEST_CHECK(!td::validate_game_config(bad, &error));
+        TEST_CHECK(!blaze4k::validate_game_config(bad, &error));
         bad = defaults;
         bad.gameplay.scroll = "sideways";
-        TEST_CHECK(!td::validate_game_config(bad, &error));
+        TEST_CHECK(!blaze4k::validate_game_config(bad, &error));
         bad = defaults;
         bad.gameplay.speed_mod.clear();
-        TEST_CHECK(!td::validate_game_config(bad, &error));
+        TEST_CHECK(!blaze4k::validate_game_config(bad, &error));
         std::cout << "  - 1. defaults and validation ok.\n";
     }
 
     // 2. Full round-trip (including both binding maps and nested dir creation).
     {
         const fs::path config_path = temp_dir / "roundtrip" / "config.json";
-        td::GameConfig config;
+        blaze4k::GameConfig config;
         config.video.width = 1024;
         config.video.height = 600;
         config.video.vsync = false;
@@ -133,12 +133,12 @@ int main() {
         config.input.key_bindings = {{"Left", {"A", "Left"}}, {"Confirm", {"Space"}}};
         config.input.gamepad_bindings = {{"Confirm", {"South", "North"}}};
 
-        TEST_CHECK(td::save_config(config_path, config, &message));
+        TEST_CHECK(blaze4k::save_config(config_path, config, &message));
         TEST_CHECK(fs::exists(config_path));
         TEST_CHECK(!fs::exists(fs::path(config_path.string() + ".tmp")));
 
-        td::GameConfig loaded = td::load_config(config_path, &message, &status);
-        TEST_CHECK(status == td::ConfigLoadStatus::LoadedFromFile);
+        blaze4k::GameConfig loaded = blaze4k::load_config(config_path, &message, &status);
+        TEST_CHECK(status == blaze4k::ConfigLoadStatus::LoadedFromFile);
         TEST_CHECK(loaded.video.width == 1024);
         TEST_CHECK(loaded.video.height == 600);
         TEST_CHECK(!loaded.video.vsync);
@@ -159,8 +159,8 @@ int main() {
 
     // 3. Missing file -> defaults + warning.
     {
-        td::GameConfig missing = td::load_config(temp_dir / "does_not_exist.json", &message, &status);
-        TEST_CHECK(status == td::ConfigLoadStatus::UsedDefaults);
+        blaze4k::GameConfig missing = blaze4k::load_config(temp_dir / "does_not_exist.json", &message, &status);
+        TEST_CHECK(status == blaze4k::ConfigLoadStatus::UsedDefaults);
         TEST_CHECK(missing.video.width == 1280);
         TEST_CHECK(message.find("[Config]") != std::string::npos);
         std::cout << "  - 3. missing config falls back: " << message << "\n";
@@ -170,8 +170,8 @@ int main() {
     {
         const fs::path corrupt = temp_dir / "corrupt.json";
         write_file(corrupt, "{ not json");
-        td::GameConfig loaded = td::load_config(corrupt, &message, &status);
-        TEST_CHECK(status == td::ConfigLoadStatus::UsedDefaults);
+        blaze4k::GameConfig loaded = blaze4k::load_config(corrupt, &message, &status);
+        TEST_CHECK(status == blaze4k::ConfigLoadStatus::UsedDefaults);
         TEST_CHECK(nearly(loaded.audio.master_volume, 1.0));
         TEST_CHECK(message.find("[Config]") != std::string::npos);
         std::cout << "  - 4. corrupt config falls back with warning.\n";
@@ -183,8 +183,8 @@ int main() {
         const fs::path tolerant = temp_dir / "tolerant.json";
         write_file(tolerant,
                    R"({"video":{"width":"wide","height":600},"audio":{"master_volume":0.25,"music_volume":5.0}})");
-        td::GameConfig loaded = td::load_config(tolerant, &message, &status);
-        TEST_CHECK(status == td::ConfigLoadStatus::LoadedFromFile);
+        blaze4k::GameConfig loaded = blaze4k::load_config(tolerant, &message, &status);
+        TEST_CHECK(status == blaze4k::ConfigLoadStatus::LoadedFromFile);
         TEST_CHECK(loaded.video.width == 1280); // wrong type -> default
         TEST_CHECK(loaded.video.height == 600); // valid neighbour survives
         TEST_CHECK(nearly(loaded.audio.master_volume, 0.25));
@@ -198,17 +198,17 @@ int main() {
     {
         const fs::path enums = temp_dir / "invalid_enums.json";
         write_file(enums, R"({"gameplay":{"speed_mod":"","scroll":"sideways","fail_enabled":false}})");
-        td::GameConfig loaded = td::load_config(enums, &message, &status);
-        TEST_CHECK(status == td::ConfigLoadStatus::LoadedFromFile);
+        blaze4k::GameConfig loaded = blaze4k::load_config(enums, &message, &status);
+        TEST_CHECK(status == blaze4k::ConfigLoadStatus::LoadedFromFile);
         TEST_CHECK(loaded.gameplay.speed_mod == "1x"); // empty -> default
         TEST_CHECK(loaded.gameplay.scroll == "up");    // invalid -> default
         TEST_CHECK(!loaded.gameplay.fail_enabled);     // valid neighbour survives
         TEST_CHECK(message.find("warning") != std::string::npos);
-        TEST_CHECK(td::validate_game_config(loaded, nullptr));
+        TEST_CHECK(blaze4k::validate_game_config(loaded, nullptr));
 
         // Re-saving must persist the corrected defaults, not the bad values.
         const fs::path enums_out = temp_dir / "invalid_enums_out.json";
-        TEST_CHECK(td::save_config(enums_out, loaded, &message));
+        TEST_CHECK(blaze4k::save_config(enums_out, loaded, &message));
         const std::string persisted = read_file(enums_out);
         TEST_CHECK(persisted.find("sideways") == std::string::npos);
         std::cout << "  - 5b. invalid enums fall back to defaults ok.\n";
@@ -218,8 +218,8 @@ int main() {
     {
         const fs::path huge = temp_dir / "huge.json";
         write_file(huge, std::string((1u << 20) + 16, 'x'));
-        td::GameConfig loaded = td::load_config(huge, &message, &status);
-        TEST_CHECK(status == td::ConfigLoadStatus::UsedDefaults);
+        blaze4k::GameConfig loaded = blaze4k::load_config(huge, &message, &status);
+        TEST_CHECK(status == blaze4k::ConfigLoadStatus::UsedDefaults);
         TEST_CHECK(message.find("cap") != std::string::npos);
         std::cout << "  - 6. oversized config rejected by size cap.\n";
     }
@@ -228,23 +228,23 @@ int main() {
     //    file untouched and cleans up its temp file.
     {
         const fs::path keep = temp_dir / "keep.json";
-        td::GameConfig keep_cfg;
+        blaze4k::GameConfig keep_cfg;
         keep_cfg.video.width = 1024;
-        TEST_CHECK(td::save_config(keep, keep_cfg, &message));
+        TEST_CHECK(blaze4k::save_config(keep, keep_cfg, &message));
         const std::string before = read_file(keep);
         TEST_CHECK(!before.empty());
 
         const fs::path dir_target = temp_dir / "dir_target";
         fs::create_directories(dir_target);
         std::string fail_message;
-        TEST_CHECK(!td::save_config(dir_target, keep_cfg, &fail_message));
+        TEST_CHECK(!blaze4k::save_config(dir_target, keep_cfg, &fail_message));
         TEST_CHECK(!fail_message.empty());
         TEST_CHECK(fs::is_directory(dir_target));
         TEST_CHECK(!fs::exists(fs::path(dir_target.string() + ".tmp")));
         TEST_CHECK(read_file(keep) == before); // original untouched on failure
 
         keep_cfg.video.width = 1280;
-        TEST_CHECK(td::save_config(keep, keep_cfg, &message));
+        TEST_CHECK(blaze4k::save_config(keep, keep_cfg, &message));
         TEST_CHECK(!fs::exists(fs::path(keep.string() + ".tmp")));
         TEST_CHECK(read_file(keep) != before); // successful save replaced it
         std::cout << "  - 7. atomic save + failure cleanup ok.\n";
@@ -252,77 +252,77 @@ int main() {
 
     // 8. Stable chart key.
     {
-        td::Song song;
+        blaze4k::Song song;
         song.simfile_path = "/packs/PackA/Song/Song.sm";
-        song.metadata.title = "Tundra Anthem";
+        song.metadata.title = "Blaze Anthem";
         song.metadata.artist = "Composer";
-        td::Chart chart;
+        blaze4k::Chart chart;
         chart.steps_type = "dance-single";
         chart.difficulty = "Challenge";
         chart.meter = 9;
         chart.notes = {
-            td::Note{0, 0.0, 0.0, td::NoteType::Tap, 0.0, 0.0},
-            td::Note{1, 0.5, 0.5, td::NoteType::Tap, 0.0, 0.0},
-            td::Note{2, 1.0, 1.0, td::NoteType::HoldHead, 1.0, 1.5},
+            blaze4k::Note{0, 0.0, 0.0, blaze4k::NoteType::Tap, 0.0, 0.0},
+            blaze4k::Note{1, 0.5, 0.5, blaze4k::NoteType::Tap, 0.0, 0.0},
+            blaze4k::Note{2, 1.0, 1.0, blaze4k::NoteType::HoldHead, 1.0, 1.5},
         };
 
-        const std::string key = td::make_chart_key(song, chart);
+        const std::string key = blaze4k::make_chart_key(song, chart);
         TEST_CHECK(key.size() == 16);
-        TEST_CHECK(td::make_chart_key(song, chart) == key);
+        TEST_CHECK(blaze4k::make_chart_key(song, chart) == key);
 
-        td::Chart difficulty_changed = chart;
+        blaze4k::Chart difficulty_changed = chart;
         difficulty_changed.difficulty = "Hard";
-        TEST_CHECK(td::make_chart_key(song, difficulty_changed) != key);
+        TEST_CHECK(blaze4k::make_chart_key(song, difficulty_changed) != key);
 
-        td::Chart note_changed = chart;
+        blaze4k::Chart note_changed = chart;
         note_changed.notes[1].beat = 0.75;
-        TEST_CHECK(td::make_chart_key(song, note_changed) != key);
+        TEST_CHECK(blaze4k::make_chart_key(song, note_changed) != key);
 
-        td::Song moved = song;
+        blaze4k::Song moved = song;
         moved.simfile_path = "/elsewhere/PackZ/Song/Song.sm";
-        TEST_CHECK(td::make_chart_key(moved, chart) == key);
+        TEST_CHECK(blaze4k::make_chart_key(moved, chart) == key);
 
-        td::Song upper = song;
-        upper.metadata.title = "TUNDRA ANTHEM";
-        TEST_CHECK(td::make_chart_key(upper, chart) == key);
+        blaze4k::Song upper = song;
+        upper.metadata.title = "BLAZE ANTHEM";
+        TEST_CHECK(blaze4k::make_chart_key(upper, chart) == key);
         std::cout << "  - 8. chart key stability ok (moved-folder survival).\n";
     }
 
     // 9. Best-score logic.
     {
-        td::HighScores scores;
-        TEST_CHECK(td::submit_high_score(scores, "k", td::ScoreRecord{"S+", 0.9, 100, 111}));
-        TEST_CHECK(td::find_high_score(scores, "k") != nullptr);
-        TEST_CHECK(td::find_high_score(scores, "k")->percent == 0.9);
+        blaze4k::HighScores scores;
+        TEST_CHECK(blaze4k::submit_high_score(scores, "k", blaze4k::ScoreRecord{"S+", 0.9, 100, 111}));
+        TEST_CHECK(blaze4k::find_high_score(scores, "k") != nullptr);
+        TEST_CHECK(blaze4k::find_high_score(scores, "k")->percent == 0.9);
 
-        TEST_CHECK(!td::submit_high_score(scores, "k", td::ScoreRecord{"A", 0.5, 50, 222}));
-        TEST_CHECK(td::find_high_score(scores, "k")->percent == 0.9);
-        TEST_CHECK(td::find_high_score(scores, "k")->grade == "S+");
+        TEST_CHECK(!blaze4k::submit_high_score(scores, "k", blaze4k::ScoreRecord{"A", 0.5, 50, 222}));
+        TEST_CHECK(blaze4k::find_high_score(scores, "k")->percent == 0.9);
+        TEST_CHECK(blaze4k::find_high_score(scores, "k")->grade == "S+");
 
-        TEST_CHECK(!td::submit_high_score(scores, "k", td::ScoreRecord{"A", 0.9, 90, 333}));
-        TEST_CHECK(td::find_high_score(scores, "k")->dance_points == 100);
+        TEST_CHECK(!blaze4k::submit_high_score(scores, "k", blaze4k::ScoreRecord{"A", 0.9, 90, 333}));
+        TEST_CHECK(blaze4k::find_high_score(scores, "k")->dance_points == 100);
 
-        TEST_CHECK(td::submit_high_score(scores, "k", td::ScoreRecord{"quad_star", 1.0, 123, 444}));
-        TEST_CHECK(td::find_high_score(scores, "k")->grade == "quad_star");
-        TEST_CHECK(td::find_high_score(scores, "unknown") == nullptr);
+        TEST_CHECK(blaze4k::submit_high_score(scores, "k", blaze4k::ScoreRecord{"quad_star", 1.0, 123, 444}));
+        TEST_CHECK(blaze4k::find_high_score(scores, "k")->grade == "quad_star");
+        TEST_CHECK(blaze4k::find_high_score(scores, "unknown") == nullptr);
         std::cout << "  - 9. best-score replacement semantics ok.\n";
     }
 
     // 10. High-score round-trip + corruption fallback.
     {
         const fs::path scores_path = temp_dir / "scores" / "scores.json";
-        td::HighScores scores;
-        TEST_CHECK(td::submit_high_score(scores, "abc123", td::ScoreRecord{"S+", 0.94, 88, 1700000000}));
+        blaze4k::HighScores scores;
+        TEST_CHECK(blaze4k::submit_high_score(scores, "abc123", blaze4k::ScoreRecord{"S+", 0.94, 88, 1700000000}));
         TEST_CHECK(
-            td::submit_high_score(scores, "def456", td::ScoreRecord{"quad_star", 1.0, 123, 1700000001}));
+            blaze4k::submit_high_score(scores, "def456", blaze4k::ScoreRecord{"quad_star", 1.0, 123, 1700000001}));
 
-        TEST_CHECK(td::save_high_scores(scores_path, scores, &message));
+        TEST_CHECK(blaze4k::save_high_scores(scores_path, scores, &message));
         TEST_CHECK(!fs::exists(fs::path(scores_path.string() + ".tmp")));
 
-        td::HighScores loaded = td::load_high_scores(scores_path, &message, &scores_status);
-        TEST_CHECK(scores_status == td::ScoresLoadStatus::LoadedFromFile);
+        blaze4k::HighScores loaded = blaze4k::load_high_scores(scores_path, &message, &scores_status);
+        TEST_CHECK(scores_status == blaze4k::ScoresLoadStatus::LoadedFromFile);
         TEST_CHECK(loaded.scores.size() == 2);
-        const td::ScoreRecord* record = td::find_high_score(loaded, "abc123");
+        const blaze4k::ScoreRecord* record = blaze4k::find_high_score(loaded, "abc123");
         TEST_CHECK(record != nullptr);
         TEST_CHECK(record->grade == "S+");
         TEST_CHECK(nearly(record->percent, 0.94));
@@ -331,14 +331,14 @@ int main() {
 
         const fs::path corrupt = temp_dir / "corrupt_scores.json";
         write_file(corrupt, "{ nope");
-        td::HighScores corrupt_scores = td::load_high_scores(corrupt, &message, &scores_status);
-        TEST_CHECK(scores_status == td::ScoresLoadStatus::UsedDefaults);
+        blaze4k::HighScores corrupt_scores = blaze4k::load_high_scores(corrupt, &message, &scores_status);
+        TEST_CHECK(scores_status == blaze4k::ScoresLoadStatus::UsedDefaults);
         TEST_CHECK(corrupt_scores.scores.empty());
         TEST_CHECK(message.find("[Scores]") != std::string::npos);
 
-        td::HighScores missing =
-            td::load_high_scores(temp_dir / "no_scores.json", &message, &scores_status);
-        TEST_CHECK(scores_status == td::ScoresLoadStatus::UsedDefaults);
+        blaze4k::HighScores missing =
+            blaze4k::load_high_scores(temp_dir / "no_scores.json", &message, &scores_status);
+        TEST_CHECK(scores_status == blaze4k::ScoresLoadStatus::UsedDefaults);
         TEST_CHECK(missing.scores.empty());
         std::cout << "  - 10. high-score round-trip + corruption fallback ok.\n";
     }
@@ -355,29 +355,29 @@ int main() {
                    R"("boundary_hi":{"grade":"A","percent":0.5,"dp":9223372036854775808,"timestamp":1},)"
                    R"("int64_max":{"grade":"A","percent":0.5,"dp":9223372036854775807,"timestamp":1700000004},)"
                    R"("okay":{"grade":"A","percent":0.4,"dp":12,"timestamp":1700000003}}})");
-        td::HighScores hostile_scores = td::load_high_scores(hostile, &message, &scores_status);
-        TEST_CHECK(scores_status == td::ScoresLoadStatus::LoadedFromFile);
+        blaze4k::HighScores hostile_scores = blaze4k::load_high_scores(hostile, &message, &scores_status);
+        TEST_CHECK(scores_status == blaze4k::ScoresLoadStatus::LoadedFromFile);
         // The whole-record numeric overflow is rejected, not wrapped.
-        TEST_CHECK(td::find_high_score(hostile_scores, "huge") == nullptr);
+        TEST_CHECK(blaze4k::find_high_score(hostile_scores, "huge") == nullptr);
         // 2^63 is out of int64 range and must be rejected, never cast.
-        TEST_CHECK(td::find_high_score(hostile_scores, "boundary_hi") == nullptr);
+        TEST_CHECK(blaze4k::find_high_score(hostile_scores, "boundary_hi") == nullptr);
         // Valid INT64_MAX must survive (then clamp) without becoming INT64_MIN.
-        const td::ScoreRecord* int64_max = td::find_high_score(hostile_scores, "int64_max");
+        const blaze4k::ScoreRecord* int64_max = blaze4k::find_high_score(hostile_scores, "int64_max");
         TEST_CHECK(int64_max != nullptr);
         TEST_CHECK(int64_max->dance_points == std::numeric_limits<int>::max());
         TEST_CHECK(int64_max->timestamp_unix == 1700000004);
         // dp outside int but inside int64 is clamped, never wrapped.
-        const td::ScoreRecord* big = td::find_high_score(hostile_scores, "big_dp");
+        const blaze4k::ScoreRecord* big = blaze4k::find_high_score(hostile_scores, "big_dp");
         TEST_CHECK(big != nullptr);
         TEST_CHECK(big->dance_points == std::numeric_limits<int>::max());
         TEST_CHECK(big->timestamp_unix == 1700000002);
         // A valid record still loads.
-        TEST_CHECK(td::find_high_score(hostile_scores, "okay") != nullptr);
+        TEST_CHECK(blaze4k::find_high_score(hostile_scores, "okay") != nullptr);
         TEST_CHECK(message.find("warning") != std::string::npos);
 
         // Re-saving the loaded table must not emit an INT64_MIN-corrupted value.
         const fs::path hostile_out = temp_dir / "hostile_out_scores.json";
-        TEST_CHECK(td::save_high_scores(hostile_out, hostile_scores, &message));
+        TEST_CHECK(blaze4k::save_high_scores(hostile_out, hostile_scores, &message));
         const std::string dumped = read_file(hostile_out);
         TEST_CHECK(dumped.find("-9223372036854775808") == std::string::npos);
         std::cout << "  - 10b. out-of-range score integers bounded ok.\n";
@@ -386,8 +386,8 @@ int main() {
     // 10c. Atomic save temp names are unique and cleaned up (no `<name>.tmp*`).
     {
         const fs::path atomic_path = temp_dir / "atomic" / "config.json";
-        td::GameConfig config;
-        TEST_CHECK(td::save_config(atomic_path, config, &message));
+        blaze4k::GameConfig config;
+        TEST_CHECK(blaze4k::save_config(atomic_path, config, &message));
         std::size_t leftovers = 0;
         for (const auto& entry : fs::directory_iterator(atomic_path.parent_path())) {
             const std::string name = entry.path().filename().string();
@@ -399,9 +399,9 @@ int main() {
 
         // Distinct concurrent saves must not share a temp path.
         const fs::path other = temp_dir / "atomic" / "scores.json";
-        td::HighScores scores;
-        TEST_CHECK(td::submit_high_score(scores, "k", td::ScoreRecord{"S+", 0.9, 100, 1}));
-        TEST_CHECK(td::save_high_scores(other, scores, &message));
+        blaze4k::HighScores scores;
+        TEST_CHECK(blaze4k::submit_high_score(scores, "k", blaze4k::ScoreRecord{"S+", 0.9, 100, 1}));
+        TEST_CHECK(blaze4k::save_high_scores(other, scores, &message));
         for (const auto& entry : fs::directory_iterator(other.parent_path())) {
             const std::string name = entry.path().filename().string();
             TEST_CHECK(name.rfind("scores.json.tmp", 0) != 0);
@@ -411,21 +411,21 @@ int main() {
 
     // 11. Data path resolution.
     {
-        const td::ResolvedDataPaths portable = td::resolve_data_paths("/opt/game", false, "", "", {});
+        const blaze4k::ResolvedDataPaths portable = blaze4k::resolve_data_paths("/opt/game", false, "", "", {});
         TEST_CHECK(portable.data_dir == fs::path("/opt/game/data"));
         TEST_CHECK(portable.config_file == portable.data_dir / "config.json");
         TEST_CHECK(portable.scores_file == portable.data_dir / "scores.json");
 
-        const td::ResolvedDataPaths xdg =
-            td::resolve_data_paths("/opt/game", true, "/x", "/home/u", {});
-        TEST_CHECK(xdg.data_dir == fs::path("/x/tundra-dance"));
+        const blaze4k::ResolvedDataPaths xdg =
+            blaze4k::resolve_data_paths("/opt/game", true, "/x", "/home/u", {});
+        TEST_CHECK(xdg.data_dir == fs::path("/x/blaze-4k"));
 
-        const td::ResolvedDataPaths xdg_home =
-            td::resolve_data_paths("/opt/game", true, "", "/home/u", {});
-        TEST_CHECK(xdg_home.data_dir == fs::path("/home/u/.local/share/tundra-dance"));
+        const blaze4k::ResolvedDataPaths xdg_home =
+            blaze4k::resolve_data_paths("/opt/game", true, "", "/home/u", {});
+        TEST_CHECK(xdg_home.data_dir == fs::path("/home/u/.local/share/blaze-4k"));
 
-        const td::ResolvedDataPaths override =
-            td::resolve_data_paths("/opt/game", true, "/x", "/home/u", fs::path("/tmp/explicit"));
+        const blaze4k::ResolvedDataPaths override =
+            blaze4k::resolve_data_paths("/opt/game", true, "/x", "/home/u", fs::path("/tmp/explicit"));
         TEST_CHECK(override.data_dir == fs::path("/tmp/explicit"));
         TEST_CHECK(override.config_file == fs::path("/tmp/explicit/config.json"));
         TEST_CHECK(override.scores_file == fs::path("/tmp/explicit/scores.json"));

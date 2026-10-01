@@ -85,7 +85,7 @@ untouched** (core principle 1).
 
 Authority: **PRD §12 Phase D / §15**, the existing **`Texture` / `GlQuadRenderer` / `NoteSkin` /
 `HudRenderer` / `PreviewPlayer`** contracts. **No OpenITG value is required** for any of the three:
-colors, shapes, animation curves, milestone interval, and SFX timbre are all "Tundra presentation,
+colors, shapes, animation curves, milestone interval, and SFX timbre are all "Blaze 4k presentation,
 unsourced" (like `hud_renderer.cpp:13`). The only locked constraint is **2D only** (textured/solid
 quads; no video/3D/dancers).
 
@@ -277,7 +277,7 @@ for (const InputEvent& e : events) { if (!e.pressed) continue; if (e.action == G
 // SOURCE: tests/texture_test.cpp:12-19; tests/CMakeLists.txt (background_test block)
 #define TEST_CHECK(expr) do { if (!(expr)) { std::cerr << ...; std::abort(); } } while (0)
 add_executable(note_art_test note_art_test.cpp)
-target_link_libraries(note_art_test PRIVATE tundra_core)
+target_link_libraries(note_art_test PRIVATE blaze4k_core)
 add_test(NAME note_art_test COMMAND note_art_test)
 ```
 
@@ -303,7 +303,7 @@ add_test(NAME note_art_test COMMAND note_art_test)
 | `src/screens/screen.hpp` | UPDATE | `ScreenContext::ui_sounds` (defaulted) |
 | `src/screens/screen_manager.cpp` | UPDATE | Menu move/confirm/back sound triggers |
 | `src/main.cpp` | UPDATE | Construct `UiSoundPlayer`, wire into shell context |
-| `CMakeLists.txt` | UPDATE | Add `note_art.cpp`, `judgment_animator.cpp`, `ui_sounds.cpp` to `tundra_core` |
+| `CMakeLists.txt` | UPDATE | Add `note_art.cpp`, `judgment_animator.cpp`, `ui_sounds.cpp` to `blaze4k_core` |
 | `tests/CMakeLists.txt` | UPDATE | Register 3 new test targets |
 | `tests/note_art_test.cpp` | CREATE | Mask/rotation unit tests (no GL) |
 | `tests/judgment_animator_test.cpp` | CREATE | Curves, label mapping, milestone dedupe, headless render |
@@ -460,7 +460,7 @@ Execute in order. Each task is atomic and verifiable. Groups A/B/C map to the re
 
 - **File**: `src/main.cpp`
 - **Action**: UPDATE
-- **Implement**: On the shell path (`main.cpp:325-383`), construct a `td::UiSoundPlayer ui_sounds;`
+- **Implement**: On the shell path (`main.cpp:325-383`), construct a `blaze4k::UiSoundPlayer ui_sounds;`
   (owned in `main`'s scope, like `play_request`), call `ui_sounds.init(paths.data_dir)` after
   `app.init()`, and set `shell->context().ui_sounds = &ui_sounds;` before `shell->start(...)`. The
   `--gameplay-demo` path (`:246-324`) stays untouched (no UI sounds). Log a readable line when the
@@ -488,7 +488,7 @@ Execute in order. Each task is atomic and verifiable. Groups A/B/C map to the re
 - **Files**: `CMakeLists.txt`, `tests/CMakeLists.txt`
 - **Action**: UPDATE
 - **Implement**: add `src/render/note_art.cpp`, `src/gameplay/judgment_animator.cpp`,
-  `src/audio/ui_sounds.cpp` to `tundra_core` (`CMakeLists.txt:80-129`); append `note_art_test`,
+  `src/audio/ui_sounds.cpp` to `blaze4k_core` (`CMakeLists.txt:80-129`); append `note_art_test`,
   `judgment_animator_test`, `ui_sounds_test` blocks mirroring the `background_test` block
   (`tests/CMakeLists.txt`). Split across PRs if implementing A/B/C separately.
 - **Validate**: `cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j16`.
@@ -543,7 +543,7 @@ step (the automated substitute is the unit suites).
    the animator is driven by `consume(new_events_)`. Manual: hit a note and watch the matching label
    pop and fade.
    ```bash
-   ./build/tundra-dance --headless --smoke-test 30 \
+   ./build/blaze-4k --headless --smoke-test 30 \
      --gameplay-demo "tests/fixtures/sync_test/metronome.sm"
    # exit 0; gameplay runs to the smoke-test exit (headless draw no-ops)
    ```

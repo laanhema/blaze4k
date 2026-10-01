@@ -2,7 +2,7 @@
 
 #include <cstdint>
 
-namespace td {
+namespace blaze4k {
 
 // Reconstructs the music-clock time at which an SDL-timestamped input occurred,
 // given the music time and SDL nanosecond reference sampled together. Mirrors
@@ -17,4 +17,4 @@ namespace td {
     return reference_music_seconds - age;
 }
 
-} // namespace td
+} // namespace blaze4k

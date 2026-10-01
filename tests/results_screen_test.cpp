@@ -30,16 +30,16 @@
 
 namespace {
 
-using td::Chart;
-using td::GameAction;
-using td::HighScores;
-using td::InputEvent;
-using td::Note;
-using td::NoteType;
-using td::ResultsSummary;
-using td::ScreenContext;
-using td::ScreenId;
-using td::Song;
+using blaze4k::Chart;
+using blaze4k::GameAction;
+using blaze4k::HighScores;
+using blaze4k::InputEvent;
+using blaze4k::Note;
+using blaze4k::NoteType;
+using blaze4k::ResultsSummary;
+using blaze4k::ScreenContext;
+using blaze4k::ScreenId;
+using blaze4k::Song;
 
 constexpr double kDt = 0.1;
 
@@ -52,8 +52,8 @@ InputEvent press(GameAction action) {
 
 Song make_song() {
     Song song;
-    song.simfile_path = "Tundra Anthem.sm";
-    song.metadata.title = "Tundra Anthem";
+    song.simfile_path = "Blaze Anthem.sm";
+    song.metadata.title = "Blaze Anthem";
     song.metadata.artist = "Test Artist";
     return song;
 }
@@ -87,7 +87,7 @@ ResultsSummary make_summary(const Song& song, const Chart& chart, const std::str
     return summary;
 }
 
-class SelectSpy : public td::Screen {
+class SelectSpy : public blaze4k::Screen {
 public:
     explicit SelectSpy(int* enters = nullptr) : enters_(enters) {}
     [[nodiscard]] ScreenId id() const override { return ScreenId::Select; }
@@ -102,19 +102,19 @@ private:
 };
 
 struct ResultsFixture {
-    td::GameConfig config;
+    blaze4k::GameConfig config;
     HighScores scores;
     Song song = make_song();
     Chart chart = make_chart();
     ResultsSummary summary;
-    td::ScreenManager manager{0.0};
-    td::ResultsScreen* results = nullptr;
+    blaze4k::ScreenManager manager{0.0};
+    blaze4k::ResultsScreen* results = nullptr;
     int select_enters = 0;
 
     ResultsFixture() : summary(make_summary(song, chart, "S+", 0.95)) {}
 
     void start(bool with_results = true) {
-        auto owner = std::make_unique<td::ResultsScreen>();
+        auto owner = std::make_unique<blaze4k::ResultsScreen>();
         results = owner.get();
         manager.add_screen(std::move(owner));
         manager.add_screen(std::make_unique<SelectSpy>(&select_enters));
@@ -135,8 +135,8 @@ void test_enter_submit_and_flag() {
     TEST_CHECK(fx.results->new_record());
     TEST_CHECK(fx.results->summary().grade_label == "S+");
 
-    const std::string key = td::make_chart_key(fx.song, fx.chart);
-    const td::ScoreRecord* record = td::find_high_score(fx.scores, key);
+    const std::string key = blaze4k::make_chart_key(fx.song, fx.chart);
+    const blaze4k::ScoreRecord* record = blaze4k::find_high_score(fx.scores, key);
     TEST_CHECK(record != nullptr);
     TEST_CHECK(record->grade == "S+");
     TEST_CHECK(record->percent == 0.95);
@@ -146,16 +146,16 @@ void test_enter_submit_and_flag() {
 // 2. A worse-than-best run submits but is not a new record; the table is unchanged.
 void test_not_a_record() {
     ResultsFixture fx;
-    TEST_CHECK(td::results_submit_score(fx.scores, make_summary(fx.song, fx.chart, "quad_star", 1.0),
+    TEST_CHECK(blaze4k::results_submit_score(fx.scores, make_summary(fx.song, fx.chart, "quad_star", 1.0),
                                         1));
     fx.start();
 
     TEST_CHECK(fx.results->submitted());
     TEST_CHECK(!fx.results->new_record());
 
-    const std::string key = td::make_chart_key(fx.song, fx.chart);
-    TEST_CHECK(td::find_high_score(fx.scores, key)->percent == 1.0);
-    TEST_CHECK(td::find_high_score(fx.scores, key)->timestamp_unix == 1);
+    const std::string key = blaze4k::make_chart_key(fx.song, fx.chart);
+    TEST_CHECK(blaze4k::find_high_score(fx.scores, key)->percent == 1.0);
+    TEST_CHECK(blaze4k::find_high_score(fx.scores, key)->timestamp_unix == 1);
     std::cout << "  - a sub-best run does not flag a record ok.\n";
 }
 
@@ -233,7 +233,7 @@ void test_new_record_finale_flag() {
 
     // A worse-than-best run does not, so the banner/flash is never drawn.
     ResultsFixture best;
-    TEST_CHECK(td::results_submit_score(
+    TEST_CHECK(blaze4k::results_submit_score(
         best.scores, make_summary(best.song, best.chart, "quad_star", 1.0), 1));
     best.start();
     TEST_CHECK(!best.results->animator().new_record());
@@ -290,7 +290,7 @@ void test_render_and_reenter() {
     ResultsFixture fx;
     fx.start();
 
-    td::GlQuadRenderer renderer; // uninitialized: draws are no-ops
+    blaze4k::GlQuadRenderer renderer; // uninitialized: draws are no-ops
     fx.manager.render(renderer, 1280, 720);
     TEST_CHECK(fx.results->valid());
 
@@ -305,23 +305,23 @@ void test_render_and_reenter() {
 // 7. End-to-end: a real GameplayScreen run reports to Results, which submits and
 //    returns to Select on Confirm (mirrors the headless completed-run pattern).
 void test_gameplay_to_results_end_to_end() {
-    td::GameConfig config;
+    blaze4k::GameConfig config;
     HighScores scores;
     Song song = make_song();
     Chart chart = make_chart();
 
-    td::PlayRequest request;
+    blaze4k::PlayRequest request;
     request.song = &song;
     request.chart = &chart;
-    request.options = td::GameplayOptions{};
+    request.options = blaze4k::GameplayOptions{};
 
     ResultsSummary summary;
-    td::ScreenManager manager(0.0);
+    blaze4k::ScreenManager manager(0.0);
 
-    auto gameplay_owner = std::make_unique<td::GameplayScreen>();
-    td::GameplayScreen* gameplay = gameplay_owner.get();
-    auto results_owner = std::make_unique<td::ResultsScreen>();
-    td::ResultsScreen* results = results_owner.get();
+    auto gameplay_owner = std::make_unique<blaze4k::GameplayScreen>();
+    blaze4k::GameplayScreen* gameplay = gameplay_owner.get();
+    auto results_owner = std::make_unique<blaze4k::ResultsScreen>();
+    blaze4k::ResultsScreen* results = results_owner.get();
 
     manager.add_screen(std::move(gameplay_owner));
     manager.add_screen(std::move(results_owner));
@@ -349,8 +349,8 @@ void test_gameplay_to_results_end_to_end() {
     TEST_CHECK(results->valid());
     TEST_CHECK(results->submitted());
 
-    const std::string key = td::make_chart_key(song, chart);
-    TEST_CHECK(td::find_high_score(scores, key) != nullptr);
+    const std::string key = blaze4k::make_chart_key(song, chart);
+    TEST_CHECK(blaze4k::find_high_score(scores, key) != nullptr);
     TEST_CHECK(scores.scores.size() == 1);
 
     // Extra frames on Results must not re-enter or resubmit (exactly-once handoff).

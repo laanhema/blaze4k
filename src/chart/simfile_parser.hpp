@@ -6,7 +6,7 @@
 #include "chart/timing_data.hpp"
 #include "chart/chart.hpp"
 
-namespace td {
+namespace blaze4k {
 
 class MsdFile;
 
@@ -31,4 +31,4 @@ private:
     bool is_ssc_ = false;
 };
 
-} // namespace td
+} // namespace blaze4k

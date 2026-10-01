@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace td {
+namespace blaze4k {
 
 namespace {
 
@@ -119,4 +119,4 @@ CalibrationResult OffsetCalibration::result() const {
     return out;
 }
 
-} // namespace td
+} // namespace blaze4k

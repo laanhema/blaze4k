@@ -39,15 +39,15 @@ int main() {
     std::cout << "[app_test] Running App and Window unit tests...\n";
 
     // 1. Test WindowConfig defaults
-    td::WindowConfig win_cfg;
+    blaze4k::WindowConfig win_cfg;
     TEST_CHECK(win_cfg.width == 1280);
     TEST_CHECK(win_cfg.height == 720);
     TEST_CHECK(win_cfg.vsync == true);
-    TEST_CHECK(win_cfg.title == "Tundra Dance");
+    TEST_CHECK(win_cfg.title == "Blaze 4k");
     std::cout << "  - WindowConfig defaults verified.\n";
 
     // 2. Test AppConfig defaults
-    td::AppConfig app_cfg;
+    blaze4k::AppConfig app_cfg;
     TEST_CHECK(std::abs(app_cfg.fixed_dt - (1.0 / 60.0)) < 1e-6);
     TEST_CHECK(std::abs(app_cfg.max_frame_dt - 0.25) < 1e-6);
     TEST_CHECK(app_cfg.smoke_test_frames == -1);
@@ -79,14 +79,14 @@ int main() {
     std::cout << "  - Timestep accumulator simulation passed.\n";
 
     // 4. Test Headless App Smoke Test
-    td::AppConfig smoke_cfg;
+    blaze4k::AppConfig smoke_cfg;
     smoke_cfg.window.headless = true;
     smoke_cfg.smoke_test_frames = 10;
 
     int update_count = 0;
     int render_count = 0;
 
-    td::App smoke_app(smoke_cfg);
+    blaze4k::App smoke_app(smoke_cfg);
     smoke_app.set_update_callback([&](double) {
         update_count++;
     });
@@ -105,12 +105,12 @@ int main() {
 
     // 5. Perf-report instrumentation: one sample per rendered frame, and the
     //    mean is finite. Presentation-only; nothing here touches gameplay.
-    td::AppConfig perf_cfg;
+    blaze4k::AppConfig perf_cfg;
     perf_cfg.window.headless = true;
     perf_cfg.smoke_test_frames = 60;
     perf_cfg.perf_report = true;
 
-    td::App perf_app(perf_cfg);
+    blaze4k::App perf_app(perf_cfg);
     TEST_CHECK(perf_app.init());
     perf_app.run();
 

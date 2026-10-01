@@ -53,7 +53,7 @@ So that every playable chart in my packs becomes game data.
 | `src/chart/note_parser.cpp` | CREATE | Note data measure/row parsing and hold-tail pairing |
 | `src/chart/simfile_parser.hpp` | UPDATE | Add charts list to SimfileParser |
 | `src/chart/simfile_parser.cpp` | UPDATE | Parse `#NOTES:` (.sm) and `#NOTEDATA:` (.ssc) |
-| `CMakeLists.txt` | UPDATE | Add `src/chart/note_parser.cpp` to `tundra_core` |
+| `CMakeLists.txt` | UPDATE | Add `src/chart/note_parser.cpp` to `blaze4k_core` |
 | `tests/note_parser_test.cpp` | CREATE | Unit tests for taps, holds, rolls, mines, non-4-panel rejection |
 | `tests/CMakeLists.txt` | UPDATE | Add `note_parser_test` target |
 

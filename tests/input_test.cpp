@@ -17,7 +17,7 @@
 int main() {
     std::cout << "[input_test] Starting input layer unit tests...\n";
 
-    td::InputManager input;
+    blaze4k::InputManager input;
 
     // 1. Test Keyboard Mapping & Nanosecond Timestamps
     const uint64_t fake_timestamp_1 = 1234567890123ULL;
@@ -29,14 +29,14 @@ int main() {
     key_down.key.timestamp = fake_timestamp_1;
 
     input.handle_sdl_event(key_down);
-    TEST_CHECK(input.is_action_down(td::GameAction::Left));
+    TEST_CHECK(input.is_action_down(blaze4k::GameAction::Left));
 
-    std::vector<td::InputEvent> events = input.poll_events();
+    std::vector<blaze4k::InputEvent> events = input.poll_events();
     TEST_CHECK(events.size() == 1);
-    TEST_CHECK(events[0].action == td::GameAction::Left);
+    TEST_CHECK(events[0].action == blaze4k::GameAction::Left);
     TEST_CHECK(events[0].pressed == true);
     TEST_CHECK(events[0].timestamp_ns == fake_timestamp_1);
-    TEST_CHECK(events[0].device == td::DeviceType::Keyboard);
+    TEST_CHECK(events[0].device == blaze4k::DeviceType::Keyboard);
     TEST_CHECK(events[0].raw_code == SDLK_LEFT);
     std::cout << "  - Keyboard event mapped and nanosecond timestamp verified.\n";
 
@@ -53,11 +53,11 @@ int main() {
     key_up.key.timestamp = fake_timestamp_2;
 
     input.handle_sdl_event(key_up);
-    TEST_CHECK(!input.is_action_down(td::GameAction::Left));
+    TEST_CHECK(!input.is_action_down(blaze4k::GameAction::Left));
 
     events = input.poll_events();
     TEST_CHECK(events.size() == 1);
-    TEST_CHECK(events[0].action == td::GameAction::Left);
+    TEST_CHECK(events[0].action == blaze4k::GameAction::Left);
     TEST_CHECK(events[0].pressed == false);
     TEST_CHECK(events[0].timestamp_ns == fake_timestamp_2);
     std::cout << "  - Key release updates state and timestamps.\n";
@@ -65,9 +65,9 @@ int main() {
     // 3. Test 4-Panel Spread Keys (D, F, J, K)
     SDL_Event dfjk_events[4]{};
     SDL_Keycode dfjk_keys[4] = {SDLK_D, SDLK_F, SDLK_J, SDLK_K};
-    td::GameAction expected_actions[4] = {
-        td::GameAction::Left, td::GameAction::Down,
-        td::GameAction::Up, td::GameAction::Right
+    blaze4k::GameAction expected_actions[4] = {
+        blaze4k::GameAction::Left, blaze4k::GameAction::Down,
+        blaze4k::GameAction::Up, blaze4k::GameAction::Right
     };
 
     for (int i = 0; i < 4; ++i) {
@@ -88,7 +88,7 @@ int main() {
     std::cout << "  - 4-panel spread keys (DFJK) mapped successfully.\n";
 
     // 3b. C4 options action: Tab (keyboard) and shoulder buttons (gamepad)
-    TEST_CHECK(input.action_for_key(SDLK_TAB) == td::GameAction::Options);
+    TEST_CHECK(input.action_for_key(SDLK_TAB) == blaze4k::GameAction::Options);
 
     SDL_Event tab_down{};
     tab_down.type = SDL_EVENT_KEY_DOWN;
@@ -100,8 +100,8 @@ int main() {
 
     events = input.poll_events();
     TEST_CHECK(events.size() == 1);
-    TEST_CHECK(events[0].action == td::GameAction::Options);
-    TEST_CHECK(events[0].device == td::DeviceType::Keyboard);
+    TEST_CHECK(events[0].action == blaze4k::GameAction::Options);
+    TEST_CHECK(events[0].device == blaze4k::DeviceType::Keyboard);
 
     SDL_Event shoulder_down{};
     shoulder_down.type = SDL_EVENT_GAMEPAD_BUTTON_DOWN;
@@ -113,8 +113,8 @@ int main() {
 
     events = input.poll_events();
     TEST_CHECK(events.size() == 1);
-    TEST_CHECK(events[0].action == td::GameAction::Options);
-    TEST_CHECK(events[0].device == td::DeviceType::Gamepad);
+    TEST_CHECK(events[0].action == blaze4k::GameAction::Options);
+    TEST_CHECK(events[0].device == blaze4k::DeviceType::Gamepad);
 
     SDL_Event right_shoulder_down{};
     right_shoulder_down.type = SDL_EVENT_GAMEPAD_BUTTON_DOWN;
@@ -126,7 +126,7 @@ int main() {
 
     events = input.poll_events();
     TEST_CHECK(events.size() == 1);
-    TEST_CHECK(events[0].action == td::GameAction::Options);
+    TEST_CHECK(events[0].action == blaze4k::GameAction::Options);
     std::cout << "  - Options action mapped to Tab + shoulder buttons.\n";
 
     // 3c. Hold-Back fallback for bare pads: a short tap stays Back, a hold
@@ -147,17 +147,17 @@ int main() {
     send_pad_back(false, tap_down_ns + 100000000ULL); // 100 ms tap
     events = input.poll_events();
     TEST_CHECK(events.size() == 2);
-    TEST_CHECK(events[0].action == td::GameAction::Back && events[0].pressed);
-    TEST_CHECK(events[1].action == td::GameAction::Back && !events[1].pressed);
+    TEST_CHECK(events[0].action == blaze4k::GameAction::Back && events[0].pressed);
+    TEST_CHECK(events[1].action == blaze4k::GameAction::Back && !events[1].pressed);
 
     const uint64_t hold_down_ns = 2700000000ULL;
     send_pad_back(true, hold_down_ns);
     TEST_CHECK(input.poll_events().empty());
-    send_pad_back(false, hold_down_ns + td::InputManager::kBackHoldOptionsNs + 100000000ULL);
+    send_pad_back(false, hold_down_ns + blaze4k::InputManager::kBackHoldOptionsNs + 100000000ULL);
     events = input.poll_events();
     TEST_CHECK(events.size() == 2);
-    TEST_CHECK(events[0].action == td::GameAction::Options && events[0].pressed);
-    TEST_CHECK(events[1].action == td::GameAction::Options && !events[1].pressed);
+    TEST_CHECK(events[0].action == blaze4k::GameAction::Options && events[0].pressed);
+    TEST_CHECK(events[1].action == blaze4k::GameAction::Options && !events[1].pressed);
     std::cout << "  - Hold-Back opens Options on shoulder-less pads.\n";
 
     // 4. Test Gamepad / Dance Pad Button Mapping
@@ -170,12 +170,12 @@ int main() {
     pad_down.gbutton.timestamp = pad_timestamp;
 
     input.handle_sdl_event(pad_down);
-    TEST_CHECK(input.is_action_down(td::GameAction::Up));
+    TEST_CHECK(input.is_action_down(blaze4k::GameAction::Up));
 
     events = input.poll_events();
     TEST_CHECK(events.size() == 1);
-    TEST_CHECK(events[0].action == td::GameAction::Up);
-    TEST_CHECK(events[0].device == td::DeviceType::Gamepad);
+    TEST_CHECK(events[0].action == blaze4k::GameAction::Up);
+    TEST_CHECK(events[0].device == blaze4k::DeviceType::Gamepad);
     TEST_CHECK(events[0].device_id == 1);
     TEST_CHECK(events[0].timestamp_ns == pad_timestamp);
     std::cout << "  - Gamepad / dance pad button mapped with exact timestamp.\n";
@@ -188,7 +188,7 @@ int main() {
     std::cout << "  - Gamepad disconnect handled gracefully.\n";
 
     // 6. Test Custom Key Rebinding
-    input.bind_key(SDLK_SPACE, td::GameAction::Confirm);
+    input.bind_key(SDLK_SPACE, blaze4k::GameAction::Confirm);
     SDL_Event space_down{};
     space_down.type = SDL_EVENT_KEY_DOWN;
     space_down.key.key = SDLK_SPACE;
@@ -198,60 +198,60 @@ int main() {
 
     events = input.poll_events();
     TEST_CHECK(events.size() == 1);
-    TEST_CHECK(events[0].action == td::GameAction::Confirm);
+    TEST_CHECK(events[0].action == blaze4k::GameAction::Confirm);
     std::cout << "  - Custom key rebinding verified.\n";
 
     // 7. Focus loss clears the cached down-state so a missed release cannot
     // leave a held note stuck.
     input.handle_sdl_event(dfjk_events[0]); // Left is held again
-    TEST_CHECK(input.is_action_down(td::GameAction::Left));
+    TEST_CHECK(input.is_action_down(blaze4k::GameAction::Left));
     SDL_Event focus_lost{};
     focus_lost.type = SDL_EVENT_WINDOW_FOCUS_LOST;
     input.handle_sdl_event(focus_lost);
-    TEST_CHECK(!input.is_action_down(td::GameAction::Left));
-    TEST_CHECK(!input.is_action_down(td::GameAction::Down));
-    TEST_CHECK(!input.is_action_down(td::GameAction::Up));
-    TEST_CHECK(!input.is_action_down(td::GameAction::Right));
+    TEST_CHECK(!input.is_action_down(blaze4k::GameAction::Left));
+    TEST_CHECK(!input.is_action_down(blaze4k::GameAction::Down));
+    TEST_CHECK(!input.is_action_down(blaze4k::GameAction::Up));
+    TEST_CHECK(!input.is_action_down(blaze4k::GameAction::Right));
     std::cout << "  - Focus loss clears held-action state.\n";
 
     // 8. C6: apply_bindings rebuilds the runtime maps from persisted names and
     // falls back per action when none of its names parse.
-    td::InputSettings settings;
+    blaze4k::InputSettings settings;
     settings.key_bindings = {{"Left", {"A"}}, {"Confirm", {"BogusName"}}};
     settings.gamepad_bindings = {{"Back", {"back"}}};
     input.apply_bindings(settings);
 
-    TEST_CHECK(input.action_for_key(SDLK_A) == td::GameAction::Left);
-    TEST_CHECK(input.action_for_key(SDLK_LEFT) == td::GameAction::None); // old default removed
+    TEST_CHECK(input.action_for_key(SDLK_A) == blaze4k::GameAction::Left);
+    TEST_CHECK(input.action_for_key(SDLK_LEFT) == blaze4k::GameAction::None); // old default removed
     // An action whose only name is invalid falls back to its compiled default.
-    TEST_CHECK(input.action_for_key(SDLK_RETURN) == td::GameAction::Confirm);
-    TEST_CHECK(input.action_for_key(SDLK_KP_ENTER) == td::GameAction::Confirm);
+    TEST_CHECK(input.action_for_key(SDLK_RETURN) == blaze4k::GameAction::Confirm);
+    TEST_CHECK(input.action_for_key(SDLK_KP_ENTER) == blaze4k::GameAction::Confirm);
     // Reserved safety: Escape is Back even though the settings omit it.
-    TEST_CHECK(input.action_for_key(SDLK_ESCAPE) == td::GameAction::Back);
+    TEST_CHECK(input.action_for_key(SDLK_ESCAPE) == blaze4k::GameAction::Back);
     std::cout << "  - apply_bindings rebuild + fallback + reserved Escape verified.\n";
 
     // 8b. C6 upgrade regression guard: a partial persisted config (only
     // Confirm/Back, as written by pre-C6 builds) must leave every other action
     // on its compiled default, so legacy 6/2 configs keep arrows, DFJK, Tab and
     // the gamepad panels instead of being silently unbound.
-    td::InputSettings partial;
+    blaze4k::InputSettings partial;
     partial.key_bindings = {{"Confirm", {"Space"}}, {"Back", {"Escape"}}};
     partial.gamepad_bindings = {{"Confirm", {"start"}}, {"Back", {"back"}}};
     input.apply_bindings(partial);
 
-    TEST_CHECK(input.action_for_key(SDLK_SPACE) == td::GameAction::Confirm);
-    TEST_CHECK(input.action_for_key(SDLK_ESCAPE) == td::GameAction::Back);
+    TEST_CHECK(input.action_for_key(SDLK_SPACE) == blaze4k::GameAction::Confirm);
+    TEST_CHECK(input.action_for_key(SDLK_ESCAPE) == blaze4k::GameAction::Back);
     // Arrows + DFJK fall back to the compiled defaults.
-    TEST_CHECK(input.action_for_key(SDLK_LEFT) == td::GameAction::Left);
-    TEST_CHECK(input.action_for_key(SDLK_D) == td::GameAction::Left);
-    TEST_CHECK(input.action_for_key(SDLK_DOWN) == td::GameAction::Down);
-    TEST_CHECK(input.action_for_key(SDLK_F) == td::GameAction::Down);
-    TEST_CHECK(input.action_for_key(SDLK_UP) == td::GameAction::Up);
-    TEST_CHECK(input.action_for_key(SDLK_J) == td::GameAction::Up);
-    TEST_CHECK(input.action_for_key(SDLK_RIGHT) == td::GameAction::Right);
-    TEST_CHECK(input.action_for_key(SDLK_K) == td::GameAction::Right);
+    TEST_CHECK(input.action_for_key(SDLK_LEFT) == blaze4k::GameAction::Left);
+    TEST_CHECK(input.action_for_key(SDLK_D) == blaze4k::GameAction::Left);
+    TEST_CHECK(input.action_for_key(SDLK_DOWN) == blaze4k::GameAction::Down);
+    TEST_CHECK(input.action_for_key(SDLK_F) == blaze4k::GameAction::Down);
+    TEST_CHECK(input.action_for_key(SDLK_UP) == blaze4k::GameAction::Up);
+    TEST_CHECK(input.action_for_key(SDLK_J) == blaze4k::GameAction::Up);
+    TEST_CHECK(input.action_for_key(SDLK_RIGHT) == blaze4k::GameAction::Right);
+    TEST_CHECK(input.action_for_key(SDLK_K) == blaze4k::GameAction::Right);
     // Options (Tab) is restored, so the overlay that hosts this screen is reachable.
-    TEST_CHECK(input.action_for_key(SDLK_TAB) == td::GameAction::Options);
+    TEST_CHECK(input.action_for_key(SDLK_TAB) == blaze4k::GameAction::Options);
 
     // Gamepad panels + Options fall back to defaults too. Drain any event left
     // from earlier steps first (step 7 holds a focused key without polling).
@@ -264,7 +264,7 @@ int main() {
     pad_left.gbutton.timestamp = 2750000000ULL;
     input.handle_sdl_event(pad_left);
     events = input.poll_events();
-    TEST_CHECK(events.size() == 1 && events[0].action == td::GameAction::Left);
+    TEST_CHECK(events.size() == 1 && events[0].action == blaze4k::GameAction::Left);
     pad_left.type = SDL_EVENT_GAMEPAD_BUTTON_UP;
     pad_left.gbutton.down = false;
     pad_left.gbutton.timestamp = 2750000500ULL;
@@ -279,7 +279,7 @@ int main() {
     pad_options.gbutton.timestamp = 2750001000ULL;
     input.handle_sdl_event(pad_options);
     events = input.poll_events();
-    TEST_CHECK(events.size() == 1 && events[0].action == td::GameAction::Options);
+    TEST_CHECK(events.size() == 1 && events[0].action == blaze4k::GameAction::Options);
     std::cout << "  - partial config keeps default arrows/DFJK/Tab/panels verified.\n";
 
     // Restore the test-8 settings for the capture-mode checks below.
@@ -300,10 +300,10 @@ int main() {
     input.handle_sdl_event(q_down);
     events = input.poll_events();
     TEST_CHECK(events.size() == 1);
-    TEST_CHECK(events[0].action == td::GameAction::None);
+    TEST_CHECK(events[0].action == blaze4k::GameAction::None);
     TEST_CHECK(events[0].raw_code == SDLK_Q);
     TEST_CHECK(events[0].timestamp_ns == capture_ts);
-    TEST_CHECK(!input.is_action_down(td::GameAction::Left));
+    TEST_CHECK(!input.is_action_down(blaze4k::GameAction::Left));
 
     // Repeat keys are still skipped while capturing.
     q_down.key.repeat = true;
@@ -319,13 +319,13 @@ int main() {
     input.handle_sdl_event(pad_back_capture);
     events = input.poll_events();
     TEST_CHECK(events.size() == 1);
-    TEST_CHECK(events[0].action == td::GameAction::None);
+    TEST_CHECK(events[0].action == blaze4k::GameAction::None);
     TEST_CHECK(events[0].raw_code == SDL_GAMEPAD_BUTTON_BACK);
     TEST_CHECK(events[0].timestamp_ns == capture_ts + 1);
 
     input.set_capture_mode(false);
     TEST_CHECK(!input.capture_mode());
-    TEST_CHECK(input.action_for_key(SDLK_A) == td::GameAction::Left); // normal mapping restored
+    TEST_CHECK(input.action_for_key(SDLK_A) == blaze4k::GameAction::Left); // normal mapping restored
     std::cout << "  - capture mode raw emission + timestamps verified.\n";
 
     std::cout << "[input_test] All input tests passed successfully!\n";

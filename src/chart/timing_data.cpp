@@ -4,7 +4,7 @@
 #include <iostream>
 #include <cmath>
 
-namespace td {
+namespace blaze4k {
 
 namespace {
 
@@ -281,4 +281,4 @@ bool TimingData::is_in_stop(double seconds) const {
     return false;
 }
 
-} // namespace td
+} // namespace blaze4k

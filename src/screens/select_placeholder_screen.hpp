@@ -2,7 +2,7 @@
 
 #include "screens/screen.hpp"
 
-namespace td {
+namespace blaze4k {
 
 // Minimal placeholder occupying the Song Select slot so Title -> Select is an
 // explicit, testable transition today. C3 replaces this file's registration (not
@@ -16,4 +16,4 @@ public:
     void render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, int h) override;
 };
 
-} // namespace td
+} // namespace blaze4k

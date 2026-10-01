@@ -103,7 +103,7 @@ path, which remains the `MusicClock`) and by the headless benchmark.
 
 ```cpp
 // src/app/frame_stats.hpp — <vector>/<algorithm>/<cmath>/<cstddef>/<cstdint> only; no SDL/GL/audio.
-namespace td {
+namespace blaze4k {
 
 // Descriptive per-frame timing samples in milliseconds. Sampling and statistics only;
 // it never generates time and is never consulted by the judgment path.
@@ -143,9 +143,9 @@ deterministic, testable rule; the exact method is documented in the test.
 
 ### Headless benchmark contract (`tests/perf_loop_test.cpp`)
 
-- Fixture: `tests/fixtures/reference_pack/Tundra Pack/Aurora Borealis/Aurora Borealis.sm`
-  (resolved via `TUNDRA_SOURCE_DIR` compile definition, mirroring `background_test`'s
-  `TUNDRA_ASSETS_DIR`).
+- Fixture: `tests/fixtures/reference_pack/Blaze Pack/Aurora Borealis/Aurora Borealis.sm`
+  (resolved via `BLAZE4K_SOURCE_DIR` compile definition, mirroring `background_test`'s
+  `BLAZE4K_ASSETS_DIR`).
 - Parse → first 4-panel chart → `GameplayView::init(..., fail_enabled=false)` (stub clock in
   headless) → run `fixed_dt` steps until `outcome() != InProgress`, timing `update`+`handle_input`
   (render is a no-op into an uninitialized `GlQuadRenderer`, so the measured cost is the
@@ -153,7 +153,7 @@ deterministic, testable rule; the exact method is documented in the test.
 - Also times the real arcade `ScreenManager` update path (Title/Attract/Select) for N frames.
 - Asserts **correctness** unconditionally: the full chart reaches `Cleared`, no crash, samples are
   finite, `count > 0`. Asserts a **generous CPU budget** (`p99 < 16.67 ms`, `max < 50 ms`) unless
-  `TUNDRA_PERF_STRICT=0` is set, and always prints the percentiles for the owner. This is a
+  `BLAZE4K_PERF_STRICT=0` is set, and always prints the percentiles for the owner. This is a
   *necessary* condition for AC2, not a GPU FPS proof — stated in the test output.
 
 ### Fresh-clone verification contract (`scripts/fresh-clone-check.sh`)
@@ -237,11 +237,11 @@ GameplayOutcome outcome() const;   // InProgress / Cleared / Failed
 
 ### Test idiom + fixture path + registration
 ```cpp
-// SOURCE: tests/background_test.cpp (TUNDRA_ASSETS_DIR define) ; tests/CMakeLists.txt:236-250
+// SOURCE: tests/background_test.cpp (BLAZE4K_ASSETS_DIR define) ; tests/CMakeLists.txt:236-250
 target_compile_definitions(perf_loop_test PRIVATE
-    TUNDRA_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
+    BLAZE4K_SOURCE_DIR="${CMAKE_SOURCE_DIR}")
 add_executable(perf_loop_test perf_loop_test.cpp)
-target_link_libraries(perf_loop_test PRIVATE tundra_core)
+target_link_libraries(perf_loop_test PRIVATE blaze4k_core)
 add_test(NAME perf_loop_test COMMAND perf_loop_test)
 ```
 
@@ -331,14 +331,14 @@ Execute in order. Each task is atomic and verifiable.
 
 - **File**: `tests/perf_loop_test.cpp`
 - **Action**: CREATE
-- **Implement**: Per **Headless benchmark contract**. Resolve the fixture via `TUNDRA_SOURCE_DIR`
+- **Implement**: Per **Headless benchmark contract**. Resolve the fixture via `BLAZE4K_SOURCE_DIR`
   (fall back to `CMAKE_SOURCE_DIR` only if needed); parse, take `charts().front()`, init
   `GameplayView` with `fail_enabled=false`. Loop `fixed_dt = 1.0/60.0` until
   `outcome() != InProgress` or a safety cap (e.g. `last_note_time + 5s` in steps); time each
   `update`+`handle_input_events` with `std::chrono::steady_clock` into a `FrameStats`. Render into
   an uninitialized `GlQuadRenderer` (no-op). Then time N (`2000`) real arcade-screen updates
   (Title/Attract/SelectPlaceholder via `ScreenManager`). Print both percentile blocks; assert the
-  chart `Cleared`, samples finite, and the budget gate unless `TUNDRA_PERF_STRICT=0`.
+  chart `Cleared`, samples finite, and the budget gate unless `BLAZE4K_PERF_STRICT=0`.
 - **Mirror**: `tests/judgment_engine_test.cpp` (parse→play), `tests/score_keeper_test.cpp:663-704`
   (full-chart perfect-play harness), `src/app/app.cpp:58-91` (loop shape).
 - **Validate**: `./build/tests/perf_loop_test` → exit 0; prints percentiles.
@@ -348,7 +348,7 @@ Execute in order. Each task is atomic and verifiable.
 - **File**: `tests/CMakeLists.txt`
 - **Action**: UPDATE
 - **Implement**: Append `frame_stats_test` and `perf_loop_test` blocks mirroring
-  `tests/CMakeLists.txt:236-250`; give `perf_loop_test` the `TUNDRA_SOURCE_DIR` compile definition.
+  `tests/CMakeLists.txt:236-250`; give `perf_loop_test` the `BLAZE4K_SOURCE_DIR` compile definition.
 - **Validate**: `cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j16`.
 
 ### Task 7: Arcade-loop no-dead-ends contract
@@ -464,7 +464,7 @@ untouched.
    and `max < 50 ms`. Real GPU/vsync FPS remains owner-verified via `--perf-report`.
 4. **Real-hardware frame report (AC2, owner)**: on a mid-range machine with a GPU, run
    ```bash
-   ./build/tundra-dance --perf-report --songs <pack>   # play a full song, then exit
+   ./build/blaze-4k --perf-report --songs <pack>   # play a full song, then exit
    # prints p50/p95/p99/max frame ms + hitch count vs 16.67 ms budget
    ```
    Expected: p99 ≈ vsync period, hitch count 0. Capture the block as evidence.
@@ -472,9 +472,9 @@ untouched.
    asserts every canonical screen is registered and has an exit edge; `--start-screen select`
    headless smoke exits cleanly:
    ```bash
-   rm -rf /tmp/td-e2e-d4 && mkdir -p /tmp/td-e2e-d4
-   ./build/tundra-dance --headless --smoke-test 120 --start-screen select \
-     --songs tests/fixtures/reference_pack --data-dir /tmp/td-e2e-d4
+   rm -rf /tmp/blaze4k-e2e-d4 && mkdir -p /tmp/blaze4k-e2e-d4
+   ./build/blaze-4k --headless --smoke-test 120 --start-screen select \
+     --songs tests/fixtures/reference_pack --data-dir /tmp/blaze4k-e2e-d4
    # exit 0
    ```
 6. **Docs/checklist present**: `docs/BUILDING.md` and `docs/CROSS_PLATFORM_VERIFICATION.md` exist,
@@ -492,7 +492,7 @@ untouched.
 |------|------------|-------|
 | Windows/macOS builds cannot be verified here; AC1 only partly provable | Deliver presets + per-OS docs + explicit "owner-verified" checklist; state plainly in the plan and docs that only the Linux leg is machine-checked | **Flagged** (OQ3) |
 | Real FPS cannot be measured headless (no GPU/vsync) | `--perf-report` measures real frame periods on the owner's hardware; the headless test is labelled a CPU-budget proxy, not an FPS proof | **In scope** (OQ2) |
-| Timing-based ctest is flaky under host load | Generous gate (`p99 < 16.67 ms`, `max < 50 ms`) plus unconditional correctness assertions; `TUNDRA_PERF_STRICT=0` escape hatch | **In scope** (OQ2) |
+| Timing-based ctest is flaky under host load | Generous gate (`p99 < 16.67 ms`, `max < 50 ms`) plus unconditional correctness assertions; `BLAZE4K_PERF_STRICT=0` escape hatch | **In scope** (OQ2) |
 | Fresh-clone build re-fetches dependencies and fails offline/slow | Default to reusing the populated `build/_deps` via `FETCHCONTENT_BASE_DIR`; `--online` opt-in; network confirmed reachable | **In scope** (OQ5) |
 | `FrameStats`/`--perf-report` accidentally enters the judgment path | Wall-clock only samples the App loop; purity grep in Validation; no gameplay symbol touched | **In scope** |
 | Preset generator mismatch breaks `cmake --preset` on an owner host | Linux presets verified here; MSVC/macOS presets documented with their assumed generator and marked owner-run; generator left configurable | **Flagged** (OQ3) |
@@ -522,14 +522,14 @@ untouched.
 1. **Non-blocking — percentile rule.** Proposed default: **nearest-rank** (`ceil(p/100*n)-1`,
    clamped), documented and tested. Alternative: linear interpolation. Confirm or accept.
 2. **Non-blocking — hard perf gate vs advisory.** Proposed default: `perf_loop_test` hard-asserts
-   `p99 < 16.67 ms` / `max < 50 ms` unless `TUNDRA_PERF_STRICT=0`, and always prints stats. If the
+   `p99 < 16.67 ms` / `max < 50 ms` unless `BLAZE4K_PERF_STRICT=0`, and always prints stats. If the
    owner prefers a never-flaky suite, make the budget advisory and assert correctness only.
 3. **Non-blocking — preset matrix scope.** Proposed default: ship Linux (GCC/Clang) + Windows
    (MSVC) + macOS (Clang) configure/build/test presets, with only Linux/GCC run here. Alternative:
    document plain commands only and skip presets. Confirm the owner wants preset files.
 4. **Non-blocking — portability warning strictness.** Proposed default: **no new global warning
    flags**; audit only, fix real portability bugs. Alternative: add an opt-in
-   `TUNDRA_PORTABILITY_WARNINGS` (`-Wshadow -Wconversion -Wsign-conversion`, no `-Werror`) preset
+   `BLAZE4K_PORTABILITY_WARNINGS` (`-Wshadow -Wconversion -Wsign-conversion`, no `-Werror`) preset
    and clean up any fallout. Confirm.
 5. **Non-blocking — fresh-clone dependency strategy.** Proposed default: reuse the local
    `build/_deps` cache for a deterministic offline run, with `--online` for a true FetchContent

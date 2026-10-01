@@ -30,7 +30,7 @@ None.
 1. **`src/gameplay/life_keeper.cpp:220-233` — fail is decided per event, so a saving hit later in the same
    drained batch cannot rescue a player, unlike OpenITG.** OpenITG's `ChangeLife` never sets `bFailed`; it only
    freezes on `bFailed` (`LifeMeterBar.cpp:229-231`), and `bFailed` is set once per frame in
-   `ScreenGameplay::Update` (`ScreenGameplay.cpp:1471-1493`). Because Tundra sets `state_.failed` inside
+   `ScreenGameplay::Update` (`ScreenGameplay.cpp:1471-1493`). Because Blaze 4k sets `state_.failed` inside
    `apply()` and then zeroes every subsequent delta in the same `life_.consume(new_events_)` loop, a fatal Miss
    followed by a hit in the same frame fails the player, whereas OpenITG would see `life > 0` at its end-of-frame
    check and survive. The plan calls the two "equivalent"; they are only equivalent when no positive event
@@ -49,7 +49,7 @@ None.
 3. **`src/gameplay/life_keeper.cpp:216-218` — combo-to-regain debt is re-armed to exactly 5 on every loss.**
    OpenITG accumulates successive losses up to `MaxRegenComboAfterMiss=10` and bumps to `RegenComboAfterFail=10`
    on the failing hit (`LifeMeterBar.cpp:221-227,244-253`; `PrefsManager.cpp:119-122`), so after two consecutive
-   misses Tundra lets the player recover after ~4 more hits while OpenITG needs ~9. The report documents this as
+   misses Blaze 4k lets the player recover after ~4 more hits while OpenITG needs ~9. The report documents this as
    an intentional omission of unrequested constants; flagging only because the task states "full OpenITG parity
    is intended" — confirm scope. (The single-loss window itself is correct: debt 5 suppresses the next 4 gains
    and the 5th pays, matching OpenITG.)
@@ -83,7 +83,7 @@ Additional checks:
   `regen_combo_after_miss >= 0` (`judgment_constants.cpp:101-112`); seed deep-equality and JSON-override tests
   extended (`tests/judgment_constants_test.cpp:64-65,128-129,189-191`). `judgment_constants_test` still passes.
 - **Float-vs-double underflow**: probed the 0.5-start/`-0.1`-miss sequence in both `float` (OpenITG) and `double`
-  (Tundra); both fail on the 6th miss, so the representation change does not shift fail timing here.
+  (Blaze 4k); both fail on the 6th miss, so the representation change does not shift fail timing here.
 - **Row double-counting**: verified jump rows, mixed Great+Miss rows, and hold-head+outcome paths apply exactly one
   delta per row plus one per hold/roll outcome (tests 3, 8, 9, 13); per-note `note_scored_`/`hold_scored_` guards
   make consumption idempotent (an improvement over B5's row-only guard).

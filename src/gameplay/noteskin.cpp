@@ -11,7 +11,7 @@
 #include "data/data_paths.hpp"
 #include "render/note_art.hpp"
 
-namespace td {
+namespace blaze4k {
 
 namespace {
 
@@ -404,4 +404,4 @@ Color NoteSkin::quantization_color(NoteQuantization quantization) const {
     return kWhite;
 }
 
-} // namespace td
+} // namespace blaze4k

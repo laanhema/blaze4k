@@ -24,7 +24,7 @@ None.
 
 ### Suggestions (Low)
 
-5. **`src/main.cpp:124-125`** — `TUNDRA_XDG=1` is honored but absent from `print_help()` (only the `--xdg` flag is documented). Document it, or drop the env var.
+5. **`src/main.cpp:124-125`** — `BLAZE4K_XDG=1` is honored but absent from `print_help()` (only the `--xdg` flag is documented). Document it, or drop the env var.
 6. **`src/data/data_paths.cpp:33-41`** — `SDL_GetBasePath()` returns an `SDL_malloc`'d string that must be released with `SDL_free()`; the pointer is discarded, a one-time leak per call.
 7. **`src/data/high_scores.cpp:84-86`** — Chart-key note tokens use `std::to_string(double)`, which is locale-sensitive for the decimal separator (and rounds to 6 decimals). Since keys are persisted, running under a non-"C" C locale (`setlocale`) could change keys and orphan existing scores. Prefer a locale-independent formatting helper.
 8. **`src/main.cpp:106-111`** — `--data-dir` with a missing argument prints a warning but continues with the default directory instead of failing; matches some sibling flags, but silently ignoring the user's intent is surprising.

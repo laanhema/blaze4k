@@ -2,7 +2,7 @@
 
 #include <string>
 
-namespace td {
+namespace blaze4k {
 
 struct SongMetadata {
     std::string title;
@@ -24,4 +24,4 @@ struct SongMetadata {
     std::string selectable = "YES";
 };
 
-} // namespace td
+} // namespace blaze4k

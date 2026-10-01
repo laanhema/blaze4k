@@ -24,7 +24,7 @@ Hardened the MSD lexer, TimingData parser, NoteData parser, and SimfileParser ag
      - Fixed SM `#NOTES:` note data extraction to use `tag.params.back()` to properly handle radar values containing colons.
 5. **Reference Pack Fixture**:
    - `tests/fixtures/reference_pack/`:
-     - `Tundra Anthem` (.sm with 5 difficulties, taps, holds, rolls, mines, BPM changes, stops).
+     - `Blaze Anthem` (.sm with 5 difficulties, taps, holds, rolls, mines, BPM changes, stops).
      - `Northern Lights` (.ssc with 192nd note subdivisions and per-chart timing).
      - `Glacier Groove` (.sm with escaped colons/semicolons, comments in tags, and unclosed tags).
      - `Aurora Borealis` (.sm and .ssc present together, verifying .ssc priority).

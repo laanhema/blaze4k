@@ -6,11 +6,11 @@
 #include "render/bitmap_font.hpp"
 #include "render/gl_quad_renderer.hpp"
 
-namespace td {
+namespace blaze4k {
 
 namespace {
 
-// Tundra's own presentation palette (unsourced; no OpenITG parity requirement).
+// Blaze 4k's own presentation palette (unsourced; no OpenITG parity requirement).
 constexpr Color kTextColor{0.95f, 0.97f, 1.0f, 1.0f};
 constexpr Color kFantasticColor{0.40f, 0.90f, 1.00f, 1.0f};
 constexpr Color kExcellentColor{0.55f, 1.00f, 0.45f, 1.0f};
@@ -21,7 +21,7 @@ constexpr Color kMissColor{1.00f, 0.30f, 0.30f, 1.0f};
 constexpr Color kHoldOkColor{0.45f, 0.65f, 1.00f, 1.0f};
 constexpr Color kHoldNgColor{1.00f, 0.30f, 0.30f, 1.0f};
 
-// Life bar palette + geometry (Tundra presentation, unsourced; no OpenITG parity
+// Life bar palette + geometry (Blaze 4k presentation, unsourced; no OpenITG parity
 // requirement). The only semantic value is the 0.3 danger threshold.
 constexpr Color kLifeBackColor{0.10f, 0.12f, 0.18f, 0.90f};
 constexpr Color kLifeFrameColor{0.55f, 0.60f, 0.70f, 1.0f};
@@ -194,4 +194,4 @@ void HudRenderer::render_life(double life, int screen_w, int screen_h,
     renderer.draw_quad(Rect{x, y, bar_w * static_cast<float>(clamped), bar_h}, fill);
 }
 
-} // namespace td
+} // namespace blaze4k

@@ -34,7 +34,7 @@ None.
 
 - `src/app/app.cpp:74` samples `frame_dt` **after** the `max_frame_dt` clamp, so the reported `max` can never exceed 250 ms. The plan pinned "after the accumulator clamp"; the hitch count (`over_budget`) still flags such stalls, but the docs do not mention the cap — worth one sentence if precise maxima matter.
 - The short headless `--perf-report` run reports `FAIL` because the first frame absorbs startup (observed: `p99 = 50.520 ms`). This is documented in the output line and the report, and is irrelevant for the owner's full-song run.
-- `perf_loop_test`'s 50 ms `max` constant and 16.67 ms p99 gate are documented design decisions (plan OQ2), with the `TUNDRA_PERF_STRICT=0` escape hatch.
+- `perf_loop_test`'s 50 ms `max` constant and 16.67 ms p99 gate are documented design decisions (plan OQ2), with the `BLAZE4K_PERF_STRICT=0` escape hatch.
 - Headless benchmark is not a GPU/vsync FPS proof; correctly stated in the test banner and docs.
 
 ## Validation Results
@@ -45,7 +45,7 @@ None.
 | Build (`cmake --build build -j16`) | PASS — 0 warnings in `src/`/`tests/` (1940 `warning` lines are all fetched deps) |
 | Tests (`ctest --test-dir build --output-on-failure`) | PASS — 100% out of 34 (0.53 s) |
 | `frame_stats_test` / `app_test` / `perf_loop_test` / `screen_manager_test` | PASS (perf: song Cleared 94 steps, p99 0.006–0.011 ms, hitches 0) |
-| `TUNDRA_PERF_STRICT=0` escape hatch | PASS — prints "advisory only" banner and skips budget assertions (code-verified: `strict = !(env == "0")`); `TUNDRA_PERF_STRICT=1`/unset → strict. No flake under 32 concurrent CPU hogs |
+| `BLAZE4K_PERF_STRICT=0` escape hatch | PASS — prints "advisory only" banner and skips budget assertions (code-verified: `strict = !(env == "0")`); `BLAZE4K_PERF_STRICT=1`/unset → strict. No flake under 32 concurrent CPU hogs |
 | `--perf-report` E2E + `--perf-budget-ms` (valid/invalid/negative/missing) | PASS — invalid values warn and keep default; `--perf-budget-ms 100` → PASS |
 | Purity (`SDL_/glad/miniaudio/chrono/GetTicks/std::time/<ctime>` in `frame_stats.hpp`) | PASS — no matches |
 | Scope (no `gameplay/timing/chart/audio/render/data/input/screens/window.` edits; `FrameStats` only under `src/app/`) | PASS |
@@ -61,7 +61,7 @@ None.
 - **Scope discipline is real, not just asserted.** `git diff --name-only` touches no gameplay/scoring/timing/render/screens/persistence file, and `FrameStats` appears only under `src/app/`; the judgment path remains `MusicClock`.
 - **`frame_stats.hpp` is genuinely pure** — `<algorithm>/<cmath>/<cstddef>/<vector>` only, no SDL/GL/audio/wall-clock, with negative/non-finite samples rejected and an order-independent nearest-rank percentile.
 - **Honest labelling throughout** — the benchmark banner, `docs/BUILDING.md`, and the ✅/⚠️/❌ AC map in `docs/CROSS_PLATFORM_VERIFICATION.md` never present Windows/macOS/pad/feel as verified; the sign-off table leaves owner rows blank.
-- **The escape hatch is real and the gate is not flaky** — `TUNDRA_PERF_STRICT=0` disables budget assertions, and the generous gate held even under heavy CPU contention.
+- **The escape hatch is real and the gate is not flaky** — `BLAZE4K_PERF_STRICT=0` disables budget assertions, and the generous gate held even under heavy CPU contention.
 - Deterministic math is properly unit-tested, and the CLI validation (`isfinite`, `> 0`) rejects NaN/Inf/negative budgets with a readable warning.
 
 ## Recommendation

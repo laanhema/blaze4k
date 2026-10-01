@@ -38,7 +38,7 @@ None.
 ### Suggestions
 
 2. **`src/gameplay/hud_renderer.cpp:92-97` — display clamp is unconditional.** OpenITG clamps only when
-   `m_Last <= m_LastMax` (`PercentageDisplay.cpp:110-111`); Tundra always clamps to `[0,1]`. With v1's no-mods
+   `m_Last <= m_LastMax` (`PercentageDisplay.cpp:110-111`); Blaze 4k always clamps to `[0,1]`. With v1's no-mods
    scope `actual <= possible` always holds (possible is chart-derived, actual is bounded by the same weights), so
    there is no observable difference, but the condition could be carried over for fidelity.
 3. **`src/gameplay/score_keeper.cpp:23-44` — beat-sorted `chart.notes` is an undocumented precondition.** Row

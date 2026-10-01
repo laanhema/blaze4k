@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <limits>
 
-namespace td {
+namespace blaze4k {
 
 namespace {
 
@@ -259,4 +259,4 @@ void LifeKeeper::evaluate_fail() {
     }
 }
 
-} // namespace td
+} // namespace blaze4k

@@ -2,7 +2,7 @@
 
 #include "screens/screen.hpp"
 
-namespace td {
+namespace blaze4k {
 
 // Attract (title loop) screen: an animated logo/receptor loop. Confirm is handled
 // centrally by the ScreenManager (which returns to the origin screen), so this
@@ -19,4 +19,4 @@ private:
     double phase_seconds_ = 0.0;
 };
 
-} // namespace td
+} // namespace blaze4k

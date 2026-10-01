@@ -3,7 +3,7 @@
 ## Summary
 
 Introduce a single, data-driven constants table that holds **every** tunable judgment/scoring number
-for Tundra Dance — Judge-4 timing windows, dance-point (DP) weights, grade weights, grade-boundary
+for Blaze 4k — Judge-4 timing windows, dance-point (DP) weights, grade weights, grade-boundary
 percentages, and life deltas — seeded with values lifted verbatim from OpenITG source and loadable
 from JSON without recompiling (PRD §6 pattern 3). The module is split so the model stays pure and
 free of platform/IO dependencies:
@@ -47,10 +47,10 @@ So that scoring matches real ITG behavior and stays tunable.
 | CMake | 4.4.3 | `cmake --build build -j16` verified working |
 | C++ Compiler | GCC 16.2.1 | C++20; `-Wall -Wextra -Wpedantic` enabled in root CMake |
 | Cores | 16 | `-j16` safe |
-| Dependencies | `build/_deps/` | `nlohmann_json::nlohmann_json` already fetched and linked `PUBLIC` to `tundra_core` (`CMakeLists.txt:40-47,102`) |
+| Dependencies | `build/_deps/` | `nlohmann_json::nlohmann_json` already fetched and linked `PUBLIC` to `blaze4k_core` (`CMakeLists.txt:40-47,102`) |
 | Baseline tests | 9/9 pass | `ctest --test-dir build --output-on-failure` → "100% tests passed out of 9" (0.19s) |
 | Existing JSON use in `src/` | none | `nlohmann/json.hpp` is only used by `tests/sanity_test.cpp`; B2 is the first production JSON loader |
-| `src/data/` | does not exist | Must be created; add dir to `tundra_core` sources |
+| `src/data/` | does not exist | Must be created; add dir to `blaze4k_core` sources |
 | Assets dir | `assets/` exists, empty | Seed JSON goes under `assets/data/` |
 | Upstream source | `/tmp/opencode/openitg` @ `f2c129fe65c65e4a9b3a691ff35e7717b4e8de51` | Cloned for provenance; arcade runtime overrides live in `assets/patch-data/Themes/default/metrics.ini` |
 
@@ -69,11 +69,11 @@ So that scoring matches real ITG behavior and stays tunable.
    therefore the **effective ITG runtime values**. Theme/config metrics override code defaults, so the
    patch-data layer wins.
 
-Tundra seeds the **arcade runtime values** (layer 2) and documents layer 1 where it differs.
+Blaze 4k seeds the **arcade runtime values** (layer 2) and documents layer 1 where it differs.
 
-### Judgment naming map (Tundra ← OpenITG ← StepMania)
+### Judgment naming map (Blaze 4k ← OpenITG ← StepMania)
 
-| Tundra | OpenITG metric name | OpenITG enum | SM legacy |
+| Blaze 4k | OpenITG metric name | OpenITG enum | SM legacy |
 |--------|---------------------|--------------|-----------|
 | Fantastic | `JudgeWindowSecondsMarvelous` | `TNS_MARVELOUS` / `TW_Marvelous` | W1 |
 | Excellent | `JudgeWindowSecondsPerfect` | `TNS_PERFECT` / `TW_Perfect` | W2 |
@@ -86,7 +86,7 @@ Tundra seeds the **arcade runtime values** (layer 2) and documents layer 1 where
 **Window application:** `AdjustedWindowTap` applies `scale` then `add` then an optional per-difficulty
 `fTimingScale` (`src/Player.cpp:34-63`). The arcade patch pins `JudgeWindowScale=1.000000` and
 `JudgeWindowAdd=0.000000` (`metrics.ini:90-91`), so the base windows *are* the Judge-4-tight windows.
-Tundra v1 implements no judge-scaling UI; the constants are used as-is.
+Blaze 4k v1 implements no judge-scaling UI; the constants are used as-is.
 
 **Miss boundary:** a tap is a Miss when `|delta|` exceeds the Way Off window (`TW_Boo`, the widest tap
 window — `src/Player.cpp:43`); there is no separate miss window.
@@ -117,7 +117,7 @@ All values below are transcribed from the cloned OpenITG repository at commit
 
 ### Timing windows (Judge-4-tight, arcade runtime)
 
-| Tundra constant | Value (s) | Upstream key | Source (file:line) |
+| Blaze 4k constant | Value (s) | Upstream key | Source (file:line) |
 |-----------------|-----------|--------------|--------------------|
 | `windows.fantastic` | 0.021500 | `JudgeWindowSecondsMarvelous` | `assets/patch-data/Themes/default/metrics.ini:98` |
 | `windows.excellent` | 0.043000 | `JudgeWindowSecondsPerfect` | `assets/patch-data/Themes/default/metrics.ini:97` |
@@ -136,7 +136,7 @@ the arcade values.
 
 ### DP (percent-score) and grade weights (arcade runtime, identical tables)
 
-| Tundra constant | Value | Upstream key | Source (file:line) |
+| Blaze 4k constant | Value | Upstream key | Source (file:line) |
 |-----------------|-------|--------------|--------------------|
 | `dp_weights.fantastic` | 5 | `PercentScoreWeightMarvelous` | `metrics.ini:122` |
 | `dp_weights.excellent` | 4 | `PercentScoreWeightPerfect` | `metrics.ini:121` |
@@ -154,7 +154,7 @@ Percentage denominator = Fantastic weight: `src/ScoreKeeperMAX2.cpp:352-354`.
 
 ### Life deltas (arcade runtime)
 
-| Tundra constant | Value | Upstream key | Source (file:line) |
+| Blaze 4k constant | Value | Upstream key | Source (file:line) |
 |-----------------|-------|--------------|--------------------|
 | `life.fantastic` | +0.008 | `LifeDeltaPercentChangeMarvelous` | `metrics.ini:132` |
 | `life.excellent` | +0.008 | `LifeDeltaPercentChangePerfect` | `metrics.ini:131` |
@@ -269,12 +269,12 @@ fallback search for repo fixtures (`tests/parser_hardening_test.cpp:83-88`).
 add_executable(music_clock_test
     music_clock_test.cpp
 )
-target_link_libraries(music_clock_test PRIVATE tundra_core)
+target_link_libraries(music_clock_test PRIVATE blaze4k_core)
 add_test(NAME music_clock_test COMMAND music_clock_test)
 ```
 ```cmake
 # SOURCE: CMakeLists.txt:80-93
-add_library(tundra_core STATIC
+add_library(blaze4k_core STATIC
     ...
     src/timing/music_clock.cpp
 )
@@ -293,7 +293,7 @@ add_library(tundra_core STATIC
 | `assets/data/judgment_constants.json` | CREATE | Seeded table with the OpenITG-verified values + `source` provenance string |
 | `src/app/app.hpp` | UPDATE | Store active `JudgmentConstants` + `[[nodiscard]] const JudgmentConstants& judgment_constants() const` |
 | `src/app/app.cpp` | UPDATE | Load constants during `init()` from candidate paths; log result; never block startup |
-| `CMakeLists.txt` | UPDATE | Add `src/timing/judgment_constants.cpp` and `src/data/judgment_constants_loader.cpp` to `tundra_core` |
+| `CMakeLists.txt` | UPDATE | Add `src/timing/judgment_constants.cpp` and `src/data/judgment_constants_loader.cpp` to `blaze4k_core` |
 | `tests/CMakeLists.txt` | UPDATE | Register `judgment_constants_test` |
 | `tests/judgment_constants_test.cpp` | CREATE | Defaults parity vs OpenITG, JSON round-trip, missing/malformed/invalid fallback, boundary classification, grade tiers |
 
@@ -309,7 +309,7 @@ Execute in order. Each task is atomic and verifiable.
 - **Action**: CREATE
 - **Implement**:
   ```cpp
-  namespace td {
+  namespace blaze4k {
 
   enum class TapJudgment { Fantastic, Excellent, Great, Decent, WayOff, Miss, HitMine, Num };
   enum class HoldJudgment { Ok, Ng, Num };
@@ -358,7 +358,7 @@ Execute in order. Each task is atomic and verifiable.
       [[nodiscard]] const GradeTier& grade_for_percent(double percent) const;
   };
 
-  } // namespace td
+  } // namespace blaze4k
   ```
   - Includes: `<array>`, `<string>` only. **No** `<filesystem>`, IO, SDL, or miniaudio (model stays
     pure, mirroring `music_clock.hpp`).
@@ -400,7 +400,7 @@ Execute in order. Each task is atomic and verifiable.
 - **Implement**:
   - Header:
     ```cpp
-    namespace td {
+    namespace blaze4k {
     // Loads from `path`; on any failure returns compiled defaults and appends a
     // [JudgmentConstants] warning to `warning` (when non-null). Never throws.
     [[nodiscard]] JudgmentConstants load_judgment_constants(
@@ -409,7 +409,7 @@ Execute in order. Each task is atomic and verifiable.
     // Startup discovery order; first existing file wins, else defaults.
     [[nodiscard]] JudgmentConstants load_judgment_constants_from_candidates(
         const std::vector<std::filesystem::path>& candidates, std::string* warning = nullptr);
-    } // namespace td
+    } // namespace blaze4k
     ```
   - `.cpp` behavior:
     1. `std::error_code` existence check; missing/unreadable → warn + `compiled_defaults()`.
@@ -468,7 +468,7 @@ Execute in order. Each task is atomic and verifiable.
     startup (AC3).
   - Purely additive; no behavior change to the render/update loop.
 - **Mirror**: `src/app/app.cpp` init logging (`[App] ...` style).
-- **Validate**: `cmake --build build -j16 && ./build/tundra-dance --headless --smoke-test 5` — expect a
+- **Validate**: `cmake --build build -j16 && ./build/blaze-4k --headless --smoke-test 5` — expect a
   `[JudgmentConstants] ...` line and a clean exit.
 
 ### Task 6: Register sources and the test target
@@ -477,9 +477,9 @@ Execute in order. Each task is atomic and verifiable.
 - **Action**: UPDATE
 - **Implement**:
   - Root `CMakeLists.txt`: add `src/data/judgment_constants_loader.cpp` and
-    `src/timing/judgment_constants.cpp` to the `tundra_core` list (after `src/timing/music_clock.cpp`,
+    `src/timing/judgment_constants.cpp` to the `blaze4k_core` list (after `src/timing/music_clock.cpp`,
     line ~92).
-  - `tests/CMakeLists.txt`: append a `judgment_constants_test` executable linking `tundra_core` and
+  - `tests/CMakeLists.txt`: append a `judgment_constants_test` executable linking `blaze4k_core` and
     `add_test(...)`, mirroring the `music_clock_test` block.
 - **Mirror**: `CMakeLists.txt:80-93`, `tests/CMakeLists.txt:82-90`.
 - **Validate**: `cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j16`.
@@ -533,8 +533,8 @@ ctest --test-dir build --output-on-failure
 ./build/tests/judgment_constants_test
 
 # Smoke-run the real entry point with the seed file present and absent
-./build/tundra-dance --headless --smoke-test 5
-mv assets/data/judgment_constants.json /tmp/opencode/jc.json && ./build/tundra-dance --headless --smoke-test 5 \
+./build/blaze-4k --headless --smoke-test 5
+mv assets/data/judgment_constants.json /tmp/opencode/jc.json && ./build/blaze-4k --headless --smoke-test 5 \
   && mv /tmp/opencode/jc.json assets/data/judgment_constants.json
 ```
 
@@ -545,7 +545,7 @@ mv assets/data/judgment_constants.json /tmp/opencode/jc.json && ./build/tundra-d
    5/7/8/9 prove configurability + graceful fallback.
 2. `ctest --test-dir build --output-on-failure` → **10/10**; confirm the 9 prior tests stay green
    (only additive registration changes).
-3. Run `./build/tundra-dance --headless --smoke-test 5` with `assets/data/judgment_constants.json`
+3. Run `./build/blaze-4k --headless --smoke-test 5` with `assets/data/judgment_constants.json`
    present: expect an info `[JudgmentConstants]` line naming the file. Temporarily rename the seed
    file and re-run: expect a warning and a clean startup (fallback), then restore the file.
 4. Enforce module purity:
@@ -602,10 +602,10 @@ mv assets/data/judgment_constants.json /tmp/opencode/jc.json && ./build/tundra-d
 2. **Judgment count/naming.** The issue AC lists only Fantastic/Great/Decent/Way Off/Miss (5), but ITG
    and OpenITG define six tap judgments including **Excellent** (`TNS_PERFECT` / `PercentScoreWeightPerfect=4`).
    Proposed default: model all six (Fantastic, Excellent, Great, Decent, Way Off, Miss). Confirm
-   whether Tundra's HUD should surface Excellent or fold it into Fantastic.
+   whether Blaze 4k's HUD should surface Excellent or fold it into Fantastic.
 3. **Grade example in PRD.** PRD §5 story 2 says "99%+ earns ★★★★"; OpenITG arcade sets four-star
    (quad) = **1.00** and three-star = **0.99**. Proposed default: follow OpenITG (four stars requires
-   100%). Confirm the results-screen star mapping is Tundra's own presentation choice.
+   100%). Confirm the results-screen star mapping is Blaze 4k's own presentation choice.
 4. **Runtime JSON location / precedence.** Proposed: `data/judgment_constants.json` (portable folder
    next to the binary, PRD §9) with `assets/data/judgment_constants.json` as a development fallback.
    Confirm before C4's config module formalizes path resolution.

@@ -3,7 +3,7 @@
 #include <algorithm>
 #include <cmath>
 
-namespace td {
+namespace blaze4k {
 
 namespace {
 
@@ -428,4 +428,4 @@ void JudgmentEngine::emit(const JudgmentEvent& event) {
     events_.push_back(event);
 }
 
-} // namespace td
+} // namespace blaze4k

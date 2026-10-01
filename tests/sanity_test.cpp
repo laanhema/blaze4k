@@ -37,13 +37,13 @@ int main() {
 
     // Test nlohmann::json
     nlohmann::json j;
-    j["title"] = "Tundra Dance";
+    j["title"] = "Blaze 4k";
     j["panels"] = 4;
     j["fps"] = 60;
     
     std::string serialized = j.dump();
     auto parsed = nlohmann::json::parse(serialized);
-    TEST_CHECK(parsed["title"] == "Tundra Dance");
+    TEST_CHECK(parsed["title"] == "Blaze 4k");
     TEST_CHECK(parsed["panels"] == 4);
     TEST_CHECK(parsed["fps"] == 60);
 

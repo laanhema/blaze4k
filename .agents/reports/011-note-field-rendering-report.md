@@ -6,7 +6,7 @@
 
 ## Summary
 
-Built the gameplay rendering foundation for Tundra Dance: a 2D OpenGL 3.3 textured-quad
+Built the gameplay rendering foundation for Blaze 4k: a 2D OpenGL 3.3 textured-quad
 pipeline (`src/render/`) and a gameplay layer (`src/gameplay/`) with pure speed-mod math,
 deterministic note-field layout, a procedural placeholder noteskin, a field renderer, and a
 `GameplayView` host whose time source is exclusively the B1 `MusicClock`. A temporary
@@ -75,7 +75,7 @@ SDL/GL/audio/chrono dependencies.
 
 1. **`NoteFieldConfig` gained `column_width`** (default 64 px). Required by `column_x` /
    `field_width` to implement the resolved decision "columns 64px wide centered". Treated as
-   Tundra-owned placeholder config.
+   Blaze 4k-owned placeholder config.
 2. **`NoteFieldRenderer` is a class with a `render(...)` method**, not a free function. It is a
    member of `GameplayView` per the plan's own struct layout, so a class is the natural shape.
 3. **Per-vertex color instead of a `u_tint` uniform.** Quad color is a vertex attribute, so
@@ -96,7 +96,7 @@ SDL/GL/audio/chrono dependencies.
    value, keeping the field correct across window resizes.
 8. **`GameplayView::init` calls `skin_.init()` internally** (the plan's Task 8 list did not spell
    this out); it is safe/no-op headless. `GlQuadRenderer` remains owned by `main.cpp`.
-9. **Audio could not be verified live.** The fixture `Tundra Anthem/music.ogg` is a 15-byte
+9. **Audio could not be verified live.** The fixture `Blaze Anthem/music.ogg` is a 15-byte
    placeholder; `SoundStream::load` returns `MA_INVALID_FILE` (`error code: -10`) in headless and
    display runs alike. The documented synthetic stub clock therefore always supplies time in the
    demo. E2E step 4's "notes scroll in time with the music" and "C400 constant across a

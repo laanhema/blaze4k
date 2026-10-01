@@ -4,10 +4,10 @@
 #include <SDL3/SDL.h>
 #include <glad/glad.h>
 
-namespace td {
+namespace blaze4k {
 
 struct WindowConfig {
-    std::string title = "Tundra Dance";
+    std::string title = "Blaze 4k";
     int width = 1280;
     int height = 720;
     bool vsync = true;
@@ -48,4 +48,4 @@ private:
     bool is_initialized_ = false;
 };
 
-} // namespace td
+} // namespace blaze4k

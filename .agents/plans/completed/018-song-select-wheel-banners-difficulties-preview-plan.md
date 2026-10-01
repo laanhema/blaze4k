@@ -61,8 +61,8 @@ So that browsing my library feels like the arcade.
 | Audio | `audio_engine.hpp`, `sound_stream.hpp:21-38` | `SoundStream::load/play/seek_seconds/get_position_seconds/get_length_seconds/stop/set_volume`; lazy-inits `AudioEngine`, returns `false` (logs) when no device — safe headless |
 | Input mappings | `input_manager.cpp:36-72` | Arrow keys/DFJK **and** pad D-pad/WEST/SOUTH/NORTH/EAST all map to `Left/Down/Up/Right`; Return/KP_Enter/Start→Confirm; Escape/Back→Back. `MenuUp/Down/Left/Right` are **unmapped** (do not rely on them) |
 | Image decode | `render/texture.hpp:24-27`, `texture.cpp` | Only `from_rgba` / `solid`. `stb_image.h` **is** available at `build/_deps/stb-src/stb_image.h` (stb already FetchContent'd and linked) but no TU defines `STB_IMAGE_IMPLEMENTATION`. No JPG/PNG decode path exists |
-| Fixtures | `tests/fixtures/reference_pack/Tundra Pack/` | 4 songs: Tundra Anthem (5 charts, `.sm`, `SAMPLESTART:30.0`), Aurora Borealis (1 chart), Glacier Groove (1 chart), Northern Lights (2 charts, `.ssc`, `SAMPLESTART:45.0`) |
-| Test registration | `tests/CMakeLists.txt:156-164` | One `add_executable`/`target_link_libraries(... tundra_core)`/`add_test` block per target |
+| Fixtures | `tests/fixtures/reference_pack/Blaze Pack/` | 4 songs: Blaze Anthem (5 charts, `.sm`, `SAMPLESTART:30.0`), Aurora Borealis (1 chart), Glacier Groove (1 chart), Northern Lights (2 charts, `.ssc`, `SAMPLESTART:45.0`) |
+| Test registration | `tests/CMakeLists.txt:156-164` | One `add_executable`/`target_link_libraries(... blaze4k_core)`/`add_test` block per target |
 | Test idiom | `tests/judgment_constants_test.cpp:13-19`, `song_library_test.cpp:7-24,29-135` | `TEST_CHECK`, `std::filesystem::temp_directory_path()` fixtures, synth simfiles, `std::filesystem::remove_all` cleanup |
 
 **Start green, stay green:** 17 tests pass; this plan adds **2** targets (`select_screen_test`,
@@ -216,7 +216,7 @@ double get_position_seconds() const; double get_length_seconds() const; void set
 ```cmake
 # SOURCE: tests/CMakeLists.txt:156-164
 add_executable(select_screen_test select_screen_test.cpp)
-target_link_libraries(select_screen_test PRIVATE tundra_core)
+target_link_libraries(select_screen_test PRIVATE blaze4k_core)
 add_test(NAME select_screen_test COMMAND select_screen_test)
 ```
 
@@ -245,7 +245,7 @@ add_test(NAME select_screen_test COMMAND select_screen_test)
 | `src/screens/screen_manager.cpp` | UPDATE | `handle_back()` and `back_navigates()`: `Gameplay → Select` abort *(OQ9)* |
 | `src/screens/screen_manager.hpp` | UPDATE | (comment only) document Gameplay in the back-navigation contract |
 | `src/main.cpp` | UPDATE | `--songs <dir>`, `--start-screen <name>`, scan library, attach context, register Select/Gameplay, set `input_reference_ns` |
-| `CMakeLists.txt` | UPDATE | Add the six new `.cpp` files to `tundra_core` |
+| `CMakeLists.txt` | UPDATE | Add the six new `.cpp` files to `blaze4k_core` |
 | `tests/CMakeLists.txt` | UPDATE | Register `select_screen_test` and `preview_player_test` |
 | `tests/select_screen_test.cpp` | CREATE | Wheel nav, difficulty nav, best-grade lookup, options derivation, Confirm→Gameplay handoff, empty-library safety |
 | `tests/preview_player_test.cpp` | CREATE | Delay scheduling, cancel-on-nav, stop, loop math, headless no-crash |
@@ -421,11 +421,11 @@ Execute in order. Each task is atomic and verifiable.
 - **Implement**:
   - Add CLI: `--songs <dir>` and `--start-screen <title|select>`; update `print_help()`
     (`main.cpp:26-39`).
-  - Before constructing `App` (or before `shell` setup): `td::SongLibrary library;` resolve the songs
+  - Before constructing `App` (or before `shell` setup): `blaze4k::SongLibrary library;` resolve the songs
     dir = `--songs` if given, else first existing candidate of `songs`, `data/songs`,
     `<exe_dir>/songs`; call `library.scan_directory(dir)` when found; log the count; never fatal.
     Set fallback banner/background only if a file exists (none ships today).
-  - Add `td::PlayRequest play_request;` in `main` scope.
+  - Add `blaze4k::PlayRequest play_request;` in `main` scope.
   - In the shell branch: register `SelectScreen` and `GameplayScreen` instead of
     `SelectPlaceholderScreen` (`main.cpp:240`); attach
     `shell->context().library = &library; shell->context().constants = &app.judgment_constants();
@@ -441,7 +441,7 @@ Execute in order. Each task is atomic and verifiable.
 
 - **Files**: `CMakeLists.txt`, `tests/CMakeLists.txt`
 - **Action**: UPDATE
-- **Implement**: add to the `tundra_core` list (`CMakeLists.txt:80-111`):
+- **Implement**: add to the `blaze4k_core` list (`CMakeLists.txt:80-111`):
   `src/gameplay/gameplay_options.cpp`, `src/render/stb_image_impl.cpp`,
   `src/render/texture_cache.cpp`, `src/audio/preview_player.cpp`,
   `src/screens/select_screen.cpp`, `src/screens/gameplay_screen.cpp`.
@@ -526,16 +526,16 @@ All steps are headless, non-blocking (no window, no GL, no audio device required
 
 1. **Scan a real library and boot straight into Select** (AC 1 + wiring):
    ```bash
-   rm -rf /tmp/td-e2e-select
-   ./build/tundra-dance --headless --smoke-test 30 \
-     --start-screen select --songs tests/fixtures/reference_pack --data-dir /tmp/td-e2e-select
+   rm -rf /tmp/blaze4k-e2e-select
+   ./build/blaze-4k --headless --smoke-test 30 \
+     --start-screen select --songs tests/fixtures/reference_pack --data-dir /tmp/blaze4k-e2e-select
    # exits 0; logs "[SongLibrary] ...", "[SelectScreen] library: 4 songs, 6 charts",
    # "[ScreenManager] enter Select"; no window/GL/audio device needed
    ```
 2. **Empty/missing library never crashes** (AC 1 robustness):
    ```bash
-   ./build/tundra-dance --headless --smoke-test 10 --start-screen select \
-     --songs /tmp/does-not-exist --data-dir /tmp/td-e2e-select; echo "exit=$?"
+   ./build/blaze-4k --headless --smoke-test 10 --start-screen select \
+     --songs /tmp/does-not-exist --data-dir /tmp/blaze4k-e2e-select; echo "exit=$?"
    # exit 0; logs a SongLibrary warning and "[SelectScreen] library: 0 songs"
    ```
 3. **Wheel + difficulty + best grade + Confirm→Gameplay** (AC 3/4/5) — driven by synthetic input
@@ -552,7 +552,7 @@ All steps are headless, non-blocking (no window, no GL, no audio device required
    # asserts request→Waiting→load attempted only after the delay, cancel-on-nav resets the timer,
    # duplicate/re-request replaces the pending track, stop() cancels, and a missing file never crashes
    ```
-5. **Preview uses `sample_start`** (AC 2 provenance): `Tundra Anthem` declares `#SAMPLESTART:30.0;`
+5. **Preview uses `sample_start`** (AC 2 provenance): `Blaze Anthem` declares `#SAMPLESTART:30.0;`
    and `Northern Lights` declares `#SAMPLESTART:45.0;` (fixtures). The preview request helper passes
    `metadata.sample_start`; `select_screen_test` case 1 exercises the request on a fixture with a
    nonzero sample start (asserts `requested_path()` non-empty and the start value flows through).
@@ -560,8 +560,8 @@ All steps are headless, non-blocking (no window, no GL, no audio device required
    `metronome_sync_test`, `music_clock_test`, `judgment_engine_test`, and `config_persistence_test`;
    the demo harness still runs and gameplay timing is untouched:
    ```bash
-   ./build/tundra-dance --headless --gameplay-demo \
-     "tests/fixtures/reference_pack/Tundra Pack/Tundra Anthem/Tundra Anthem.sm" --smoke-test 60
+   ./build/blaze-4k --headless --gameplay-demo \
+     "tests/fixtures/reference_pack/Blaze Pack/Blaze Anthem/Blaze Anthem.sm" --smoke-test 60
    ```
 7. `git status` shows only additions under `src/screens/`, `src/audio/`, `src/render/`, `src/gameplay/`,
    the `screen.hpp`/`gameplay_view.hpp`/`screen_manager.*`/`main.cpp` edits, the CMake files, and the

@@ -7,7 +7,7 @@
 #include "gameplay/judgment.hpp"
 #include "timing/judgment_constants.hpp"
 
-namespace td {
+namespace blaze4k {
 
 // Live life derived solely from the B4 judgment log (PRD section 6 pattern 2).
 //
@@ -90,4 +90,4 @@ private:
     LifeState state_;
 };
 
-} // namespace td
+} // namespace blaze4k

@@ -20,7 +20,7 @@ int main() {
     // 1. Test 4-panel note types (Taps, Holds, Rolls, Mines)
     std::string sm_content = 
         "#TITLE:Rhythm Test;\n"
-        "#ARTIST:Tundra Beats;\n"
+        "#ARTIST:Blaze Beats;\n"
         "#OFFSET:0.000000;\n"
         "#BPMS:0.000=120.000;\n"
         "#NOTES:\n"
@@ -40,11 +40,11 @@ int main() {
         "1001\n" // Beat 7: Jump (Taps col 0 and 3)
         ";\n";
 
-    td::SimfileParser parser;
+    blaze4k::SimfileParser parser;
     TEST_CHECK(parser.parse_string(sm_content, ".sm"));
     TEST_CHECK(parser.charts().size() == 1);
 
-    const td::Chart& chart = parser.charts()[0];
+    const blaze4k::Chart& chart = parser.charts()[0];
     TEST_CHECK(chart.steps_type == "dance-single");
     TEST_CHECK(chart.difficulty == "Challenge");
     TEST_CHECK(chart.meter == 10);
@@ -58,7 +58,7 @@ int main() {
     bool found_hold = false;
     bool found_roll = false;
     for (const auto& note : chart.notes) {
-        if (note.type == td::NoteType::HoldHead) {
+        if (note.type == blaze4k::NoteType::HoldHead) {
             found_hold = true;
             TEST_CHECK(note.column == 1);
             TEST_CHECK(std::abs(note.beat - 1.0) < 1e-4);
@@ -66,7 +66,7 @@ int main() {
             // 120 BPM: 1 beat = 0.5s. Hold head at 0.5s, tail at 2.0s
             TEST_CHECK(std::abs(note.time_seconds - 0.5) < 1e-4);
             TEST_CHECK(std::abs(note.hold_end_time_seconds - 2.0) < 1e-4);
-        } else if (note.type == td::NoteType::RollHead) {
+        } else if (note.type == blaze4k::NoteType::RollHead) {
             found_roll = true;
             TEST_CHECK(note.column == 2);
             TEST_CHECK(std::abs(note.beat - 2.0) < 1e-4);
@@ -98,7 +98,7 @@ int main() {
         "     ::::\n"
         "1111\n1111\n1111\n1111\n;\n";
 
-    td::SimfileParser multi_parser;
+    blaze4k::SimfileParser multi_parser;
     TEST_CHECK(multi_parser.parse_string(multi_diff_sm, ".sm"));
     TEST_CHECK(multi_parser.charts().size() == 2);
     TEST_CHECK(multi_parser.charts()[0].difficulty == "Beginner");
@@ -119,15 +119,15 @@ int main() {
         "     ::::\n"
         "10000000\n00000000\n00000000\n00000000\n;\n";
 
-    td::SimfileParser double_parser;
+    blaze4k::SimfileParser double_parser;
     TEST_CHECK(double_parser.parse_string(double_sm, ".sm"));
     TEST_CHECK(double_parser.charts().empty()); // dance-double rejected gracefully
     std::cout << "  - Non-4-panel (dance-double) rejected gracefully without crash.\n";
 
     // 4. Test Exotic Timing Rejection
-    td::TimingData negative_bpm_timing;
+    blaze4k::TimingData negative_bpm_timing;
     negative_bpm_timing.add_bpm(0.0, -120.0);
-    auto exotic_res = td::NoteParser::parse_4panel_notedata(
+    auto exotic_res = blaze4k::NoteParser::parse_4panel_notedata(
         "dance-single", "", "Hard", 8, "1000\n0000\n0000\n0000\n", negative_bpm_timing
     );
     TEST_CHECK(!exotic_res.has_value());
@@ -145,7 +145,7 @@ int main() {
         "#NOTES:\n"
         "1000\n0100\n0010\n0001\n;\n";
 
-    td::SimfileParser ssc_parser;
+    blaze4k::SimfileParser ssc_parser;
     TEST_CHECK(ssc_parser.parse_string(ssc_content, ".ssc"));
     TEST_CHECK(ssc_parser.charts().size() == 1);
     TEST_CHECK(ssc_parser.charts()[0].difficulty == "Hard");
@@ -154,16 +154,16 @@ int main() {
     std::cout << "  - SSC chart block parsed successfully.\n";
 
     // 6. OpenITG beat-subdivision buckets (ITG note colors) from a row index.
-    TEST_CHECK(td::quantization_for_row(0) == td::NoteQuantization::Fourth);
-    TEST_CHECK(td::quantization_for_row(48) == td::NoteQuantization::Fourth);
-    TEST_CHECK(td::quantization_for_row(24) == td::NoteQuantization::Eighth);
-    TEST_CHECK(td::quantization_for_row(16) == td::NoteQuantization::Twelfth);
-    TEST_CHECK(td::quantization_for_row(12) == td::NoteQuantization::Sixteenth);
-    TEST_CHECK(td::quantization_for_row(8) == td::NoteQuantization::TwentyFourth);
-    TEST_CHECK(td::quantization_for_row(6) == td::NoteQuantization::ThirtySecond);
-    TEST_CHECK(td::quantization_for_row(4) == td::NoteQuantization::FortyEighth);
-    TEST_CHECK(td::quantization_for_row(3) == td::NoteQuantization::SixtyFourth);
-    TEST_CHECK(td::quantization_for_row(1) == td::NoteQuantization::OneNinetySecond);
+    TEST_CHECK(blaze4k::quantization_for_row(0) == blaze4k::NoteQuantization::Fourth);
+    TEST_CHECK(blaze4k::quantization_for_row(48) == blaze4k::NoteQuantization::Fourth);
+    TEST_CHECK(blaze4k::quantization_for_row(24) == blaze4k::NoteQuantization::Eighth);
+    TEST_CHECK(blaze4k::quantization_for_row(16) == blaze4k::NoteQuantization::Twelfth);
+    TEST_CHECK(blaze4k::quantization_for_row(12) == blaze4k::NoteQuantization::Sixteenth);
+    TEST_CHECK(blaze4k::quantization_for_row(8) == blaze4k::NoteQuantization::TwentyFourth);
+    TEST_CHECK(blaze4k::quantization_for_row(6) == blaze4k::NoteQuantization::ThirtySecond);
+    TEST_CHECK(blaze4k::quantization_for_row(4) == blaze4k::NoteQuantization::FortyEighth);
+    TEST_CHECK(blaze4k::quantization_for_row(3) == blaze4k::NoteQuantization::SixtyFourth);
+    TEST_CHECK(blaze4k::quantization_for_row(1) == blaze4k::NoteQuantization::OneNinetySecond);
     std::cout << "  - Quantization buckets match OpenITG GetNoteType.\n";
 
     // 7. Quantization is attached per note from its row within the measure.
@@ -186,15 +186,15 @@ int main() {
         "0001\n" // beat 3.5 -> 8th
         ";\n";
 
-    td::SimfileParser quant_parser;
+    blaze4k::SimfileParser quant_parser;
     TEST_CHECK(quant_parser.parse_string(quant_sm, ".sm"));
     TEST_CHECK(quant_parser.charts().size() == 1);
-    const td::Chart& quant_chart = quant_parser.charts()[0];
+    const blaze4k::Chart& quant_chart = quant_parser.charts()[0];
     TEST_CHECK(quant_chart.notes.size() == 8);
-    TEST_CHECK(quant_chart.notes[0].quantization == td::NoteQuantization::Fourth);
-    TEST_CHECK(quant_chart.notes[1].quantization == td::NoteQuantization::Eighth);
-    TEST_CHECK(quant_chart.notes[2].quantization == td::NoteQuantization::Fourth);
-    TEST_CHECK(quant_chart.notes[3].quantization == td::NoteQuantization::Eighth);
+    TEST_CHECK(quant_chart.notes[0].quantization == blaze4k::NoteQuantization::Fourth);
+    TEST_CHECK(quant_chart.notes[1].quantization == blaze4k::NoteQuantization::Eighth);
+    TEST_CHECK(quant_chart.notes[2].quantization == blaze4k::NoteQuantization::Fourth);
+    TEST_CHECK(quant_chart.notes[3].quantization == blaze4k::NoteQuantization::Eighth);
     std::cout << "  - Notes carry the quantization of their measure row.\n";
 
     std::cout << "[note_parser_test] All note parser tests passed successfully!\n";

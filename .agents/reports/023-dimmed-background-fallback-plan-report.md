@@ -48,21 +48,21 @@ scrim (no procedural gradient).
 ### Verbatim key output
 
 ```
-$ ./build/tundra-dance --headless --smoke-test 30 \
-    --gameplay-demo "tests/fixtures/reference_pack/Tundra Pack/Glacier Groove/Glacier Groove.sm"
+$ ./build/blaze-4k --headless --smoke-test 30 \
+    --gameplay-demo "tests/fixtures/reference_pack/Blaze Pack/Glacier Groove/Glacier Groove.sm"
 [main] Fallback background: assets/backgrounds/fallback.png
-[BackgroundRenderer] background 'tests/fixtures/reference_pack/Tundra Pack/Glacier Groove/bg.png'
+[BackgroundRenderer] background 'tests/fixtures/reference_pack/Blaze Pack/Glacier Groove/bg.png'
 [BackgroundRenderer] background texture unavailable (headless/no GL or decode failure); scrim-only fallback
 [GameplayView] Loaded chart 'Medium' (meter 4): taps=4 holds=0 rolls=0 mines=0 total=4
-Tundra Dance shut down cleanly.        (EXIT=0)
+Blaze 4k shut down cleanly.        (EXIT=0)
 
-$ ./build/tundra-dance --headless --smoke-test 30 \
-    --gameplay-demo "tests/fixtures/reference_pack/Tundra Pack/Aurora Borealis/Aurora Borealis.sm"
+$ ./build/blaze-4k --headless --smoke-test 30 \
+    --gameplay-demo "tests/fixtures/reference_pack/Blaze Pack/Aurora Borealis/Aurora Borealis.sm"
 [main] Fallback background: assets/backgrounds/fallback.png
 [BackgroundRenderer] background 'assets/backgrounds/fallback.png'
 [BackgroundRenderer] background texture unavailable (headless/no GL or decode failure); scrim-only fallback
 [GameplayView] Loaded chart 'Easy' (meter 2): taps=4 holds=0 rolls=0 mines=0 total=4
-Tundra Dance shut down cleanly.        (EXIT=0)
+Blaze 4k shut down cleanly.        (EXIT=0)
 ```
 
 ## Files Changed
@@ -95,10 +95,10 @@ The user overrode the plan's open questions; these decisions win and drive the d
    and `init()` was removed (nothing to build). The only safety path is a dark solid + scrim when
    the path is empty/load fails/headless.
 2. **OQ4 overridden — `set_fallback_background` is wired.** `main` resolves the asset via
-   `td::resolve_first_existing({cwd candidates..., exe_dir/assets/backgrounds/fallback.png})` and
+   `blaze4k::resolve_first_existing({cwd candidates..., exe_dir/assets/backgrounds/fallback.png})` and
    calls `library.set_fallback_background(...)` **before** `library.scan_directory(...)`.
    `set_fallback_banner` is untouched.
-3. **New helper `td::resolve_first_existing`** in `src/data/data_paths.hpp/.cpp` (not in the plan's
+3. **New helper `blaze4k::resolve_first_existing`** in `src/data/data_paths.hpp/.cpp` (not in the plan's
    file list) to mirror the existing `data/judgment_constants.json` / `assets/data/...` candidate
    discovery pattern; used by `main` and directly unit-tested. This is the minimal shared seam for
    runtime-plus-test asset discovery.
@@ -106,7 +106,7 @@ The user overrode the plan's open questions; these decisions win and drive the d
    finds `assets/backgrounds/fallback.png`.
 5. **Demo parity** — `--gameplay-demo` resolves `metadata().background_path` relative to the simfile
    and falls back to the committed asset when absent.
-6. **Test `TUNDRA_ASSETS_DIR` compile definition** added for `background_test` so the committed asset
+6. **Test `BLAZE4K_ASSETS_DIR` compile definition** added for `background_test` so the committed asset
    is found from the out-of-tree test cwd (`build/tests`).
 7. **`GameplayView::init` background load is just `background_.load(path)`** (no `init()` call),
    since there is no procedural texture to build.

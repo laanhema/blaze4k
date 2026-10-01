@@ -4,7 +4,7 @@
 
 #include "render/gl_quad_renderer.hpp"
 
-namespace td {
+namespace blaze4k {
 
 namespace {
 
@@ -128,4 +128,4 @@ void draw_text_centered(GlQuadRenderer& renderer, const std::string& text, float
     draw_text(renderer, text, center_x - text_width(text, pixel) * 0.5f, y, pixel, color);
 }
 
-} // namespace td
+} // namespace blaze4k

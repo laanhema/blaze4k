@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace td {
+namespace blaze4k {
 
 PreviewPlayer::PreviewPlayer() = default;
 
@@ -67,4 +67,4 @@ void PreviewPlayer::set_volume(float volume) {
     stream().set_volume(volume_);
 }
 
-} // namespace td
+} // namespace blaze4k

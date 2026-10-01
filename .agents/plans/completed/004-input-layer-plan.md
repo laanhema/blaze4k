@@ -45,7 +45,7 @@ So that hit deltas are accurate to the hardware event rather than the frame boun
 | `src/input/input_manager.cpp` | CREATE | Event processing, timestamp capture, and gamepad hotplug |
 | `src/app/app.hpp` | UPDATE | Expose InputManager in App |
 | `src/app/app.cpp` | UPDATE | Process input events via InputManager |
-| `CMakeLists.txt` | UPDATE | Add input sources to `tundra_core` |
+| `CMakeLists.txt` | UPDATE | Add input sources to `blaze4k_core` |
 | `tests/input_test.cpp` | CREATE | Unit tests for input mapping, timestamps, and hotplug |
 | `tests/CMakeLists.txt` | UPDATE | Add `input_test` executable |
 
@@ -72,7 +72,7 @@ So that hit deltas are accurate to the hardware event rather than the frame boun
 ### Task 3: Integrate with `App` and `CMakeLists.txt`
 - **Files**: `src/app/app.hpp`, `src/app/app.cpp`, `CMakeLists.txt`
 - **Action**: UPDATE
-- **Implement**: Forward SDL events to `InputManager` in `App::process_events()`, add input sources to `tundra_core`.
+- **Implement**: Forward SDL events to `InputManager` in `App::process_events()`, add input sources to `blaze4k_core`.
 
 ### Task 4: Unit tests in `tests/input_test.cpp`
 - **Files**: `tests/input_test.cpp`, `tests/CMakeLists.txt`
@@ -87,7 +87,7 @@ So that hit deltas are accurate to the hardware event rather than the frame boun
 ### Task 5: Validate and End-to-End Verification
 - `cmake --build build`
 - `ctest --test-dir build --output-on-failure`
-- `./build/tundra-dance --smoke-test 10`
+- `./build/blaze-4k --smoke-test 10`
 
 ---
 
@@ -96,7 +96,7 @@ So that hit deltas are accurate to the hardware event rather than the frame boun
 ```bash
 cmake --build build
 ctest --test-dir build --output-on-failure
-./build/tundra-dance --smoke-test 10
+./build/blaze-4k --smoke-test 10
 ```
 
 ## Acceptance Criteria

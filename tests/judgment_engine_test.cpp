@@ -24,9 +24,9 @@ bool approx(double a, double b, double epsilon = 1e-9) {
     return std::abs(a - b) < epsilon;
 }
 
-td::Note make_note(int column, double time_seconds, td::NoteType type,
+blaze4k::Note make_note(int column, double time_seconds, blaze4k::NoteType type,
                    double hold_end_time = 0.0) {
-    td::Note note;
+    blaze4k::Note note;
     note.column = column;
     note.beat = time_seconds;
     note.time_seconds = time_seconds;
@@ -45,53 +45,53 @@ std::array<bool, 4> held_col(int column) {
     return held;
 }
 
-const td::JudgmentConstants& constants() {
-    return td::JudgmentConstants::compiled_defaults();
+const blaze4k::JudgmentConstants& constants() {
+    return blaze4k::JudgmentConstants::compiled_defaults();
 }
 
 } // namespace
 
 int main() {
     std::cout << "[judgment_engine_test] Starting judgment engine tests...\n";
-    const td::JudgmentConstants& k = constants();
+    const blaze4k::JudgmentConstants& k = constants();
 
     // 1. Tap classification + exact event fields. Each case uses a fresh note.
     {
         const double note_time = 2.0;
         struct Case {
             double delta;
-            td::TapJudgment expected;
+            blaze4k::TapJudgment expected;
         };
         const Case cases[] = {
-            {0.0, td::TapJudgment::Fantastic},
-            {(k.windows.fantastic + k.windows.excellent) / 2.0, td::TapJudgment::Excellent},
-            {(k.windows.excellent + k.windows.great) / 2.0, td::TapJudgment::Great},
-            {(k.windows.great + k.windows.decent) / 2.0, td::TapJudgment::Decent},
-            {(k.windows.decent + k.windows.way_off) / 2.0, td::TapJudgment::WayOff},
+            {0.0, blaze4k::TapJudgment::Fantastic},
+            {(k.windows.fantastic + k.windows.excellent) / 2.0, blaze4k::TapJudgment::Excellent},
+            {(k.windows.excellent + k.windows.great) / 2.0, blaze4k::TapJudgment::Great},
+            {(k.windows.great + k.windows.decent) / 2.0, blaze4k::TapJudgment::Decent},
+            {(k.windows.decent + k.windows.way_off) / 2.0, blaze4k::TapJudgment::WayOff},
         };
         for (const Case& c : cases) {
-            td::Chart chart;
-            chart.notes.push_back(make_note(1, note_time, td::NoteType::Tap));
-            td::JudgmentEngine engine;
+            blaze4k::Chart chart;
+            chart.notes.push_back(make_note(1, note_time, blaze4k::NoteType::Tap));
+            blaze4k::JudgmentEngine engine;
             engine.reset(&chart, &k);
             engine.handle_step(1, note_time + c.delta);
 
             TEST_CHECK(engine.events().size() == 1);
-            const td::JudgmentEvent& e = engine.events().front();
-            TEST_CHECK(e.kind == td::JudgmentKind::Tap);
+            const blaze4k::JudgmentEvent& e = engine.events().front();
+            TEST_CHECK(e.kind == blaze4k::JudgmentKind::Tap);
             TEST_CHECK(e.column == 1);
             TEST_CHECK(approx(e.note_time_seconds, note_time));
             TEST_CHECK(approx(e.hit_time_seconds, note_time + c.delta));
             TEST_CHECK(approx(e.delta_ms, c.delta * 1000.0, 1e-6));
             TEST_CHECK(e.window == c.expected);
-            TEST_CHECK(e.note_type == td::NoteType::Tap);
+            TEST_CHECK(e.note_type == blaze4k::NoteType::Tap);
             TEST_CHECK(e.note_index == 0);
         }
 
         // A step beyond Way Off yields TNS_NONE: no event at all.
-        td::Chart chart;
-        chart.notes.push_back(make_note(1, note_time, td::NoteType::Tap));
-        td::JudgmentEngine engine;
+        blaze4k::Chart chart;
+        chart.notes.push_back(make_note(1, note_time, blaze4k::NoteType::Tap));
+        blaze4k::JudgmentEngine engine;
         engine.reset(&chart, &k);
         engine.handle_step(1, note_time + k.windows.way_off + 0.01);
         TEST_CHECK(engine.events().empty());
@@ -101,18 +101,18 @@ int main() {
     // 2. Delta sign: negative = early, positive = late.
     {
         {
-            td::Chart chart;
-            chart.notes.push_back(make_note(0, 2.0, td::NoteType::Tap));
-            td::JudgmentEngine engine;
+            blaze4k::Chart chart;
+            chart.notes.push_back(make_note(0, 2.0, blaze4k::NoteType::Tap));
+            blaze4k::JudgmentEngine engine;
             engine.reset(&chart, &k);
             engine.handle_step(0, 1.95);
             TEST_CHECK(engine.events().size() == 1);
             TEST_CHECK(engine.events().front().delta_ms < 0.0);
         }
         {
-            td::Chart chart;
-            chart.notes.push_back(make_note(0, 2.0, td::NoteType::Tap));
-            td::JudgmentEngine engine;
+            blaze4k::Chart chart;
+            chart.notes.push_back(make_note(0, 2.0, blaze4k::NoteType::Tap));
+            blaze4k::JudgmentEngine engine;
             engine.reset(&chart, &k);
             engine.handle_step(0, 2.05);
             TEST_CHECK(engine.events().size() == 1);
@@ -123,9 +123,9 @@ int main() {
 
     // 3. Miss expiry (deterministic, per-note) and no Miss after a hit.
     {
-        td::Chart chart;
-        chart.notes.push_back(make_note(0, 2.0, td::NoteType::Tap));
-        td::JudgmentEngine engine;
+        blaze4k::Chart chart;
+        chart.notes.push_back(make_note(0, 2.0, blaze4k::NoteType::Tap));
+        blaze4k::JudgmentEngine engine;
         engine.reset(&chart, &k);
 
         engine.update(2.0 + k.windows.way_off - 0.001, held_none()); // just before threshold
@@ -133,107 +133,107 @@ int main() {
 
         engine.update(2.0 + k.windows.way_off + 1e-3, held_none());
         TEST_CHECK(engine.events().size() == 1);
-        const td::JudgmentEvent& e = engine.events().front();
-        TEST_CHECK(e.kind == td::JudgmentKind::Miss);
-        TEST_CHECK(e.window == td::TapJudgment::Miss);
+        const blaze4k::JudgmentEvent& e = engine.events().front();
+        TEST_CHECK(e.kind == blaze4k::JudgmentKind::Miss);
+        TEST_CHECK(e.window == blaze4k::TapJudgment::Miss);
         TEST_CHECK(approx(e.hit_time_seconds, 2.0 + k.windows.way_off));
         TEST_CHECK(approx(e.delta_ms, k.windows.way_off * 1000.0, 1e-6));
 
-        td::Chart chart2;
-        chart2.notes.push_back(make_note(0, 2.0, td::NoteType::Tap));
-        td::JudgmentEngine engine2;
+        blaze4k::Chart chart2;
+        chart2.notes.push_back(make_note(0, 2.0, blaze4k::NoteType::Tap));
+        blaze4k::JudgmentEngine engine2;
         engine2.reset(&chart2, &k);
         engine2.handle_step(0, 2.0);
         engine2.update(3.0, held_none());
         TEST_CHECK(engine2.events().size() == 1);
-        TEST_CHECK(engine2.events().front().kind == td::JudgmentKind::Tap);
+        TEST_CHECK(engine2.events().front().kind == blaze4k::JudgmentKind::Tap);
         std::cout << "  - Untouched tap expires as Miss; hit tap never misses.\n";
     }
 
     // 4. Mines: in-window hit, out-of-window none, untouched avoided (never Miss).
     {
-        td::Chart chart;
-        chart.notes.push_back(make_note(2, 2.0, td::NoteType::Mine));
-        td::JudgmentEngine engine;
+        blaze4k::Chart chart;
+        chart.notes.push_back(make_note(2, 2.0, blaze4k::NoteType::Mine));
+        blaze4k::JudgmentEngine engine;
         engine.reset(&chart, &k);
         engine.handle_step(2, 2.0 + k.windows.hit_mine - 0.01);
         TEST_CHECK(engine.events().size() == 1);
-        TEST_CHECK(engine.events().front().kind == td::JudgmentKind::HitMine);
-        TEST_CHECK(engine.events().front().window == td::TapJudgment::HitMine);
+        TEST_CHECK(engine.events().front().kind == blaze4k::JudgmentKind::HitMine);
+        TEST_CHECK(engine.events().front().window == blaze4k::TapJudgment::HitMine);
     }
     {
-        td::Chart chart;
-        chart.notes.push_back(make_note(2, 2.0, td::NoteType::Mine));
-        td::JudgmentEngine engine;
+        blaze4k::Chart chart;
+        chart.notes.push_back(make_note(2, 2.0, blaze4k::NoteType::Mine));
+        blaze4k::JudgmentEngine engine;
         engine.reset(&chart, &k);
         engine.handle_step(2, 2.0 + k.windows.hit_mine + 0.01);
         TEST_CHECK(engine.events().empty());
     }
     {
-        td::Chart chart;
-        chart.notes.push_back(make_note(2, 2.0, td::NoteType::Mine));
-        td::JudgmentEngine engine;
+        blaze4k::Chart chart;
+        chart.notes.push_back(make_note(2, 2.0, blaze4k::NoteType::Mine));
+        blaze4k::JudgmentEngine engine;
         engine.reset(&chart, &k);
         engine.update(2.0 + k.windows.way_off + 1e-3, held_none());
         TEST_CHECK(engine.events().size() == 1);
-        TEST_CHECK(engine.events().front().kind == td::JudgmentKind::AvoidedMine);
-        TEST_CHECK(engine.events().front().kind != td::JudgmentKind::Miss);
+        TEST_CHECK(engine.events().front().kind == blaze4k::JudgmentKind::AvoidedMine);
+        TEST_CHECK(engine.events().front().kind != blaze4k::JudgmentKind::Miss);
         std::cout << "  - Mine hit/avoid semantics match the pinned window.\n";
     }
 
     // 5. Hold OK: head hit at Great, held through the end.
     {
-        td::Chart chart;
-        chart.notes.push_back(make_note(0, 2.0, td::NoteType::HoldHead, 4.0));
-        td::JudgmentEngine engine;
+        blaze4k::Chart chart;
+        chart.notes.push_back(make_note(0, 2.0, blaze4k::NoteType::HoldHead, 4.0));
+        blaze4k::JudgmentEngine engine;
         engine.reset(&chart, &k);
         engine.handle_step(0, 2.08);
         TEST_CHECK(engine.events().size() == 1);
-        TEST_CHECK(engine.events().front().window == td::TapJudgment::Great);
+        TEST_CHECK(engine.events().front().window == blaze4k::TapJudgment::Great);
 
         engine.update(4.0, held_col(0));
         TEST_CHECK(engine.events().size() == 2);
-        const td::JudgmentEvent& hold = engine.events().back();
-        TEST_CHECK(hold.kind == td::JudgmentKind::HoldOk);
-        TEST_CHECK(hold.hold == td::HoldJudgment::Ok);
+        const blaze4k::JudgmentEvent& hold = engine.events().back();
+        TEST_CHECK(hold.kind == blaze4k::JudgmentKind::HoldOk);
+        TEST_CHECK(hold.hold == blaze4k::HoldJudgment::Ok);
         std::cout << "  - Hold held through the end scores HoldOk.\n";
     }
 
     // 6. Hold NG: head hit, then released beyond the OK window.
     {
-        td::Chart chart;
-        chart.notes.push_back(make_note(0, 2.0, td::NoteType::HoldHead, 4.0));
-        td::JudgmentEngine engine;
+        blaze4k::Chart chart;
+        chart.notes.push_back(make_note(0, 2.0, blaze4k::NoteType::HoldHead, 4.0));
+        blaze4k::JudgmentEngine engine;
         engine.reset(&chart, &k);
         engine.handle_step(0, 2.0);
         engine.update(2.0 + k.windows.hold_ok + 0.01, held_none());
         TEST_CHECK(engine.events().size() == 2);
-        TEST_CHECK(engine.events().back().kind == td::JudgmentKind::HoldNg);
-        TEST_CHECK(engine.events().back().hold == td::HoldJudgment::Ng);
+        TEST_CHECK(engine.events().back().kind == blaze4k::JudgmentKind::HoldNg);
+        TEST_CHECK(engine.events().back().hold == blaze4k::HoldJudgment::Ng);
 
         // An early head hit starts the hold clock at the note row, not at the
         // early hit time: no life is lost before the hold begins.
-        td::Chart early_chart;
-        early_chart.notes.push_back(make_note(0, 2.0, td::NoteType::HoldHead, 4.0));
-        td::JudgmentEngine early_engine;
+        blaze4k::Chart early_chart;
+        early_chart.notes.push_back(make_note(0, 2.0, blaze4k::NoteType::HoldHead, 4.0));
+        blaze4k::JudgmentEngine early_engine;
         early_engine.reset(&early_chart, &k);
         early_engine.handle_step(0, 1.9); // early head hit
         early_engine.update(2.31, held_none());
         TEST_CHECK(early_engine.events().size() == 1); // still pending, not NG
         early_engine.update(2.33, held_none());
-        TEST_CHECK(early_engine.events().back().kind == td::JudgmentKind::HoldNg);
+        TEST_CHECK(early_engine.events().back().kind == blaze4k::JudgmentKind::HoldNg);
         std::cout << "  - Hold released past the OK window scores HoldNg.\n";
     }
 
     // 7. Missed hold head: only a Miss event, never an OK/NG.
     {
-        td::Chart chart;
-        chart.notes.push_back(make_note(0, 2.0, td::NoteType::HoldHead, 4.0));
-        td::JudgmentEngine engine;
+        blaze4k::Chart chart;
+        chart.notes.push_back(make_note(0, 2.0, blaze4k::NoteType::HoldHead, 4.0));
+        blaze4k::JudgmentEngine engine;
         engine.reset(&chart, &k);
         engine.update(2.0 + k.windows.way_off + 1e-3, held_none());
         TEST_CHECK(engine.events().size() == 1);
-        TEST_CHECK(engine.events().front().kind == td::JudgmentKind::Miss);
+        TEST_CHECK(engine.events().front().kind == blaze4k::JudgmentKind::Miss);
 
         engine.update(4.5, held_col(0));
         TEST_CHECK(engine.events().size() == 1);
@@ -243,9 +243,9 @@ int main() {
     // 7b. An active hold keeps its body after the head is judged away; once the
     // hold resolves (OK/NG) or its head is missed, it is no longer in progress.
     {
-        td::Chart chart;
-        chart.notes.push_back(make_note(0, 2.0, td::NoteType::HoldHead, 4.0));
-        td::JudgmentEngine engine;
+        blaze4k::Chart chart;
+        chart.notes.push_back(make_note(0, 2.0, blaze4k::NoteType::HoldHead, 4.0));
+        blaze4k::JudgmentEngine engine;
         engine.reset(&chart, &k);
 
         TEST_CHECK(!engine.is_hold_in_progress(0)); // head not hit yet
@@ -255,9 +255,9 @@ int main() {
         engine.update(4.0, held_col(0));            // tail reached -> HoldOk
         TEST_CHECK(!engine.is_hold_in_progress(0)); // resolved
 
-        td::Chart missed_chart;
-        missed_chart.notes.push_back(make_note(0, 2.0, td::NoteType::HoldHead, 4.0));
-        td::JudgmentEngine missed_engine;
+        blaze4k::Chart missed_chart;
+        missed_chart.notes.push_back(make_note(0, 2.0, blaze4k::NoteType::HoldHead, 4.0));
+        blaze4k::JudgmentEngine missed_engine;
         missed_engine.reset(&missed_chart, &k);
         missed_engine.update(2.0 + k.windows.way_off + 1e-3, held_none());
         TEST_CHECK(!missed_engine.is_hold_in_progress(0));
@@ -268,30 +268,30 @@ int main() {
     // 7c. Presentation accessors: last-held time follows the button and freezes
     // on release; the outcome stays readable after the hold resolves.
     {
-        td::Chart chart;
-        chart.notes.push_back(make_note(1, 2.0, td::NoteType::HoldHead, 4.0));
-        td::JudgmentEngine engine;
+        blaze4k::Chart chart;
+        chart.notes.push_back(make_note(1, 2.0, blaze4k::NoteType::HoldHead, 4.0));
+        blaze4k::JudgmentEngine engine;
         engine.reset(&chart, &k);
 
         engine.handle_step(1, 2.0);
         TEST_CHECK(engine.is_hold_head_hit(0));
-        TEST_CHECK(engine.hold_judgment(0) == td::HoldJudgment::Num);
+        TEST_CHECK(engine.hold_judgment(0) == blaze4k::HoldJudgment::Num);
         engine.update(2.5, held_col(1));
         TEST_CHECK(std::abs(engine.hold_last_held_seconds(0) - 2.5) < 1e-9);
         engine.update(2.6, held_none()); // let go: last-held time stays at 2.5
         TEST_CHECK(std::abs(engine.hold_last_held_seconds(0) - 2.5) < 1e-9);
         engine.update(2.5 + k.windows.hold_ok + 1e-3, held_none());
-        TEST_CHECK(engine.hold_judgment(0) == td::HoldJudgment::Ng);
+        TEST_CHECK(engine.hold_judgment(0) == blaze4k::HoldJudgment::Ng);
         TEST_CHECK(engine.is_hold_head_hit(0));
-        TEST_CHECK(engine.hold_judgment(-1) == td::HoldJudgment::Num);
+        TEST_CHECK(engine.hold_judgment(-1) == blaze4k::HoldJudgment::Num);
         std::cout << "  - Hold last-held time and outcome accessors ok.\n";
     }
 
     // 8. Roll re-hits refresh life; end => RollOk; neglected => RollNg.
     {
-        td::Chart chart;
-        chart.notes.push_back(make_note(2, 2.0, td::NoteType::RollHead, 4.0));
-        td::JudgmentEngine engine;
+        blaze4k::Chart chart;
+        chart.notes.push_back(make_note(2, 2.0, blaze4k::NoteType::RollHead, 4.0));
+        blaze4k::JudgmentEngine engine;
         engine.reset(&chart, &k);
         engine.handle_step(2, 2.0);  // head
         engine.handle_step(2, 2.5);  // re-hit
@@ -300,33 +300,33 @@ int main() {
         engine.update(4.0, held_none());
 
         int roll_hits = 0;
-        for (const td::JudgmentEvent& e : engine.events()) {
-            if (e.kind == td::JudgmentKind::RollHit) {
+        for (const blaze4k::JudgmentEvent& e : engine.events()) {
+            if (e.kind == blaze4k::JudgmentKind::RollHit) {
                 ++roll_hits;
             }
         }
         TEST_CHECK(roll_hits == 3);
-        TEST_CHECK(engine.events().back().kind == td::JudgmentKind::RollOk);
-        TEST_CHECK(engine.events().back().hold == td::HoldJudgment::Ok);
+        TEST_CHECK(engine.events().back().kind == blaze4k::JudgmentKind::RollOk);
+        TEST_CHECK(engine.events().back().hold == blaze4k::HoldJudgment::Ok);
     }
     {
-        td::Chart chart;
-        chart.notes.push_back(make_note(2, 2.0, td::NoteType::RollHead, 5.0));
-        td::JudgmentEngine engine;
+        blaze4k::Chart chart;
+        chart.notes.push_back(make_note(2, 2.0, blaze4k::NoteType::RollHead, 5.0));
+        blaze4k::JudgmentEngine engine;
         engine.reset(&chart, &k);
         engine.handle_step(2, 2.0);
         engine.update(2.0 + k.windows.hold_roll + 0.01, held_none());
         TEST_CHECK(engine.events().size() == 2);
-        TEST_CHECK(engine.events().back().kind == td::JudgmentKind::RollNg);
+        TEST_CHECK(engine.events().back().kind == blaze4k::JudgmentKind::RollNg);
         std::cout << "  - Roll re-hits refresh; neglected roll scores RollNg.\n";
     }
 
     // 9. Closest-note selection (never re-judges) and later-note tie-break.
     {
-        td::Chart chart;
-        chart.notes.push_back(make_note(3, 2.0, td::NoteType::Tap));
-        chart.notes.push_back(make_note(3, 2.5, td::NoteType::Tap));
-        td::JudgmentEngine engine;
+        blaze4k::Chart chart;
+        chart.notes.push_back(make_note(3, 2.0, blaze4k::NoteType::Tap));
+        chart.notes.push_back(make_note(3, 2.5, blaze4k::NoteType::Tap));
+        blaze4k::JudgmentEngine engine;
         engine.reset(&chart, &k);
 
         engine.handle_step(3, 2.05);
@@ -341,10 +341,10 @@ int main() {
         TEST_CHECK(engine.events().size() == 2); // both graded: no re-judge
     }
     {
-        td::Chart chart;
-        chart.notes.push_back(make_note(0, 2.0, td::NoteType::Tap));
-        chart.notes.push_back(make_note(0, 2.125, td::NoteType::Tap));
-        td::JudgmentEngine engine;
+        blaze4k::Chart chart;
+        chart.notes.push_back(make_note(0, 2.0, blaze4k::NoteType::Tap));
+        chart.notes.push_back(make_note(0, 2.125, blaze4k::NoteType::Tap));
+        blaze4k::JudgmentEngine engine;
         engine.reset(&chart, &k);
         engine.handle_step(0, 2.0625); // exact binary tie; prefer the later note
         TEST_CHECK(engine.events().size() == 1);
@@ -354,35 +354,35 @@ int main() {
 
     // 10. Held-over-mine crossing vs avoided at expiry.
     {
-        td::Chart chart;
-        chart.notes.push_back(make_note(1, 3.0, td::NoteType::Mine));
-        td::JudgmentEngine engine;
+        blaze4k::Chart chart;
+        chart.notes.push_back(make_note(1, 3.0, blaze4k::NoteType::Mine));
+        blaze4k::JudgmentEngine engine;
         engine.reset(&chart, &k);
         engine.handle_step(1, 2.0); // no note in range: nothing
         TEST_CHECK(engine.events().empty());
         engine.update(3.05, held_col(1)); // crossing while held
         TEST_CHECK(engine.events().size() == 1);
-        TEST_CHECK(engine.events().front().kind == td::JudgmentKind::HitMine);
+        TEST_CHECK(engine.events().front().kind == blaze4k::JudgmentKind::HitMine);
     }
     {
-        td::Chart chart;
-        chart.notes.push_back(make_note(1, 3.0, td::NoteType::Mine));
-        td::JudgmentEngine engine;
+        blaze4k::Chart chart;
+        chart.notes.push_back(make_note(1, 3.0, blaze4k::NoteType::Mine));
+        blaze4k::JudgmentEngine engine;
         engine.reset(&chart, &k);
         engine.update(3.05, held_none());
         TEST_CHECK(engine.events().empty());
         engine.update(3.0 + k.windows.way_off + 1e-3, held_none());
         TEST_CHECK(engine.events().size() == 1);
-        TEST_CHECK(engine.events().front().kind == td::JudgmentKind::AvoidedMine);
+        TEST_CHECK(engine.events().front().kind == blaze4k::JudgmentKind::AvoidedMine);
         std::cout << "  - Held-over-mine triggers; unheld mine is avoided.\n";
     }
 
     // 11. Frame-rate independence: coarse vs fine update grid, same judgment.
     {
         auto run = [&k](double step, double release_time, double hold_end) {
-            td::Chart chart;
-            chart.notes.push_back(make_note(0, 2.0, td::NoteType::HoldHead, hold_end));
-            td::JudgmentEngine engine;
+            blaze4k::Chart chart;
+            chart.notes.push_back(make_note(0, 2.0, blaze4k::NoteType::HoldHead, hold_end));
+            blaze4k::JudgmentEngine engine;
             engine.reset(&chart, &k);
             engine.handle_step(0, 2.0);
             double t = 2.0;
@@ -395,45 +395,45 @@ int main() {
 
         // Decay path: released at 2.2 (on both grids), so the analytic life at
         // the 2.5 tail is identical and both grids must score HoldOk.
-        const std::vector<td::JudgmentEvent> coarse = run(0.1, 2.2, 2.5);
-        const std::vector<td::JudgmentEvent> fine = run(0.01, 2.2, 2.5);
+        const std::vector<blaze4k::JudgmentEvent> coarse = run(0.1, 2.2, 2.5);
+        const std::vector<blaze4k::JudgmentEvent> fine = run(0.01, 2.2, 2.5);
         TEST_CHECK(coarse.size() == 2 && fine.size() == 2);
         TEST_CHECK(coarse[0].kind == fine[0].kind);
-        TEST_CHECK(coarse[1].kind == td::JudgmentKind::HoldOk);
-        TEST_CHECK(fine[1].kind == td::JudgmentKind::HoldOk);
+        TEST_CHECK(coarse[1].kind == blaze4k::JudgmentKind::HoldOk);
+        TEST_CHECK(fine[1].kind == blaze4k::JudgmentKind::HoldOk);
         TEST_CHECK(approx(coarse[1].hit_time_seconds, fine[1].hit_time_seconds));
 
         // Decayed to zero: released right after the head, both grids must score
         // HoldNg; the emission time follows the grid, the outcome does not.
-        const std::vector<td::JudgmentEvent> coarse_ng = run(0.1, 2.0, 3.0);
-        const std::vector<td::JudgmentEvent> fine_ng = run(0.01, 2.0, 3.0);
+        const std::vector<blaze4k::JudgmentEvent> coarse_ng = run(0.1, 2.0, 3.0);
+        const std::vector<blaze4k::JudgmentEvent> fine_ng = run(0.01, 2.0, 3.0);
         TEST_CHECK(coarse_ng.size() == 2 && fine_ng.size() == 2);
-        TEST_CHECK(coarse_ng[1].kind == td::JudgmentKind::HoldNg);
-        TEST_CHECK(fine_ng[1].kind == td::JudgmentKind::HoldNg);
+        TEST_CHECK(coarse_ng[1].kind == blaze4k::JudgmentKind::HoldNg);
+        TEST_CHECK(fine_ng[1].kind == blaze4k::JudgmentKind::HoldNg);
         TEST_CHECK(coarse_ng[1].note_index == fine_ng[1].note_index);
 
         // A single coarse stall that jumps past the tail while the button stays
         // down must not decay through the gap: still HoldOk.
         {
-            td::Chart chart;
-            chart.notes.push_back(make_note(0, 2.0, td::NoteType::HoldHead, 2.5));
-            td::JudgmentEngine engine;
+            blaze4k::Chart chart;
+            chart.notes.push_back(make_note(0, 2.0, blaze4k::NoteType::HoldHead, 2.5));
+            blaze4k::JudgmentEngine engine;
             engine.reset(&chart, &k);
             engine.handle_step(0, 2.0);
             engine.update(2.6, held_col(0));
             TEST_CHECK(engine.events().size() == 2);
-            TEST_CHECK(engine.events().back().kind == td::JudgmentKind::HoldOk);
-            TEST_CHECK(engine.events().back().hold == td::HoldJudgment::Ok);
+            TEST_CHECK(engine.events().back().kind == blaze4k::JudgmentKind::HoldOk);
+            TEST_CHECK(engine.events().back().hold == blaze4k::HoldJudgment::Ok);
         }
         std::cout << "  - Hold life is frame-rate independent (analytic decay).\n";
     }
 
     // 12. Append-only log + drain semantics + latest_event.
     {
-        td::Chart chart;
-        chart.notes.push_back(make_note(0, 2.0, td::NoteType::Tap));
-        chart.notes.push_back(make_note(0, 3.0, td::NoteType::Tap));
-        td::JudgmentEngine engine;
+        blaze4k::Chart chart;
+        chart.notes.push_back(make_note(0, 2.0, blaze4k::NoteType::Tap));
+        chart.notes.push_back(make_note(0, 3.0, blaze4k::NoteType::Tap));
+        blaze4k::JudgmentEngine engine;
         engine.reset(&chart, &k);
         TEST_CHECK(engine.latest_event() == nullptr);
 
@@ -441,16 +441,16 @@ int main() {
         TEST_CHECK(engine.latest_event() != nullptr);
         TEST_CHECK(engine.latest_event()->note_index == 0);
 
-        std::vector<td::JudgmentEvent> first;
+        std::vector<blaze4k::JudgmentEvent> first;
         engine.drain_new_events(first);
         TEST_CHECK(first.size() == 1);
 
-        std::vector<td::JudgmentEvent> empty;
+        std::vector<blaze4k::JudgmentEvent> empty;
         engine.drain_new_events(empty);
         TEST_CHECK(empty.empty());
 
         engine.handle_step(0, 3.0);
-        std::vector<td::JudgmentEvent> suffix;
+        std::vector<blaze4k::JudgmentEvent> suffix;
         engine.drain_new_events(suffix);
         TEST_CHECK(suffix.size() == 1);
         TEST_CHECK(suffix.front().note_index == 1);
@@ -472,9 +472,9 @@ int main() {
             {0.16, false},                     // Way Off
         };
         for (const VisualCase& c : cases) {
-            td::Chart chart;
-            chart.notes.push_back(make_note(0, 2.0, td::NoteType::Tap));
-            td::JudgmentEngine engine;
+            blaze4k::Chart chart;
+            chart.notes.push_back(make_note(0, 2.0, blaze4k::NoteType::Tap));
+            blaze4k::JudgmentEngine engine;
             engine.reset(&chart, &k);
             engine.handle_step(0, 2.0 + c.delta);
             TEST_CHECK(engine.is_note_judged(0));
@@ -487,40 +487,40 @@ int main() {
 
         // Expired (Miss) note is not hidden but is logged.
         {
-            td::Chart chart;
-            chart.notes.push_back(make_note(0, 2.0, td::NoteType::Tap));
-            td::JudgmentEngine engine;
+            blaze4k::Chart chart;
+            chart.notes.push_back(make_note(0, 2.0, blaze4k::NoteType::Tap));
+            blaze4k::JudgmentEngine engine;
             engine.reset(&chart, &k);
             engine.update(2.0 + k.windows.way_off + 1e-3, held_none());
             TEST_CHECK(!engine.is_note_hidden(0));
-            TEST_CHECK(engine.events().back().kind == td::JudgmentKind::Miss);
+            TEST_CHECK(engine.events().back().kind == blaze4k::JudgmentKind::Miss);
         }
 
         // A hit mine is hidden.
         {
-            td::Chart chart;
-            chart.notes.push_back(make_note(0, 2.0, td::NoteType::Mine));
-            td::JudgmentEngine engine;
+            blaze4k::Chart chart;
+            chart.notes.push_back(make_note(0, 2.0, blaze4k::NoteType::Mine));
+            blaze4k::JudgmentEngine engine;
             engine.reset(&chart, &k);
             engine.handle_step(0, 2.0);
             TEST_CHECK(engine.is_note_hidden(0));
-            TEST_CHECK(engine.events().back().kind == td::JudgmentKind::HitMine);
+            TEST_CHECK(engine.events().back().kind == blaze4k::JudgmentKind::HitMine);
         }
         std::cout << "  - Hidden-note set matches the event log.\n";
     }
 
     // 14. music_time_for_event: pure SDL-ns -> music-time conversion.
     {
-        TEST_CHECK(approx(td::music_time_for_event(1000, 1000, 5.0), 5.0));
-        TEST_CHECK(approx(td::music_time_for_event(990000000ULL, 1000000000ULL, 5.0), 4.99));
-        TEST_CHECK(approx(td::music_time_for_event(0, 1000, 5.0), 5.0));
-        TEST_CHECK(approx(td::music_time_for_event(2000, 1000, 5.0), 5.0));
+        TEST_CHECK(approx(blaze4k::music_time_for_event(1000, 1000, 5.0), 5.0));
+        TEST_CHECK(approx(blaze4k::music_time_for_event(990000000ULL, 1000000000ULL, 5.0), 4.99));
+        TEST_CHECK(approx(blaze4k::music_time_for_event(0, 1000, 5.0), 5.0));
+        TEST_CHECK(approx(blaze4k::music_time_for_event(2000, 1000, 5.0), 5.0));
         std::cout << "  - Input timestamp conversion is pure and correct.\n";
     }
 
     // 15. Empty/null chart: safe no-ops.
     {
-        td::JudgmentEngine engine;
+        blaze4k::JudgmentEngine engine;
         engine.reset(nullptr, &k);
         engine.handle_step(0, 1.0);
         engine.update(1.0, held_col(0));
@@ -529,7 +529,7 @@ int main() {
         TEST_CHECK(!engine.is_note_judged(0));
         TEST_CHECK(!engine.is_note_hidden(0));
 
-        td::Chart empty;
+        blaze4k::Chart empty;
         engine.reset(&empty, &k);
         engine.handle_step(0, 1.0);
         engine.update(2.0, held_none());

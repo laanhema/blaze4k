@@ -6,7 +6,7 @@
 #include "render/bitmap_font.hpp"
 #include "render/gl_quad_renderer.hpp"
 
-namespace td {
+namespace blaze4k {
 
 void JudgmentAnimator::reset() {
     has_pop_ = false;
@@ -125,7 +125,7 @@ std::string JudgmentAnimator::judgment_label(const JudgmentEvent& e) {
 }
 
 Color JudgmentAnimator::judgment_color(const JudgmentEvent& e) {
-    return td::judgment_color(e.kind, e.window, e.hold);
+    return blaze4k::judgment_color(e.kind, e.window, e.hold);
 }
 
 void JudgmentAnimator::render(GlQuadRenderer& renderer, int w, int h) const {
@@ -151,4 +151,4 @@ void JudgmentAnimator::render(GlQuadRenderer& renderer, int w, int h) const {
     }
 }
 
-} // namespace td
+} // namespace blaze4k

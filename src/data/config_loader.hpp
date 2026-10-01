@@ -5,7 +5,7 @@
 
 #include "data/config.hpp"
 
-namespace td {
+namespace blaze4k {
 
 // Explicit outcome of a config load, so callers route the message without
 // inspecting its wording. `UsedDefaults` means the file was missing or unusable
@@ -34,4 +34,4 @@ enum class ConfigLoadStatus { LoadedFromFile, UsedDefaults };
 [[nodiscard]] bool save_config(const std::filesystem::path& path, const GameConfig& config,
                                std::string* message = nullptr);
 
-} // namespace td
+} // namespace blaze4k

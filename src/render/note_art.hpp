@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace td {
+namespace blaze4k {
 
 // Direction a note reads, matching `Note.column` (chart/note.hpp:26).
 enum class ArrowDirection { Left = 0, Down = 1, Up = 2, Right = 3 };
@@ -22,4 +22,4 @@ enum class ArrowDirection { Left = 0, Down = 1, Up = 2, Right = 3 };
 // Filled circle spanning the whole square (e.g. the Cel mine's glowing core).
 [[nodiscard]] std::vector<uint8_t> make_disc_rgba(int size);
 
-} // namespace td
+} // namespace blaze4k

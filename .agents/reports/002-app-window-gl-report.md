@@ -9,8 +9,8 @@
 Implemented application windowing and core frame loop:
 - `src/app/window.hpp` / `src/app/window.cpp`: SDL3 window creation with OpenGL 3.3 Core profile context (via GLAD), vsync control, and viewport resize handling.
 - `src/app/app.hpp` / `src/app/app.cpp`: Fixed-timestep accumulator main loop (default 60Hz physics/screens tick), vsync rendering, event pump with clean shutdown on window close or Escape key, and extensible update/render callbacks.
-- Created `tundra_core` static library in `CMakeLists.txt` for clean separation of application logic and testability.
-- Updated `src/main.cpp` to boot `td::App` with CLI options (`--headless`, `--smoke-test`, `--no-vsync`).
+- Created `blaze4k_core` static library in `CMakeLists.txt` for clean separation of application logic and testability.
+- Updated `src/main.cpp` to boot `blaze4k::App` with CLI options (`--headless`, `--smoke-test`, `--no-vsync`).
 - Added unit tests in `tests/app_test.cpp` verifying config defaults, timestep accumulation (exact, fractional, lag-spikes, spiral-of-death clamp), and headless execution.
 
 ## Tasks Completed
@@ -29,7 +29,7 @@ Implemented application windowing and core frame loop:
 |-------|--------|
 | Type check / Build (`cmake --build build`) | ✅ (0 errors, 0 warnings) |
 | Unit Tests (`ctest --test-dir build --output-on-failure`) | ✅ (2/2 passed) |
-| End-to-End (`./build/tundra-dance --smoke-test 10`) | ✅ (GL context init, 10 frames, clean exit) |
+| End-to-End (`./build/blaze-4k --smoke-test 10`) | ✅ (GL context init, 10 frames, clean exit) |
 
 ## Files Changed
 

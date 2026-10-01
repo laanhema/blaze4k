@@ -91,7 +91,7 @@ Total: ~1,220 new lines (incl. tests) + 174 inserted / 13 removed across tracked
    `"?"` branch remains as defensive code; the test instead asserts the default → `"120"`, single
    → `"140"`, and multi-segment → `"128-175"` cases.
 4. **E2E chart count is 9, not the plan's 6**: scanning `tests/fixtures/reference_pack` yields
-   4 songs / 9 charts (Tundra Anthem 5, Northern Lights 2, Aurora Borealis .ssc 1, Glacier Groove
+   4 songs / 9 charts (Blaze Anthem 5, Northern Lights 2, Aurora Borealis .ssc 1, Glacier Groove
    1). The observation log therefore reads `4 songs, 9 charts`; exit status and the logged events
    are as specified. The plan's expected `6` was an incorrect fixture census.
 5. **Minor**: `PreviewPlayer` exposes `start_seconds()` / `length_seconds()` accessors beyond the

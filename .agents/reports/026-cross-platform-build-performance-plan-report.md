@@ -13,7 +13,7 @@ instrumentation in `App`: one sample per already-computed `frame_dt`, plus an op
 (frames, min/median/p95/p99/max ms, mean, hitches, PASS/FAIL) on exit. Added a headless
 full-song CPU-budget benchmark (`tests/perf_loop_test.cpp`) that plays the reference chart to
 `Cleared` through the real `GameplayView` logic path and times 2000 real arcade-screen updates,
-hard-gating `p99 < 16.67 ms` / `max < 50 ms` unless `TUNDRA_PERF_STRICT=0` (always printing the
+hard-gating `p99 < 16.67 ms` / `max < 50 ms` unless `BLAZE4K_PERF_STRICT=0` (always printing the
 percentiles). Added an arcade-loop "no dead ends" contract case, a `CMakePresets.json` matrix
 (Linux GCC/Clang + Windows MSVC + macOS Clang + benchmark + portability diagnostic), a
 `scripts/fresh-clone-check.sh` fresh-clone proof, per-OS build docs, an owner-verification
@@ -56,7 +56,7 @@ the App loop. User-confirmed OQ1–OQ7 decisions were implemented exactly.
 | Preset proof (`cmake --preset linux-gcc-release` → build → `ctest --preset linux-gcc-release`) | ✅ **34/34** |
 | Preset parsing (`cmake --list-presets` / `=build` / `=test`) | ✅ all Linux/macOS/benchmark/portability presets list; Windows MSVC presets hidden on Linux by CMake's generator-availability filter (see Deviations) |
 | README stale status (`rg -n "pre-implementation" README.md`) | ✅ no matches; all doc links resolve |
-| E2E arcade smoke (`--headless --smoke-test 120 --start-screen select --songs tests/fixtures/reference_pack --data-dir /tmp/td-e2e-d4`) | ✅ exit 0 |
+| E2E arcade smoke (`--headless --smoke-test 120 --start-screen select --songs tests/fixtures/reference_pack --data-dir /tmp/blaze4k-e2e-d4`) | ✅ exit 0 |
 | E2E `--perf-report` flag path (`--headless --smoke-test 60 --perf-report`) | ✅ exit 0; printed `[perf] frames=60 ... hitches=1 budget=16.667ms (FAIL; first frame includes startup)` |
 | E2E real GPU/vsync FPS, native Windows/macOS builds, pad traversal, OpenITG feel | ⛔ **not automatable on this host — owner checklist in `docs/CROSS_PLATFORM_VERIFICATION.md`; not faked** |
 
@@ -65,8 +65,8 @@ No validation failures occurred; no verification command failed.
 ### Fresh-clone-check.sh output (verbatim)
 
 ```
-Fresh tree: /tmp/tundra-fresh-clone.4pMizX/src
-Build dir:  /tmp/tundra-fresh-clone.4pMizX/src/build
+Fresh tree: /tmp/blaze4k-fresh-clone.4pMizX/src
+Build dir:  /tmp/blaze4k-fresh-clone.4pMizX/src/build
 Dependency mode: offline (reuse /home/lauri/github/temp-5/build/_deps when present)
 [1/3] Configure...
 [2/3] Build (-j16)...
@@ -148,7 +148,7 @@ Tracked diffstat: 7 files changed, 172 insertions(+), 2 deletions(-). No commit/
 | Test File | Test Cases |
 |-----------|------------|
 | `tests/frame_stats_test.cpp` | empty queries all zero; basic min/max/mean/median/total; nearest-rank percentile rule + insertion-order independence; non-finite/negative samples ignored; percentile clamping to [0,100]; `over_budget` strict-greater + `reset` |
-| `tests/perf_loop_test.cpp` | reference chart parses and resolves `Cleared`; per-step update timing; 2000 arcade-screen updates rotating Title/Attract/Select; percentile printing; strict budget gate (p99 < 16.67 ms, max < 50 ms) unless `TUNDRA_PERF_STRICT=0` |
+| `tests/perf_loop_test.cpp` | reference chart parses and resolves `Cleared`; per-step update timing; 2000 arcade-screen updates rotating Title/Attract/Select; percentile printing; strict budget gate (p99 < 16.67 ms, max < 50 ms) unless `BLAZE4K_PERF_STRICT=0` |
 | `tests/app_test.cpp` (extended) | headless perf-report run records exactly 60 samples and a finite mean |
 | `tests/screen_manager_test.cpp` (extended) | arcade-loop no-dead-ends: all canonical screens registered; `Title → Select → Gameplay → Results → Select → Title` traverses; every non-Title canonical screen consumes Back |
 

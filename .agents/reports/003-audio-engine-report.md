@@ -11,7 +11,7 @@ Implemented the audio playback engine and stream wrapper using miniaudio:
 - `src/audio/audio_engine.hpp` / `src/audio/audio_engine.cpp`: Singleton audio engine managing miniaudio device/context, master volume, and graceful silent fallback.
 - `src/audio/sound_stream.hpp` / `src/audio/sound_stream.cpp`: Wrapper for decoding audio files into memory with sample-exact stream position queries (`get_position_seconds()` = PCM frame cursor ÷ sample rate), monotonic tracking, play/pause/resume/stop/seek/volume APIs, and graceful failure handling on missing or corrupt files.
 - Added comprehensive unit tests in `tests/audio_test.cpp` generating synthetic PCM WAV files and verifying load, duration, volume, playback, seek position accuracy, pause/resume, and error handling.
-- Integrated audio sources into `tundra_core`.
+- Integrated audio sources into `blaze4k_core`.
 
 ## Tasks Completed
 

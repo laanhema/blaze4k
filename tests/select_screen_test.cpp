@@ -38,10 +38,10 @@
 
 namespace {
 
-using td::GameAction;
-using td::InputEvent;
-using td::ScreenContext;
-using td::ScreenId;
+using blaze4k::GameAction;
+using blaze4k::InputEvent;
+using blaze4k::ScreenContext;
+using blaze4k::ScreenId;
 
 constexpr double kDt = 0.1;
 
@@ -85,7 +85,7 @@ InputEvent press(GameAction action) {
 
 // Scan a synthetic pack: Alpha (3 charts, SAMPLESTART 30), Beta + Gamma (1 chart
 // each), and a hidden SELECTABLE:NO song.
-td::SongLibrary make_library(const std::filesystem::path& root) {
+blaze4k::SongLibrary make_library(const std::filesystem::path& root) {
     std::filesystem::remove_all(root);
     const std::filesystem::path pack = root / "Test Pack";
 
@@ -109,14 +109,14 @@ td::SongLibrary make_library(const std::filesystem::path& root) {
     write_file(pack / "Hidden" / "Hidden.sm",
                make_sm("Hidden", "", {{"Challenge", 12}}, "NO"));
 
-    td::SongLibrary library;
+    blaze4k::SongLibrary library;
     TEST_CHECK(library.scan_directory(root));
     return library;
 }
 
 // Navigates the wheel (wrapping) until a song with `chart_count` charts is
 // highlighted. Returns true when found.
-bool navigate_to_chart_count(td::ScreenManager& manager, td::SelectScreen* select, int chart_count) {
+bool navigate_to_chart_count(blaze4k::ScreenManager& manager, blaze4k::SelectScreen* select, int chart_count) {
     for (int i = 0; i < static_cast<int>(select->song_count()); ++i) {
         if (select->chart_count() == chart_count) {
             return true;
@@ -126,7 +126,7 @@ bool navigate_to_chart_count(td::ScreenManager& manager, td::SelectScreen* selec
     return select->chart_count() == chart_count;
 }
 
-void test_wheel_load(const td::SelectScreen* select) {
+void test_wheel_load(const blaze4k::SelectScreen* select) {
     TEST_CHECK(select->song_count() == 3); // the SELECTABLE:NO song is hidden
     TEST_CHECK(select->selected_song_index() == 0);
     TEST_CHECK(select->selected_song() != nullptr);
@@ -134,7 +134,7 @@ void test_wheel_load(const td::SelectScreen* select) {
     std::cout << "  - wheel load + SELECTABLE filtering ok.\n";
 }
 
-void test_song_navigation(td::ScreenManager& manager, td::SelectScreen* select) {
+void test_song_navigation(blaze4k::ScreenManager& manager, blaze4k::SelectScreen* select) {
     // Ensure a known start.
     while (select->selected_song_index() != 0) {
         manager.update(kDt, {press(GameAction::Down)});
@@ -151,14 +151,14 @@ void test_song_navigation(td::ScreenManager& manager, td::SelectScreen* select) 
     std::cout << "  - Up/Down wrap the wheel highlight ok.\n";
 }
 
-void test_difficulty_navigation(td::ScreenManager& manager, td::SelectScreen* select) {
+void test_difficulty_navigation(blaze4k::ScreenManager& manager, blaze4k::SelectScreen* select) {
     TEST_CHECK(navigate_to_chart_count(manager, select, 3));
     TEST_CHECK(select->selected_chart_index() == 0);
 
     // The wheel lists difficulties hardest-at-top/easiest-at-bottom: the Alpha
     // song's simfile order (Beginner 1, Medium 5, Challenge 10) is reordered to
     // descending foot rating.
-    const td::Song* song = select->selected_song();
+    const blaze4k::Song* song = select->selected_song();
     TEST_CHECK(song != nullptr && song->charts.size() == 3);
     TEST_CHECK(song->charts[0].meter == 10 && song->charts[1].meter == 5 &&
                song->charts[2].meter == 1);
@@ -186,7 +186,7 @@ void test_difficulty_navigation(td::ScreenManager& manager, td::SelectScreen* se
     std::cout << "  - Left/Right clamp within difficulty list ok.\n";
 }
 
-void test_held_navigation_repeat(td::ScreenManager& manager, td::SelectScreen* select) {
+void test_held_navigation_repeat(blaze4k::ScreenManager& manager, blaze4k::SelectScreen* select) {
     while (select->selected_song_index() != 0) {
         manager.update(kDt, {press(GameAction::Down)});
     }
@@ -219,50 +219,50 @@ void test_held_navigation_repeat(td::ScreenManager& manager, td::SelectScreen* s
     std::cout << "  - held direction repeat accelerates and stops on release ok.\n";
 }
 
-void test_best_score(td::ScreenManager& manager, td::SelectScreen* select, td::HighScores& scores) {
-    const td::Song* song = select->selected_song();
-    const td::Chart* chart = select->selected_chart();
+void test_best_score(blaze4k::ScreenManager& manager, blaze4k::SelectScreen* select, blaze4k::HighScores& scores) {
+    const blaze4k::Song* song = select->selected_song();
+    const blaze4k::Chart* chart = select->selected_chart();
     TEST_CHECK(song != nullptr && chart != nullptr);
 
-    TEST_CHECK(td::best_score_for(manager.context(), *song, *chart) == nullptr);
+    TEST_CHECK(blaze4k::best_score_for(manager.context(), *song, *chart) == nullptr);
 
-    td::ScoreRecord record;
+    blaze4k::ScoreRecord record;
     record.grade = "quad_star";
     record.percent = 0.97;
-    scores.scores[td::make_chart_key(*song, *chart)] = record;
+    scores.scores[blaze4k::make_chart_key(*song, *chart)] = record;
 
-    const td::ScoreRecord* found = td::best_score_for(manager.context(), *song, *chart);
+    const blaze4k::ScoreRecord* found = blaze4k::best_score_for(manager.context(), *song, *chart);
     TEST_CHECK(found != nullptr);
     TEST_CHECK(found->grade == "quad_star");
     TEST_CHECK(found->percent == 0.97);
     std::cout << "  - best score lookup ok.\n";
 }
 
-bool same_color(td::Color a, td::Color b) {
+bool same_color(blaze4k::Color a, blaze4k::Color b) {
     return a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
 }
 
 void test_difficulty_colors() {
-    const td::Color beginner = td::difficulty_color("Beginner");
-    const td::Color easy = td::difficulty_color("Easy");
-    const td::Color medium = td::difficulty_color("Medium");
-    const td::Color hard = td::difficulty_color("Hard");
-    const td::Color challenge = td::difficulty_color("Challenge");
-    const td::Color edit = td::difficulty_color("Edit");
+    const blaze4k::Color beginner = blaze4k::difficulty_color("Beginner");
+    const blaze4k::Color easy = blaze4k::difficulty_color("Easy");
+    const blaze4k::Color medium = blaze4k::difficulty_color("Medium");
+    const blaze4k::Color hard = blaze4k::difficulty_color("Hard");
+    const blaze4k::Color challenge = blaze4k::difficulty_color("Challenge");
+    const blaze4k::Color edit = blaze4k::difficulty_color("Edit");
 
     // Each canonical difficulty gets its own tint; Edit falls back to neutral.
-    const td::Color all[] = {beginner, easy, medium, hard, challenge, edit};
+    const blaze4k::Color all[] = {beginner, easy, medium, hard, challenge, edit};
     for (std::size_t i = 0; i < std::size(all); ++i) {
         for (std::size_t j = i + 1; j < std::size(all); ++j) {
             TEST_CHECK(!same_color(all[i], all[j]));
         }
     }
-    TEST_CHECK(same_color(td::difficulty_color("unknown"), edit));
+    TEST_CHECK(same_color(blaze4k::difficulty_color("unknown"), edit));
 
     // Labels are passthrough, so matching is case-insensitive; Novice aliases Beginner.
-    TEST_CHECK(same_color(td::difficulty_color("hard"), hard));
-    TEST_CHECK(same_color(td::difficulty_color("CHALLENGE"), challenge));
-    TEST_CHECK(same_color(td::difficulty_color("Novice"), beginner));
+    TEST_CHECK(same_color(blaze4k::difficulty_color("hard"), hard));
+    TEST_CHECK(same_color(blaze4k::difficulty_color("CHALLENGE"), challenge));
+    TEST_CHECK(same_color(blaze4k::difficulty_color("Novice"), beginner));
 
     // Hue sanity: hard is red-dominant, challenge blue-dominant, easy green-dominant.
     TEST_CHECK(hard.r > hard.g && hard.r > hard.b);
@@ -272,47 +272,47 @@ void test_difficulty_colors() {
 }
 
 void test_bpm_formatting() {
-    td::TimingData single;
+    blaze4k::TimingData single;
     TEST_CHECK(single.parse_bpms_string("0.0=140.0"));
-    TEST_CHECK(td::format_bpm_range(single) == "140");
+    TEST_CHECK(blaze4k::format_bpm_range(single) == "140");
 
-    td::TimingData multi;
+    blaze4k::TimingData multi;
     TEST_CHECK(multi.parse_bpms_string("0.0=128.0,16.0=175.0"));
-    TEST_CHECK(td::format_bpm_range(multi) == "128-175");
+    TEST_CHECK(blaze4k::format_bpm_range(multi) == "128-175");
 
-    td::TimingData def; // TimingData always seeds a 120 BPM segment
-    TEST_CHECK(td::format_bpm_range(def) == "120");
+    blaze4k::TimingData def; // TimingData always seeds a 120 BPM segment
+    TEST_CHECK(blaze4k::format_bpm_range(def) == "120");
     std::cout << "  - BPM range formatting ok.\n";
 }
 
 void test_options_derivation() {
-    td::GameConfig config;
+    blaze4k::GameConfig config;
     config.gameplay.speed_mod = "C400";
     config.gameplay.scroll = "down";
     config.gameplay.fail_enabled = false;
     config.gameplay.assist_tick = true;
     config.offset.global_offset_seconds = 0.02;
 
-    const td::GameplayOptions options = td::gameplay_options_from_config(config);
-    TEST_CHECK(options.speed.type == td::SpeedModType::CMod);
+    const blaze4k::GameplayOptions options = blaze4k::gameplay_options_from_config(config);
+    TEST_CHECK(options.speed.type == blaze4k::SpeedModType::CMod);
     TEST_CHECK(options.speed.value == 400.0);
-    TEST_CHECK(options.scroll == td::ScrollDirection::Down);
+    TEST_CHECK(options.scroll == blaze4k::ScrollDirection::Down);
     TEST_CHECK(!options.fail_enabled);
     TEST_CHECK(options.assist_tick);
     TEST_CHECK(options.global_offset_seconds == 0.02);
 
-    td::GameConfig invalid;
+    blaze4k::GameConfig invalid;
     invalid.gameplay.speed_mod = "zzz";
-    const td::GameplayOptions fallback = td::gameplay_options_from_config(invalid);
-    TEST_CHECK(fallback.speed.type == td::SpeedModType::XMod);
+    const blaze4k::GameplayOptions fallback = blaze4k::gameplay_options_from_config(invalid);
+    TEST_CHECK(fallback.speed.type == blaze4k::SpeedModType::XMod);
     TEST_CHECK(fallback.speed.value == 1.0);
     std::cout << "  - config -> gameplay options derivation ok.\n";
 }
 
-void test_confirm_handoff(td::ScreenManager& manager, td::SelectScreen* select,
-                          td::GameplayScreen* gameplay, td::PlayRequest& request) {
-    const td::Song* expected_song = select->selected_song();
-    const td::Chart* expected_chart = select->selected_chart();
+void test_confirm_handoff(blaze4k::ScreenManager& manager, blaze4k::SelectScreen* select,
+                          blaze4k::GameplayScreen* gameplay, blaze4k::PlayRequest& request) {
+    const blaze4k::Song* expected_song = select->selected_song();
+    const blaze4k::Chart* expected_chart = select->selected_chart();
     TEST_CHECK(expected_song != nullptr && expected_chart != nullptr);
 
     manager.update(kDt, {press(GameAction::Confirm)});
@@ -326,7 +326,7 @@ void test_confirm_handoff(td::ScreenManager& manager, td::SelectScreen* select,
     std::cout << "  - Confirm -> Gameplay handoff and Back abort ok.\n";
 }
 
-void test_selection_preserved_on_reenter(td::ScreenManager& manager, td::SelectScreen* select) {
+void test_selection_preserved_on_reenter(blaze4k::ScreenManager& manager, blaze4k::SelectScreen* select) {
     // Highlight a non-first song so a reset would be observable.
     while (select->selected_song_index() != 1) {
         manager.update(kDt, {press(GameAction::Down)});
@@ -347,7 +347,7 @@ void test_selection_preserved_on_reenter(td::ScreenManager& manager, td::SelectS
     std::cout << "  - wheel selection (song + chart) preserved on re-enter ok.\n";
 }
 
-void test_gameplay_held_state(td::ScreenManager& manager, td::GameplayScreen* gameplay) {
+void test_gameplay_held_state(blaze4k::ScreenManager& manager, blaze4k::GameplayScreen* gameplay) {
     if (manager.active_id() != ScreenId::Gameplay) {
         manager.update(kDt, {press(GameAction::Confirm)});
     }
@@ -375,14 +375,14 @@ void test_gameplay_held_state(td::ScreenManager& manager, td::GameplayScreen* ga
 }
 
 void test_empty_library() {
-    td::SongLibrary empty_library;
-    td::GameConfig config;
-    td::HighScores scores;
-    td::PlayRequest request;
+    blaze4k::SongLibrary empty_library;
+    blaze4k::GameConfig config;
+    blaze4k::HighScores scores;
+    blaze4k::PlayRequest request;
 
-    auto select = std::make_unique<td::SelectScreen>();
-    td::SelectScreen* select_ptr = select.get();
-    td::ScreenManager manager(0.0);
+    auto select = std::make_unique<blaze4k::SelectScreen>();
+    blaze4k::SelectScreen* select_ptr = select.get();
+    blaze4k::ScreenManager manager(0.0);
     manager.add_screen(std::move(select));
     manager.context().config = &config;
     manager.context().scores = &scores;
@@ -404,7 +404,7 @@ void test_empty_library() {
     manager.update(kDt, {press(GameAction::Back)});
     TEST_CHECK(!select_ptr->options_open());
 
-    td::GlQuadRenderer renderer; // uninitialized: safe no-op
+    blaze4k::GlQuadRenderer renderer; // uninitialized: safe no-op
     manager.render(renderer, 1280, 720);
 
     manager.update(kDt, {press(GameAction::Confirm)});
@@ -416,8 +416,8 @@ void test_empty_library() {
 // Drives the C4 overlay through the real ScreenManager + shared GameConfig,
 // verifying open/adjust/close, wheel suspension, gameplay application, and the
 // real C2 save/load persistence path.
-void test_options_overlay(td::ScreenManager& manager, td::SelectScreen* select,
-                          td::GameConfig& config, td::PlayRequest& request) {
+void test_options_overlay(blaze4k::ScreenManager& manager, blaze4k::SelectScreen* select,
+                          blaze4k::GameConfig& config, blaze4k::PlayRequest& request) {
     manager.start(ScreenId::Select);
     TEST_CHECK(manager.active_id() == ScreenId::Select);
 
@@ -431,7 +431,7 @@ void test_options_overlay(td::ScreenManager& manager, td::SelectScreen* select,
     // 2. Adjust SpeedType -> CMOD, Speed value 450 -> 400, Scroll -> DOWN, Fail -> OFF.
     manager.update(kDt, {press(GameAction::Up)});    // row back to SpeedType
     manager.update(kDt, {press(GameAction::Right)}); // XMOD -> CMOD
-    TEST_CHECK(select->options_menu().speed_type == td::SpeedModType::CMod);
+    TEST_CHECK(select->options_menu().speed_type == blaze4k::SpeedModType::CMod);
     manager.update(kDt, {press(GameAction::Down)});  // row: SpeedValue
     for (int i = 0; i < 5; ++i) {
         manager.update(kDt, {press(GameAction::Left)}); // 450 -> 400
@@ -454,9 +454,9 @@ void test_options_overlay(td::ScreenManager& manager, td::SelectScreen* select,
     // 4. Confirm publishes the changed options to gameplay (AC2).
     manager.update(kDt, {press(GameAction::Confirm)});
     TEST_CHECK(manager.active_id() == ScreenId::Gameplay);
-    TEST_CHECK(request.options.speed.type == td::SpeedModType::CMod);
+    TEST_CHECK(request.options.speed.type == blaze4k::SpeedModType::CMod);
     TEST_CHECK(request.options.speed.value == 400.0);
-    TEST_CHECK(request.options.scroll == td::ScrollDirection::Down);
+    TEST_CHECK(request.options.scroll == blaze4k::ScrollDirection::Down);
     TEST_CHECK(!request.options.fail_enabled);
 
     manager.update(kDt, {press(GameAction::Back)}); // abort gameplay -> Select
@@ -464,9 +464,9 @@ void test_options_overlay(td::ScreenManager& manager, td::SelectScreen* select,
 
     // 5. Persist through the real C2 path and confirm the fields survive.
     const std::filesystem::path config_path =
-        std::filesystem::temp_directory_path() / "tundra_select_options_config.json";
-    TEST_CHECK(td::save_config(config_path, config));
-    const td::GameConfig reloaded = td::load_config(config_path);
+        std::filesystem::temp_directory_path() / "blaze4k_select_options_config.json";
+    TEST_CHECK(blaze4k::save_config(config_path, config));
+    const blaze4k::GameConfig reloaded = blaze4k::load_config(config_path);
     TEST_CHECK(reloaded.gameplay.speed_mod == "C400");
     TEST_CHECK(reloaded.gameplay.scroll == "down");
     TEST_CHECK(!reloaded.gameplay.fail_enabled);
@@ -482,18 +482,18 @@ void test_options_overlay(td::ScreenManager& manager, td::SelectScreen* select,
 // CalibrateOffset row -> Confirm/Right -> transition_to(Calibration). Also pins
 // that Options (Tab) still closes the overlay while that action row is
 // highlighted, and that Back aborts the wizard without touching the offset.
-void test_calibration_launch_from_options(td::ScreenManager& manager, td::SelectScreen* select,
-                                          td::GameConfig& config) {
-    manager.add_screen(std::make_unique<td::CalibrationScreen>());
+void test_calibration_launch_from_options(blaze4k::ScreenManager& manager, blaze4k::SelectScreen* select,
+                                          blaze4k::GameConfig& config) {
+    manager.add_screen(std::make_unique<blaze4k::CalibrationScreen>());
     manager.start(ScreenId::Select);
     TEST_CHECK(manager.active_id() == ScreenId::Select);
 
     const auto move_to_calibrate_row = [&] {
-        for (int i = 0; i < static_cast<int>(td::OptionsRow::CalibrateOffset); ++i) {
+        for (int i = 0; i < static_cast<int>(blaze4k::OptionsRow::CalibrateOffset); ++i) {
             manager.update(kDt, {press(GameAction::Down)});
         }
         TEST_CHECK(select->options_menu().row ==
-                   static_cast<int>(td::OptionsRow::CalibrateOffset));
+                   static_cast<int>(blaze4k::OptionsRow::CalibrateOffset));
     };
 
     // Confirm launches the wizard.
@@ -513,7 +513,7 @@ void test_calibration_launch_from_options(td::ScreenManager& manager, td::Select
     TEST_CHECK(manager.active_id() == ScreenId::Select);
     TEST_CHECK(config.offset.global_offset_seconds == offset_before);
     TEST_CHECK(select->options_open());
-    TEST_CHECK(select->options_menu().row == static_cast<int>(td::OptionsRow::CalibrateOffset));
+    TEST_CHECK(select->options_menu().row == static_cast<int>(blaze4k::OptionsRow::CalibrateOffset));
 
     // Right launches it as well, straight from the reopened overlay.
     manager.update(kDt, {press(GameAction::Right)});
@@ -538,17 +538,17 @@ void test_calibration_launch_from_options(td::ScreenManager& manager, td::Select
 
 // The C6 launch seam: Select's options overlay -> RemapInput row -> Confirm/Right
 // -> transition_to(InputRemap). Mirrors the calibration launch test.
-void test_remap_launch_from_options(td::ScreenManager& manager, td::SelectScreen* select,
-                                    td::GameConfig& config) {
-    manager.add_screen(std::make_unique<td::InputRemapScreen>());
+void test_remap_launch_from_options(blaze4k::ScreenManager& manager, blaze4k::SelectScreen* select,
+                                    blaze4k::GameConfig& config) {
+    manager.add_screen(std::make_unique<blaze4k::InputRemapScreen>());
     manager.start(ScreenId::Select);
     TEST_CHECK(manager.active_id() == ScreenId::Select);
 
     const auto move_to_remap_row = [&] {
-        for (int i = 0; i < static_cast<int>(td::OptionsRow::RemapInput); ++i) {
+        for (int i = 0; i < static_cast<int>(blaze4k::OptionsRow::RemapInput); ++i) {
             manager.update(kDt, {press(GameAction::Down)});
         }
-        TEST_CHECK(select->options_menu().row == static_cast<int>(td::OptionsRow::RemapInput));
+        TEST_CHECK(select->options_menu().row == static_cast<int>(blaze4k::OptionsRow::RemapInput));
     };
 
     // Confirm launches the remap screen.
@@ -571,7 +571,7 @@ void test_remap_launch_from_options(td::ScreenManager& manager, td::SelectScreen
     TEST_CHECK(config.input.key_bindings == key_bindings_before);
     TEST_CHECK(select->preview().requested_path() == preview_path);
     TEST_CHECK(select->options_open());
-    TEST_CHECK(select->options_menu().row == static_cast<int>(td::OptionsRow::RemapInput));
+    TEST_CHECK(select->options_menu().row == static_cast<int>(blaze4k::OptionsRow::RemapInput));
 
     // Right launches it as well, straight from the reopened overlay.
     manager.update(kDt, {press(GameAction::Right)});
@@ -593,7 +593,7 @@ void test_remap_launch_from_options(td::ScreenManager& manager, td::SelectScreen
 
 // A same-tick [Options, Back] pair must not navigate on the pre-update modal
 // state (the manager must not act on state update() is about to create).
-void test_same_tick_options_back(td::ScreenManager& manager, td::SelectScreen* select) {
+void test_same_tick_options_back(blaze4k::ScreenManager& manager, blaze4k::SelectScreen* select) {
     manager.start(ScreenId::Select);
     TEST_CHECK(manager.active_id() == ScreenId::Select);
     TEST_CHECK(!select->options_open());
@@ -613,21 +613,21 @@ int main() {
     std::cout << "[select_screen_test] Running SelectScreen tests...\n";
 
     const std::filesystem::path root =
-        std::filesystem::temp_directory_path() / "tundra_select_screen_test";
-    td::SongLibrary library = make_library(root);
+        std::filesystem::temp_directory_path() / "blaze4k_select_screen_test";
+    blaze4k::SongLibrary library = make_library(root);
     TEST_CHECK(library.total_songs() == 4);
 
-    td::GameConfig config;
-    td::HighScores scores;
-    td::PlayRequest request;
+    blaze4k::GameConfig config;
+    blaze4k::HighScores scores;
+    blaze4k::PlayRequest request;
 
-    auto select = std::make_unique<td::SelectScreen>();
-    td::SelectScreen* select_ptr = select.get();
-    auto gameplay = std::make_unique<td::GameplayScreen>();
-    td::GameplayScreen* gameplay_ptr = gameplay.get();
+    auto select = std::make_unique<blaze4k::SelectScreen>();
+    blaze4k::SelectScreen* select_ptr = select.get();
+    auto gameplay = std::make_unique<blaze4k::GameplayScreen>();
+    blaze4k::GameplayScreen* gameplay_ptr = gameplay.get();
 
-    td::ScreenManager manager(0.0); // disable idle-attract for determinism
-    manager.add_screen(std::make_unique<td::TitleScreen>());
+    blaze4k::ScreenManager manager(0.0); // disable idle-attract for determinism
+    manager.add_screen(std::make_unique<blaze4k::TitleScreen>());
     manager.add_screen(std::move(select));
     manager.add_screen(std::move(gameplay));
     manager.context().config = &config;
@@ -653,7 +653,7 @@ int main() {
     test_remap_launch_from_options(manager, select_ptr, config);
     test_same_tick_options_back(manager, select_ptr);
 
-    td::GlQuadRenderer renderer; // populated-screen render smoke
+    blaze4k::GlQuadRenderer renderer; // populated-screen render smoke
     manager.render(renderer, 1280, 720);
 
     std::filesystem::remove_all(root);

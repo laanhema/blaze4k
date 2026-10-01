@@ -6,7 +6,7 @@
 
 #include "timing/judgment_constants.hpp"
 
-namespace td {
+namespace blaze4k {
 
 // Explicit outcome of a load, so callers can route the message without
 // inspecting its wording. `UsedDefaults` means every candidate was missing or
@@ -28,4 +28,4 @@ enum class ConstantsLoadStatus { LoadedFromFile, UsedDefaults };
     const std::vector<std::filesystem::path>& candidates, std::string* message = nullptr,
     ConstantsLoadStatus* status = nullptr);
 
-} // namespace td
+} // namespace blaze4k

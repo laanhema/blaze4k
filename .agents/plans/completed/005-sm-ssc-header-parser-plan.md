@@ -42,7 +42,7 @@ So that my existing simfile library loads without conversion.
 | `src/chart/song_metadata.hpp` | CREATE | Song metadata fields and path resolution |
 | `src/chart/simfile_parser.hpp` | CREATE | SM/SSC parser interface |
 | `src/chart/simfile_parser.cpp` | CREATE | Tag extraction and timing initialization |
-| `CMakeLists.txt` | UPDATE | Add chart sources to `tundra_core` |
+| `CMakeLists.txt` | UPDATE | Add chart sources to `blaze4k_core` |
 | `tests/parser_test.cpp` | CREATE | Unit tests for MSD, SM/SSC headers, timing math, and fuzz/hardening |
 | `tests/CMakeLists.txt` | UPDATE | Add `parser_test` target |
 

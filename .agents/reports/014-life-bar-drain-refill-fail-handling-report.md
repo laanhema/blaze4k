@@ -6,7 +6,7 @@
 
 ## Summary
 
-Built Tundra's life layer as a pure, event-sourced module. `LifeKeeper` consumes the frozen B4
+Built Blaze 4k's life layer as a pure, event-sourced module. `LifeKeeper` consumes the frozen B4
 `JudgmentEvent` log, groups per-note tap events into OpenITG rows (row identity = exact `Note.beat`,
 the B5 rule), applies exactly one life delta per resolved row plus individual deltas for hold/roll
 outcomes and hit mines, clamps life to `[0,1]`, and derives `is_failing()` / `has_failed()`. A

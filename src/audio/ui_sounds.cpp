@@ -11,7 +11,7 @@
 
 #include "audio/audio_engine.hpp"
 
-namespace td {
+namespace blaze4k {
 
 namespace {
 
@@ -206,4 +206,4 @@ void UiSoundPlayer::play(UiSound sound) {
     ma_engine_play_sound(engine.raw_engine(), path_for(sound).string().c_str(), nullptr);
 }
 
-} // namespace td
+} // namespace blaze4k

@@ -4,7 +4,7 @@
 #include <string>
 #include "render/geometry.hpp"
 
-namespace td {
+namespace blaze4k {
 
 // Cheap, non-decoding result of probing an image header (stbi_info).
 struct ImageHeader {
@@ -63,4 +63,4 @@ private:
     int height_ = 0;
 };
 
-} // namespace td
+} // namespace blaze4k

@@ -5,7 +5,7 @@
 
 #include "gameplay/speed_mod.hpp"
 
-namespace td {
+namespace blaze4k {
 
 struct GameConfig;
 
@@ -77,4 +77,4 @@ void options_menu_adjust(OptionsMenu& menu, int delta);
 // Signed seconds, e.g. "+0.023 s" / "-0.011 s". Pure.
 [[nodiscard]] std::string format_offset(double seconds);
 
-} // namespace td
+} // namespace blaze4k

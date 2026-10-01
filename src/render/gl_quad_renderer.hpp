@@ -4,7 +4,7 @@
 #include "render/geometry.hpp"
 #include "render/texture.hpp"
 
-namespace td {
+namespace blaze4k {
 
 // Batched 2D textured-quad renderer for OpenGL 3.3 core.
 //
@@ -76,4 +76,4 @@ private:
     float projection_[16] = {0.0f};
 };
 
-} // namespace td
+} // namespace blaze4k

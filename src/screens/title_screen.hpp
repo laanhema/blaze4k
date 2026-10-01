@@ -2,7 +2,7 @@
 
 #include "screens/screen.hpp"
 
-namespace td {
+namespace blaze4k {
 
 // Title screen: logo + blinking "PRESS START". Confirm advances toward Select.
 class TitleScreen : public Screen {
@@ -17,4 +17,4 @@ private:
     double blink_seconds_ = 0.0;
 };
 
-} // namespace td
+} // namespace blaze4k

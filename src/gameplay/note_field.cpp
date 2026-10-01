@@ -2,7 +2,7 @@
 
 #include <algorithm>
 
-namespace td {
+namespace blaze4k {
 
 void NoteField::set_chart(const Chart* chart) {
     chart_ = chart;
@@ -114,4 +114,4 @@ double NoteField::screen_y(double offset) const {
     return config_.receptor_y + offset;
 }
 
-} // namespace td
+} // namespace blaze4k

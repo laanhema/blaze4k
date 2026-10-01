@@ -1,6 +1,6 @@
-# Building Tundra Dance
+# Building Blaze 4k
 
-Tundra Dance is a C++20 / CMake project. It fetches all third-party dependencies
+Blaze 4k is a C++20 / CMake project. It fetches all third-party dependencies
 with CMake `FetchContent` (SDL3, glad, nlohmann/json, miniaudio, stb), so a
 fresh clone builds with nothing but a compiler, CMake, and git.
 
@@ -66,7 +66,7 @@ cmake -B build-debug -DCMAKE_BUILD_TYPE=Debug
 cmake --build build-debug
 ```
 
-The result is a native, portable binary (`build/tundra-dance`). No installer is
+The result is a native, portable binary (`build/blaze-4k`). No installer is
 required.
 
 ### CMake presets
@@ -107,7 +107,7 @@ Notable tests:
 - `frame_stats_test` — deterministic percentile/edge-case math (no timing).
 - `perf_loop_test` — headless full-song CPU-budget benchmark; prints
   `p50/p95/p99/max` ms and gates `p99 < 16.67 ms`, `max < 50 ms`. Set
-  `TUNDRA_PERF_STRICT=0` to make the budget assertions advisory.
+  `BLAZE4K_PERF_STRICT=0` to make the budget assertions advisory.
 - `screen_manager_test` — arcade-loop "no dead ends" contract.
 - `metronome_sync_test` — permanent sync regression chart.
 
@@ -126,15 +126,15 @@ GNU tar; the temp tree is removed on success unless `--keep` is passed.
 
 ## Running
 
-Tundra Dance ships engine-only: import your own SM/SSC song packs.
+Blaze 4k ships engine-only: import your own SM/SSC song packs.
 
 ```bash
 # Headless smoke test
-./build/tundra-dance --headless --smoke-test 120 --songs /path/to/your/Songs
+./build/blaze-4k --headless --smoke-test 120 --songs /path/to/your/Songs
 
 # Play with a frame-time report (real hardware)
-./build/tundra-dance --perf-report --songs /path/to/your/Songs
-./build/tundra-dance --help
+./build/blaze-4k --perf-report --songs /path/to/your/Songs
+./build/blaze-4k --help
 ```
 
 ## Portable data layout
@@ -142,7 +142,7 @@ Tundra Dance ships engine-only: import your own SM/SSC song packs.
 PRD §4/§9: all state is local, portable, and offline.
 
 - A `data/` folder next to the binary holds `config.json`, `scores.json`, and
-  the calibration click sample. On Linux, `--xdg` (or `TUNDRA_XDG=1`) uses the
+  the calibration click sample. On Linux, `--xdg` (or `BLAZE4K_XDG=1`) uses the
   XDG data directory instead. `--data-dir <path>` overrides both for testing.
 - `assets/` (fallback background, bundled judgment constants, UI sounds) is
   copied next to the binary at build time via a POST_BUILD step.

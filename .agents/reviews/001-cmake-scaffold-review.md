@@ -5,7 +5,7 @@
 
 ## Summary
 
-The change scaffolds the CMake build configuration for Tundra Dance, linking C++20 with pinned FetchContent dependencies (SDL3, GLAD, nlohmann/json, miniaudio, and stb). Directory layouts and verification stubs adhere to PRD specifications. All automated checks and tests pass with zero warnings.
+The change scaffolds the CMake build configuration for Blaze 4k, linking C++20 with pinned FetchContent dependencies (SDL3, GLAD, nlohmann/json, miniaudio, and stb). Directory layouts and verification stubs adhere to PRD specifications. All automated checks and tests pass with zero warnings.
 
 ## Issues Found
 

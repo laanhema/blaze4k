@@ -1,4 +1,4 @@
-# Tundra Dance
+# Blaze 4k
 
 A modern 4-panel arrow rhythm game for desktop (Windows, macOS, Linux) — a faithful homage to _In The Groove_, _Mungyodance_, and _StepMania_. Hit scrolling arrows in time with music using a keyboard or USB dance pad, judged with ITG-tight timing windows and scored with the OpenITG dance-point/grade system.
 
@@ -39,7 +39,7 @@ The build produces a native, portable binary — no installer required. Dependen
 
 ## Running
 
-Tundra Dance ships engine-only: you import your own song packs. Point the game at a `Songs/` folder containing SM/SSC packs (folder-per-song structure); every song with a 4-panel chart appears on the song wheel with its banner, artist, and difficulty rating.
+Blaze 4k ships engine-only: you import your own song packs. Point the game at a `Songs/` folder containing SM/SSC packs (folder-per-song structure); every song with a 4-panel chart appears on the song wheel with its banner, artist, and difficulty rating.
 
 Settings, high scores, and the calibrated global offset persist as JSON files next to the binary.
 
@@ -57,7 +57,7 @@ Chart editor, courses/marathon modes, anything online, 5/6-panel or doubles, tur
 ## Project Layout
 
 ```
-tundra-dance/
+blaze-4k/
 ├── CMakeLists.txt
 ├── src/
 │   ├── main.cpp

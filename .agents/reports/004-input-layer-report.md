@@ -28,7 +28,7 @@ Implemented the input handling layer for keyboard and USB dance pads/gamepads:
 |-------|--------|
 | Type check / Build (`cmake --build build`) | ✅ (0 errors, 0 warnings) |
 | Unit Tests (`ctest --test-dir build --output-on-failure`) | ✅ (4/4 passed) |
-| App Smoke Test (`./build/tundra-dance --smoke-test 10`) | ✅ (Clean initialization, execution, and shutdown) |
+| App Smoke Test (`./build/blaze-4k --smoke-test 10`) | ✅ (Clean initialization, execution, and shutdown) |
 
 ## Files Changed
 

@@ -2,7 +2,7 @@
 
 #include "gameplay/note_field.hpp"
 
-namespace td {
+namespace blaze4k {
 
 struct GameConfig;
 
@@ -20,4 +20,4 @@ struct GameplayOptions {
 // An unparseable `speed_mod` falls back to X-mod 1x with a warning.
 [[nodiscard]] GameplayOptions gameplay_options_from_config(const GameConfig& config);
 
-} // namespace td
+} // namespace blaze4k

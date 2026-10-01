@@ -22,11 +22,11 @@
 
 namespace {
 
-using td::ScreenContext;
-using td::ScreenId;
+using blaze4k::ScreenContext;
+using blaze4k::ScreenId;
 
 // Minimal destination screen so the manager can apply Gameplay's transition.
-class StubScreen : public td::Screen {
+class StubScreen : public blaze4k::Screen {
 public:
     explicit StubScreen(ScreenId id) : id_(id) {}
     [[nodiscard]] ScreenId id() const override { return id_; }
@@ -35,12 +35,12 @@ private:
     ScreenId id_;
 };
 
-td::Note make_tap(int column, double beat, double time_seconds) {
-    td::Note note;
+blaze4k::Note make_tap(int column, double beat, double time_seconds) {
+    blaze4k::Note note;
     note.column = column;
     note.beat = beat;
     note.time_seconds = time_seconds;
-    note.type = td::NoteType::Tap;
+    note.type = blaze4k::NoteType::Tap;
     return note;
 }
 
@@ -49,19 +49,19 @@ td::Note make_tap(int column, double beat, double time_seconds) {
 // tap expires at music time > way_off (0.18 s); with an exact 0.25 s timestep it
 // misses on the first update, so the 2 s delay lands exactly on the 8th update.
 void test_end_delay_before_results() {
-    td::Song song;
-    td::Chart chart;
+    blaze4k::Song song;
+    blaze4k::Chart chart;
     chart.timing.parse_bpms_string("0=120");
     chart.notes.push_back(make_tap(0, 0.0, 0.0));
 
-    td::PlayRequest request;
+    blaze4k::PlayRequest request;
     request.song = &song;
     request.chart = &chart;
     request.options.fail_enabled = false; // isolate the cleared path
 
-    td::ScreenManager manager(0.0); // disable idle -> Attract
-    auto gameplay_owner = std::make_unique<td::GameplayScreen>();
-    td::GameplayScreen* gameplay = gameplay_owner.get();
+    blaze4k::ScreenManager manager(0.0); // disable idle -> Attract
+    auto gameplay_owner = std::make_unique<blaze4k::GameplayScreen>();
+    blaze4k::GameplayScreen* gameplay = gameplay_owner.get();
     manager.add_screen(std::move(gameplay_owner));
     manager.add_screen(std::make_unique<StubScreen>(ScreenId::Select));
     manager.context().play_request = &request;
@@ -71,8 +71,8 @@ void test_end_delay_before_results() {
 
     constexpr double dt = 0.25;
     const int delay_updates =
-        static_cast<int>(td::GameplayScreen::kEndDelaySeconds / dt);
-    TEST_CHECK(std::abs(td::GameplayScreen::kEndDelaySeconds - delay_updates * dt) < 1e-9);
+        static_cast<int>(blaze4k::GameplayScreen::kEndDelaySeconds / dt);
+    TEST_CHECK(std::abs(blaze4k::GameplayScreen::kEndDelaySeconds - delay_updates * dt) < 1e-9);
 
     // Updates 1..(delay_updates - 1): the run has ended but the field is held.
     for (int i = 0; i < delay_updates - 1; ++i) {

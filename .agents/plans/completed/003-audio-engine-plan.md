@@ -15,7 +15,7 @@ Implement the audio subsystem in `src/audio/` wrapping miniaudio:
 3. Unit tests in `tests/audio_test.cpp`:
    - Generate synthetic test WAV files using standard PCM WAV header writing.
    - Test loading, duration query, playback, monotonic stream position advancement, pausing, seeking, volume, and graceful rejection of non-existent/corrupt files.
-4. Integrate with `tundra_core` in `CMakeLists.txt` and tests.
+4. Integrate with `blaze4k_core` in `CMakeLists.txt` and tests.
 
 ## User Story
 
@@ -42,7 +42,7 @@ So that the gameplay clock can be driven by the audio hardware position instead 
 | `src/audio/audio_engine.cpp` | CREATE | Miniaudio engine implementation |
 | `src/audio/sound_stream.hpp` | CREATE | Stream playback and sample-exact clock query interface |
 | `src/audio/sound_stream.cpp` | CREATE | Miniaudio stream decoder and cursor tracking |
-| `CMakeLists.txt` | UPDATE | Add audio sources to `tundra_core` |
+| `CMakeLists.txt` | UPDATE | Add audio sources to `blaze4k_core` |
 | `tests/audio_test.cpp` | CREATE | Unit tests for sound stream playback, position tracking, and error handling |
 | `tests/CMakeLists.txt` | UPDATE | Add `audio_test` target |
 
@@ -72,7 +72,7 @@ So that the gameplay clock can be driven by the audio hardware position instead 
 ### Task 3: Update `CMakeLists.txt`
 - **Files**: `CMakeLists.txt`
 - **Action**: UPDATE
-- **Implement**: Add `src/audio/audio_engine.cpp` and `src/audio/sound_stream.cpp` to `tundra_core`.
+- **Implement**: Add `src/audio/audio_engine.cpp` and `src/audio/sound_stream.cpp` to `blaze4k_core`.
 
 ### Task 4: Unit tests in `tests/audio_test.cpp`
 - **Files**: `tests/audio_test.cpp`, `tests/CMakeLists.txt`

@@ -4,7 +4,7 @@
 #include "data/config.hpp"
 #include "data/config_loader.hpp"
 
-namespace td {
+namespace blaze4k {
 
 namespace {
 
@@ -359,4 +359,4 @@ GameAction InputManager::action_for_key(SDL_Keycode key) const {
     return GameAction::None;
 }
 
-} // namespace td
+} // namespace blaze4k

@@ -6,7 +6,7 @@
 #include "render/bitmap_font.hpp"
 #include "render/gl_quad_renderer.hpp"
 
-namespace td {
+namespace blaze4k {
 
 namespace {
 
@@ -48,4 +48,4 @@ void SelectPlaceholderScreen::render(ScreenContext& /*ctx*/, GlQuadRenderer& ren
     draw_text_centered(renderer, "[BACK] TO TITLE", width * 0.5f, height * 0.80f, 3.0f, kHintColor);
 }
 
-} // namespace td
+} // namespace blaze4k

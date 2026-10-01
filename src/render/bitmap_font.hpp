@@ -4,7 +4,7 @@
 
 #include "render/geometry.hpp"
 
-namespace td {
+namespace blaze4k {
 
 class GlQuadRenderer;
 
@@ -23,4 +23,4 @@ void draw_text(GlQuadRenderer& renderer, const std::string& text, float x, float
 void draw_text_centered(GlQuadRenderer& renderer, const std::string& text, float center_x, float y,
                         float pixel, Color color);
 
-} // namespace td
+} // namespace blaze4k

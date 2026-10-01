@@ -7,7 +7,7 @@
 
 #include "gameplay/judgment_input.hpp"
 
-namespace td {
+namespace blaze4k {
 
 namespace {
 
@@ -407,4 +407,4 @@ void GameplayView::shutdown() {
     }
 }
 
-} // namespace td
+} // namespace blaze4k

@@ -12,7 +12,7 @@
 #include "screens/options_menu.hpp"
 #include "screens/screen_manager.hpp"
 
-namespace td {
+namespace blaze4k {
 
 namespace {
 
@@ -185,4 +185,4 @@ void CalibrationScreen::exit(ScreenContext& /*ctx*/) {
     clock_.clear_source();
 }
 
-} // namespace td
+} // namespace blaze4k

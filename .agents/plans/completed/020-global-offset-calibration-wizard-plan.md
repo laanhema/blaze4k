@@ -59,7 +59,7 @@ So that my hits register on-time despite pad/OS/audio latency.
 | Audio streams | `src/audio/sound_stream.hpp:14-61`, `preview_player.hpp:20-48` | `IAudioStream` test seam + `SoundStream` (file-based, `get_position_frames()`/`get_sample_rate()`); `PreviewPlayer(IAudioStream&)` is the injection precedent |
 | WAV generation precedent | `tests/test_wav_writer.hpp:10-50` | 16-bit mono 44.1 kHz PCM writer (test-only; a production analogue is needed) |
 | Headless clock precedent | `gameplay_view.cpp:86-99,138-150`; `tests/sync_test_harness.hpp:86-97` | synthetic frames advanced by `fixed_dt`, or injected fake `MusicClock::Source` |
-| Test idiom / registration | `tests/options_menu_test.cpp:10-17`, `tests/CMakeLists.txt:186-194` | `TEST_CHECK` + one `add_executable`/`target_link_libraries(... tundra_core)`/`add_test` block per target |
+| Test idiom / registration | `tests/options_menu_test.cpp:10-17`, `tests/CMakeLists.txt:186-194` | `TEST_CHECK` + one `add_executable`/`target_link_libraries(... blaze4k_core)`/`add_test` block per target |
 
 **Start green, stay green:** 21 tests pass; this plan adds **2** targets
 (`offset_calibration_test`, `calibration_screen_test`) and extends `options_menu_test` /
@@ -241,7 +241,7 @@ case OptionsRow::Fail: menu.fail_enabled = !menu.fail_enabled; break;
 | `src/screens/options_menu.cpp` | UPDATE | Row name/value text; seed `offset_seconds` from config; no-op adjust for the action row |
 | `src/screens/select_screen.cpp` | UPDATE | Intercept the Calibrate row on Confirm/Right → `transition_to(ScreenId::Calibration)`; close overlay |
 | `src/main.cpp` | UPDATE | Register `CalibrationScreen(paths.data_dir / "calibration_click.wav")` |
-| `CMakeLists.txt` | UPDATE | Add the 3 new `.cpp` files to `tundra_core` |
+| `CMakeLists.txt` | UPDATE | Add the 3 new `.cpp` files to `blaze4k_core` |
 | `tests/CMakeLists.txt` | UPDATE | Register `offset_calibration_test` and `calibration_screen_test` |
 | `tests/offset_calibration_test.cpp` | CREATE | Pure math: schedule, sign, wild/outlier rejection, readiness, determinism |
 | `tests/calibration_screen_test.cpp` | CREATE | Headless screen integration with fake stream/clock: sampling path, Confirm-save, abort-retains, B1 apply, config round-trip |
@@ -265,7 +265,7 @@ Execute in order. Each task is atomic and verifiable.
 - **Implement**:
   ```cpp
   // offset_calibration.hpp  (pure: <cstddef> + <vector> only)
-  namespace td {
+  namespace blaze4k {
   struct CalibrationConfig {
       double lead_in_seconds = 2.0;
       double beat_period_seconds = 0.5;       // 120 BPM (OQ3)
@@ -282,7 +282,7 @@ Execute in order. Each task is atomic and verifiable.
   struct CalibrationResult {
       bool ready = false; int accepted = 0; int rejected_wild = 0; int rejected_outlier = 0;
       double mean_delta_seconds = 0.0;  // mean(hit - beat); positive = late
-      double offset_seconds = 0.0;      // -mean_delta (Tundra sign; OQ4)
+      double offset_seconds = 0.0;      // -mean_delta (Blaze 4k sign; OQ4)
       double spread_seconds = 0.0;      // stddev of inliers
   };
   class OffsetCalibration {
@@ -299,7 +299,7 @@ Execute in order. Each task is atomic and verifiable.
       std::vector<CalibrationSample> samples_;
       int rejected_wild_ = 0;
   };
-  } // namespace td
+  } // namespace blaze4k
   ```
   `beat_time(n) = lead_in + n*period`; `nearest_beat_index(t) = clamp(round((t-lead_in)/period), 0, max_beats-1)`.
   `add_sample`: `delta = hit - beat`; reject when `|delta| > max_abs_delta_seconds` (bump
@@ -458,8 +458,8 @@ Execute in order. Each task is atomic and verifiable.
 
 - **File**: `src/main.cpp`
 - **Action**: UPDATE
-- **Implement**: after `shell->add_screen(std::make_unique<td::GameplayScreen>());` add
-  `shell->add_screen(std::make_unique<td::CalibrationScreen>(paths.data_dir / "calibration_click.wav"));`
+- **Implement**: after `shell->add_screen(std::make_unique<blaze4k::GameplayScreen>());` add
+  `shell->add_screen(std::make_unique<blaze4k::CalibrationScreen>(paths.data_dir / "calibration_click.wav"));`
   and `#include "screens/calibration_screen.hpp"`. Both `paths` and the include list are already in scope
   (`main.cpp:149-152,18-23`). No other changes: `ctx.config`, `ctx.input_reference_ns`, and the clean-exit
   `save_config` already cover persistence/application.
@@ -471,7 +471,7 @@ Execute in order. Each task is atomic and verifiable.
 - **Files**: `CMakeLists.txt`, `tests/CMakeLists.txt`
 - **Action**: UPDATE
 - **Implement**: add `src/timing/offset_calibration.cpp`, `src/audio/metronome.cpp`, and
-  `src/screens/calibration_screen.cpp` to the `tundra_core` list (`CMakeLists.txt:80-120`); append
+  `src/screens/calibration_screen.cpp` to the `blaze4k_core` list (`CMakeLists.txt:80-120`); append
   `offset_calibration_test` and `calibration_screen_test` blocks mirroring `tests/CMakeLists.txt:186-194`.
 - **Mirror**: `CMakeLists.txt:80-120`, `tests/CMakeLists.txt:186-194`.
 - **Validate**: `cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j16`.
@@ -570,17 +570,17 @@ developer's real `data/` is untouched.
 
 1. **Real binary boots and registers the wizard** (no regression):
    ```bash
-   rm -rf /tmp/td-e2e-cal
-   ./build/tundra-dance --headless --smoke-test 30 \
-     --start-screen select --songs tests/fixtures/reference_pack --data-dir /tmp/td-e2e-cal
+   rm -rf /tmp/blaze4k-e2e-cal
+   ./build/blaze-4k --headless --smoke-test 30 \
+     --start-screen select --songs tests/fixtures/reference_pack --data-dir /tmp/blaze4k-e2e-cal
    # exit 0; logs "[SongLibrary] ...", "[SelectScreen] library: 4 songs, 6 charts",
    # "[ScreenManager] enter Select"; no crash; no audio device needed
    ```
 2. **Config offset survives the real clean-exit save** (AC3/AC4 at the binary level):
    ```bash
-   printf '{"version":1,"offset":{"global_offset_seconds":0.017}}\n' > /tmp/td-e2e-cal/config.json
-   ./build/tundra-dance --headless --smoke-test 5 --start-screen select --data-dir /tmp/td-e2e-cal
-   # exit 0; /tmp/td-e2e-cal/config.json still contains 0.017 (no wizard run -> unchanged)
+   printf '{"version":1,"offset":{"global_offset_seconds":0.017}}\n' > /tmp/blaze4k-e2e-cal/config.json
+   ./build/blaze-4k --headless --smoke-test 5 --start-screen select --data-dir /tmp/blaze4k-e2e-cal
+   # exit 0; /tmp/blaze4k-e2e-cal/config.json still contains 0.017 (no wizard run -> unchanged)
    ```
 3. **Wizard end-to-end with an injected clock (no device)** — measures, saves, applies (AC1/AC2/AC3):
    ```bash
@@ -674,7 +674,7 @@ developer's real `data/` is untouched.
 4. **Non-blocking — offset sign convention.** The issue/PRD do not state it. Derived proposal:
    `new_offset = -mean(hit - beat)` (positive offset = clock reads later, per `music_clock.hpp`; a late
    player needs a negative offset). Cross-checked against `sync_test_harness`. Confirm this is the
-   intended Tundra convention before pinning tests.
+   intended Blaze 4k convention before pinning tests.
 5. **Non-blocking — headless beat production.** Proposed a generated click WAV played through the
    existing `SoundStream`, with a synthetic `fixed_dt`-advanced fallback that refuses to save. Tests
    inject a fake `IAudioStream` + fake `MusicClock::Source` and never open a device. Alternative: a

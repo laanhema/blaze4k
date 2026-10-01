@@ -4,7 +4,7 @@
 #include <vector>
 #include "chart/song.hpp"
 
-namespace td {
+namespace blaze4k {
 
 struct SongPack {
     std::string name;
@@ -13,4 +13,4 @@ struct SongPack {
     std::vector<Song> songs;
 };
 
-} // namespace td
+} // namespace blaze4k

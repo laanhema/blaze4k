@@ -26,14 +26,14 @@ int main() {
         "#COMPLEX:Param1:Param2:Param3;\n"
         "// Trailing comment\n";
 
-    td::MsdFile msd;
+    blaze4k::MsdFile msd;
     TEST_CHECK(msd.read_string(msd_sample));
     TEST_CHECK(msd.size() == 3);
     TEST_CHECK(msd.get_tag_value("TITLE") == "Aurora Borealis");
     TEST_CHECK(msd.get_tag_value("title") == "Aurora Borealis"); // Case-insensitive
     TEST_CHECK(msd.get_tag_value("ARTIST") == "Polaris");
 
-    const td::MsdTag* complex_tag = msd.find_tag("COMPLEX");
+    const blaze4k::MsdTag* complex_tag = msd.find_tag("COMPLEX");
     TEST_CHECK(complex_tag != nullptr);
     TEST_CHECK(complex_tag->params.size() == 3);
     TEST_CHECK(complex_tag->params[0] == "Param1");
@@ -43,7 +43,7 @@ int main() {
 
     // 2. Test SM Parser and Metadata
     std::string sm_content = 
-        "#TITLE:Tundra Groove;\n"
+        "#TITLE:Blaze Groove;\n"
         "#SUBTITLE:Frostbite Mix;\n"
         "#ARTIST:DJ Arctica;\n"
         "#GENRE:Hardcore;\n"
@@ -56,10 +56,10 @@ int main() {
         "#BPMS:0.000=140.000,64.000=280.000;\n"
         "#STOPS:32.000=1.500;\n";
 
-    td::SimfileParser sm_parser;
+    blaze4k::SimfileParser sm_parser;
     TEST_CHECK(sm_parser.parse_string(sm_content, ".sm"));
     TEST_CHECK(!sm_parser.is_ssc());
-    TEST_CHECK(sm_parser.metadata().title == "Tundra Groove");
+    TEST_CHECK(sm_parser.metadata().title == "Blaze Groove");
     TEST_CHECK(sm_parser.metadata().subtitle == "Frostbite Mix");
     TEST_CHECK(sm_parser.metadata().artist == "DJ Arctica");
     TEST_CHECK(sm_parser.metadata().genre == "Hardcore");
@@ -72,7 +72,7 @@ int main() {
     std::cout << "  - SM header metadata extraction passed.\n";
 
     // 3. Test Timing Conversions (BPM changes + Stops)
-    const td::TimingData& timing = sm_parser.timing();
+    const blaze4k::TimingData& timing = sm_parser.timing();
     TEST_CHECK(timing.bpms().size() == 2);
     TEST_CHECK(timing.stops().size() == 1);
 
@@ -116,7 +116,7 @@ int main() {
         "#ARTIST:Future Sound;\n"
         "#BPMS:0.000=175.000;\n";
 
-    td::SimfileParser ssc_parser;
+    blaze4k::SimfileParser ssc_parser;
     TEST_CHECK(ssc_parser.parse_string(ssc_content, ".ssc"));
     TEST_CHECK(ssc_parser.is_ssc());
     TEST_CHECK(ssc_parser.metadata().title == "SSC Track");
@@ -131,7 +131,7 @@ int main() {
         "#BPMS:garbage=value,invalid,0.000=150.000,;\n"
         "#STOPS:broken=stop;\n";
 
-    td::SimfileParser malformed_parser;
+    blaze4k::SimfileParser malformed_parser;
     TEST_CHECK(malformed_parser.parse_string(malformed_content, ".sm"));
     TEST_CHECK(malformed_parser.metadata().title == "Corrupt Song");
     TEST_CHECK(malformed_parser.metadata().offset == 0.0); // Safe fallback

@@ -89,17 +89,17 @@ int main() {
     }
     TEST_CHECK(std::filesystem::exists(ref_pack_path));
 
-    td::SongLibrary library;
+    blaze4k::SongLibrary library;
     bool scan_res = library.scan_directory(ref_pack_path);
     TEST_CHECK(scan_res);
 
     TEST_CHECK(library.packs().size() == 1);
     const auto& pack = library.packs()[0];
-    TEST_CHECK(pack.name == "Tundra Pack");
+    TEST_CHECK(pack.name == "Blaze Pack");
     TEST_CHECK(pack.songs.size() == 4);
 
-    // Verify Song 1: Tundra Anthem
-    const td::Song* anthem = library.find_song("Tundra Pack", "Tundra Anthem");
+    // Verify Song 1: Blaze Anthem
+    const blaze4k::Song* anthem = library.find_song("Blaze Pack", "Blaze Anthem");
     TEST_CHECK(anthem != nullptr);
     TEST_CHECK(anthem->charts.size() == 5);
     TEST_CHECK(anthem->has_custom_banner);
@@ -109,7 +109,7 @@ int main() {
     TEST_CHECK(anthem->timing.stops().size() == 2);
 
     // Verify Song 2: Northern Lights (SSC)
-    const td::Song* lights = library.find_song("Tundra Pack", "Northern Lights");
+    const blaze4k::Song* lights = library.find_song("Blaze Pack", "Northern Lights");
     TEST_CHECK(lights != nullptr);
     TEST_CHECK(lights->charts.size() == 2);
     TEST_CHECK(lights->has_custom_banner);
@@ -117,16 +117,16 @@ int main() {
     TEST_CHECK(lights->has_custom_music);
 
     // Verify Song 3: Glacier Groove (Escaped chars & edge cases)
-    const td::Song* glacier = library.find_song("Tundra Pack", "Glacier:Groove;Part 1");
+    const blaze4k::Song* glacier = library.find_song("Blaze Pack", "Glacier:Groove;Part 1");
     TEST_CHECK(glacier != nullptr);
     TEST_CHECK(glacier->charts.size() == 1);
     TEST_CHECK(glacier->timing.offset() == 0.010);
 
     // Verify Song 4: Aurora Borealis (.ssc priority over .sm)
-    const td::Song* aurora = library.find_song("Tundra Pack", "Aurora Borealis SSC");
+    const blaze4k::Song* aurora = library.find_song("Blaze Pack", "Aurora Borealis SSC");
     TEST_CHECK(aurora != nullptr);
     TEST_CHECK(aurora->charts.size() == 1);
-    TEST_CHECK(aurora->metadata.artist == "Tundra SSC");
+    TEST_CHECK(aurora->metadata.artist == "Blaze SSC");
 
     std::cout << "  - Reference pack parsed 100% of 4-panel songs with zero crashes.\n";
 
@@ -137,7 +137,7 @@ int main() {
 
     // 2a. 17 MB content (exceeds 16MB limit)
     std::string huge_content(17 * 1024 * 1024, 'A');
-    td::MsdFile huge_msd;
+    blaze4k::MsdFile huge_msd;
     bool huge_res = huge_msd.read_string(huge_content);
     TEST_CHECK(!huge_res); // Must be rejected
     TEST_CHECK(huge_msd.empty());
@@ -149,10 +149,10 @@ int main() {
         runaway_tag += ":val" + std::to_string(i);
     }
     runaway_tag += ";";
-    td::MsdFile params_msd;
+    blaze4k::MsdFile params_msd;
     TEST_CHECK(params_msd.read_string(runaway_tag));
     TEST_CHECK(params_msd.size() == 1);
-    TEST_CHECK(params_msd.tags()[0].params.size() <= td::MsdFile::kMaxParamsPerTag);
+    TEST_CHECK(params_msd.tags()[0].params.size() <= blaze4k::MsdFile::kMaxParamsPerTag);
     std::cout << "  - Parameter count capped at kMaxParamsPerTag (1000).\n";
 
     // 2c. Runaway measures (> 10,000 measures)
@@ -161,8 +161,8 @@ int main() {
         runaway_measures += "1000\n0100\n0010\n0001\n,\n";
     }
     runaway_measures += ";";
-    td::TimingData timing;
-    auto runaway_chart = td::NoteParser::parse_4panel_notedata(
+    blaze4k::TimingData timing;
+    auto runaway_chart = blaze4k::NoteParser::parse_4panel_notedata(
         "dance-single", "", "Challenge", 10, runaway_measures, timing
     );
     TEST_CHECK(!runaway_chart.has_value()); // Rejected due to excessive measures
@@ -174,17 +174,17 @@ int main() {
         runaway_rows += "1000\n";
     }
     runaway_rows += ";";
-    auto runaway_row_chart = td::NoteParser::parse_4panel_notedata(
+    auto runaway_row_chart = blaze4k::NoteParser::parse_4panel_notedata(
         "dance-single", "", "Challenge", 10, runaway_rows, timing
     );
     TEST_CHECK(!runaway_row_chart.has_value());
     std::cout << "  - Excessive rows in measure (>1,024) rejected gracefully.\n";
 
     // 2e. Non-finite / NaN / Inf timing values
-    td::TimingData nan_timing;
+    blaze4k::TimingData nan_timing;
     TEST_CHECK(nan_timing.parse_bpms_string("0.0=NaN,4.0=Infinity,8.0=-120"));
     TEST_CHECK(nan_timing.has_exotic_timing());
-    auto nan_chart = td::NoteParser::parse_4panel_notedata(
+    auto nan_chart = blaze4k::NoteParser::parse_4panel_notedata(
         "dance-single", "", "Hard", 8, "1000\n0100\n0010\n0001\n;\n", nan_timing
     );
     TEST_CHECK(!nan_chart.has_value());
@@ -197,13 +197,13 @@ int main() {
 
     // 3a. Inline comments inside tags
     std::string comment_tag = "#TITLE:StepMania // comment here\n5 Source;";
-    td::MsdFile comment_msd;
+    blaze4k::MsdFile comment_msd;
     TEST_CHECK(comment_msd.read_string(comment_tag));
     TEST_CHECK(comment_msd.get_tag_value("TITLE") == "StepMania 5 Source");
 
     // 3b. Escapes: colon, semicolon, and backslash
     std::string escape_tag = "#TAG:Escaped\\:Colon:Escaped\\;Semicolon:Double\\\\Backslash;";
-    td::MsdFile escape_msd;
+    blaze4k::MsdFile escape_msd;
     TEST_CHECK(escape_msd.read_string(escape_tag));
     TEST_CHECK(escape_msd.tags()[0].params[0] == "Escaped:Colon");
     TEST_CHECK(escape_msd.tags()[0].params[1] == "Escaped;Semicolon");
@@ -211,7 +211,7 @@ int main() {
 
     // 3c. Unclosed tag at EOF without semicolon
     std::string unclosed_eof = "#TITLE:End Of File Tag";
-    td::MsdFile eof_msd;
+    blaze4k::MsdFile eof_msd;
     TEST_CHECK(eof_msd.read_string(unclosed_eof));
     TEST_CHECK(eof_msd.get_tag_value("TITLE") == "End Of File Tag");
 
@@ -226,7 +226,7 @@ int main() {
         "     7:\n"
         "     ::::\n"
         "2000\n0000\n0000\n0000\n;\n";
-    td::SimfileParser unclosed_parser;
+    blaze4k::SimfileParser unclosed_parser;
     TEST_CHECK(unclosed_parser.parse_string(unclosed_hold, ".sm"));
     TEST_CHECK(unclosed_parser.charts().size() == 1);
     const auto& unclosed_chart = unclosed_parser.charts()[0];
@@ -259,7 +259,7 @@ int main() {
     // 4a. Truncation fuzzing: truncate at every possible byte offset
     for (size_t len = 0; len < base_sm.size(); ++len) {
         std::string truncated = base_sm.substr(0, len);
-        td::SimfileParser parser;
+        blaze4k::SimfileParser parser;
         // Must not crash or throw unhandled exceptions
         parser.parse_string(truncated, ".sm");
     }
@@ -269,7 +269,7 @@ int main() {
     for (int iter = 0; iter < 100; ++iter) {
         size_t len = (prng() % 2048) + 1;
         std::string garbage = generate_random_bytes(len);
-        td::SimfileParser parser;
+        blaze4k::SimfileParser parser;
         parser.parse_string(garbage, (iter % 2 == 0) ? ".sm" : ".ssc");
     }
     std::cout << "  - Pure binary garbage fuzzing (100 iterations) passed.\n";
@@ -278,7 +278,7 @@ int main() {
     int successful_parses = 0;
     for (int iter = 0; iter < 1000; ++iter) {
         std::string mutated = mutate_string(base_sm);
-        td::SimfileParser parser;
+        blaze4k::SimfileParser parser;
         if (parser.parse_string(mutated, (iter % 2 == 0) ? ".sm" : ".ssc")) {
             successful_parses++;
         }

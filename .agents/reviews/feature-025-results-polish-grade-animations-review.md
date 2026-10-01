@@ -27,7 +27,7 @@ still exits immediately via the manager. One medium behavioral inconsistency exi
 | Back exits immediately | PASS — manager handles Back before `active->update` (`screen_manager.cpp:225-227,159-160`); test case 5 |
 | No dead end | PASS — two Confirm presses (or wait 2.4 s + one) reach Select; Back always works |
 | Headless render no-op; no NaN; degenerate inputs guarded | PASS — draws via no-op-when-uninitialized `GlQuadRenderer`; `reveal_alpha` guards `duration <= 0` and `elapsed <= delay`; `update` clamps negative/NaN `fixed_dt`; no division by zero |
-| Unsourced presentation constants flagged | PASS (as documented) — header lines 13-14 declare all reveal constants "Tundra presentation, unsourced"; see L1/L2 |
+| Unsourced presentation constants flagged | PASS (as documented) — header lines 13-14 declare all reveal constants "Blaze 4k presentation, unsourced"; see L1/L2 |
 
 ## Issues Found
 

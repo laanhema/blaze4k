@@ -22,7 +22,7 @@ block the change.
 Sampled against the cloned upstream repo (`/tmp/opencode/openitg`,
 `HEAD == f2c129fe65c65e4a9b3a691ff35e7717b4e8de51`) and cross-checked against the plan's citations.
 
-| Semantics | Tundra | Upstream | Source | Match |
+| Semantics | Blaze 4k | Upstream | Source | Match |
 |-----------|--------|----------|--------|-------|
 | Beat-spacing offset (X/M) | `(beat - seconds_to_beat(t)) * 64 * x_speed` | `(fNoteBeat - fSongBeat) * ARROW_SPACING`, then `*= fScrollSpeed` | `ArrowEffects.cpp:36-39,135` | ✅ |
 | Time-spacing offset (C) | `(note.time_seconds - t) * (c_bpm/60) * 64` | `(fNoteSeconds - fSongSeconds) * (fBPM/60) * ARROW_SPACING` | `ArrowEffects.cpp:44-51` | ✅ |
@@ -58,7 +58,7 @@ None.
    actually drives update, or drop the dead retry branch.
 
 2. **E2E/validation claim exceeds what the committed assets can exercise.**
-   `tests/fixtures/reference_pack/Tundra Pack/Tundra Anthem/` contains a 15-byte placeholder
+   `tests/fixtures/reference_pack/Blaze Pack/Blaze Anthem/` contains a 15-byte placeholder
    `music.ogg` (load fails, `[SoundStream] error -10`) and a Beginner chart with `taps=4 holds=0
    rolls=0 mines=0`. The plan (`011-note-field-rendering-plan.md:597-608`) describes this fixture as
    having "real audio + holds/mines" and E2E step 4 as verifying hold/roll/mine rendering and C400
