@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <span>
 #include <string>
 #include "render/geometry.hpp"
 
@@ -20,6 +21,11 @@ struct ImageHeader {
 // callers can reject untrusted images before any pixel allocation. Never throws.
 [[nodiscard]] ImageHeader probe_image_header(const std::string& path);
 
+// Multiplies each RGBA8 pixel's RGB by its alpha in place (round to nearest).
+// Processes `rgba.size() / 4` whole pixels and ignores any trailing partial
+// pixel. Pure (no GL).
+void premultiply_alpha(std::span<std::uint8_t> rgba);
+
 // Move-only RAII wrapper around an OpenGL 2D texture.
 //
 // Construction is only possible through the static factories below. When no GL
@@ -36,6 +42,9 @@ public:
     Texture& operator=(Texture&& other) noexcept;
 
     // Uploads tightly-packed RGBA8 pixels. Returns an invalid texture on bad input.
+    // `rgba` is straight (non-premultiplied) alpha; the texture stores
+    // premultiplied alpha so linear/mipmap filtering cannot bleed the RGB of
+    // transparent texels into edges (#59).
     // `mipmaps` builds a mip chain with trilinear minification, for art drawn
     // well below its native size (e.g. 128px noteskin frames drawn at 56px).
     static Texture from_rgba(int width, int height, const uint8_t* rgba, bool mipmaps = false);
@@ -48,6 +57,8 @@ public:
     // path, a missing/oversize (> kMaxImageBytes) file, a header declaring
     // dimensions over the cap (rejected via stbi_info before any decode), a
     // decode failure, or when no GL context is available (headless).
+    // The decoded pixels are straight alpha; like from_rgba, the texture stores
+    // premultiplied alpha so filtering cannot bleed transparent RGB into edges (#59).
     static Texture from_file(const std::string& path, bool mipmaps = false);
 
     void destroy();
@@ -58,6 +69,11 @@ public:
     [[nodiscard]] int height() const { return height_; }
 
 private:
+    // Uploads already-premultiplied RGBA8 bytes as given (arguments validated
+    // and GL availability checked by the public factories).
+    static Texture upload_premultiplied(int width, int height, const std::uint8_t* rgba,
+                                        bool mipmaps);
+
     unsigned int id_ = 0;
     int width_ = 0;
     int height_ = 0;

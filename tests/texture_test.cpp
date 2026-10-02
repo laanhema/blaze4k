@@ -1,3 +1,4 @@
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
 #include <filesystem>
@@ -6,6 +7,7 @@
 #include <string>
 #include <vector>
 
+#include "render/geometry.hpp"
 #include "render/texture.hpp"
 
 #define TEST_CHECK(expr) \
@@ -101,13 +103,77 @@ void test_missing_file_and_empty_path() {
     std::cout << "  - missing file / empty path rejected ok.\n";
 }
 
+void test_premultiply_alpha_bytes() {
+    std::vector<std::uint8_t> px = {
+        200, 100, 50,  255, // opaque: identity
+        255, 255, 255, 0,   // white transparent texel that caused the fringe (#59)
+        64,  64,  64,  0,   // grey transparent texel
+        255, 255, 255, 128, // half alpha: (255*128+127)/255 = 128
+        255, 0,   100, 1,   // (255+127)/255 = 1, (100+127)/255 = 0
+        1,   1,   1,   1,   // (1+127)/255 = 0
+    };
+    blaze4k::premultiply_alpha(px);
+    const std::vector<std::uint8_t> expected = {
+        200, 100, 50,  255,
+        0,   0,   0,   0,
+        0,   0,   0,   0,
+        128, 128, 128, 128,
+        1,   0,   0,   1,
+        0,   0,   0,   1,
+    };
+    TEST_CHECK(px == expected);
+    // Alpha bytes are untouched.
+    TEST_CHECK(px[3] == 255 && px[7] == 0 && px[11] == 0 && px[15] == 128 && px[19] == 1 &&
+               px[23] == 1);
+    std::cout << "  - premultiply_alpha byte math ok.\n";
+}
+
+void test_premultiply_alpha_partial_and_empty() {
+    std::vector<std::uint8_t> empty;
+    blaze4k::premultiply_alpha(empty);
+    blaze4k::premultiply_alpha(std::span<std::uint8_t>{});
+    TEST_CHECK(empty.empty());
+
+    // Six bytes: one whole pixel plus a trailing partial pixel that must be ignored.
+    std::vector<std::uint8_t> partial = {255, 255, 255, 0, 77, 99};
+    blaze4k::premultiply_alpha(partial);
+    TEST_CHECK((partial == std::vector<std::uint8_t>{0, 0, 0, 0, 77, 99}));
+    std::cout << "  - premultiply_alpha empty / trailing partial pixel ok.\n";
+}
+
+bool approx_equal(float a, float b) {
+    return std::fabs(a - b) <= 1e-6f;
+}
+
+bool color_near(blaze4k::Color a, blaze4k::Color b) {
+    return approx_equal(a.r, b.r) && approx_equal(a.g, b.g) && approx_equal(a.b, b.b) &&
+           approx_equal(a.a, b.a);
+}
+
+void test_premultiply_color() {
+    static_assert(blaze4k::premultiply(blaze4k::Color{1.0f, 0.5f, 0.25f, 0.5f}).g == 0.25f,
+                  "premultiply must be usable at compile time");
+
+    TEST_CHECK(color_near(blaze4k::premultiply(blaze4k::Color{1.0f, 1.0f, 1.0f, 1.0f}),
+                          blaze4k::Color{1.0f, 1.0f, 1.0f, 1.0f}));
+    TEST_CHECK(color_near(blaze4k::premultiply(blaze4k::Color{0.5f, 1.0f, 0.2f, 0.5f}),
+                          blaze4k::Color{0.25f, 0.5f, 0.1f, 0.5f}));
+    // Receptor rest tint (a = 1) is unchanged, so the flash/brightness look is too.
+    TEST_CHECK(color_near(blaze4k::premultiply(blaze4k::Color{0.55f, 0.55f, 0.55f, 1.0f}),
+                          blaze4k::Color{0.55f, 0.55f, 0.55f, 1.0f}));
+    std::cout << "  - premultiply(Color) ok.\n";
+}
+
 } // namespace
 
 int main() {
-    std::cout << "[texture_test] Running Texture header-hardening tests...\n";
+    std::cout << "[texture_test] Running Texture header-hardening + premultiply tests...\n";
     test_oversized_header_rejected_before_decode();
     test_dimension_cap_boundary();
     test_missing_file_and_empty_path();
+    test_premultiply_alpha_bytes();
+    test_premultiply_alpha_partial_and_empty();
+    test_premultiply_color();
     std::cout << "[texture_test] All tests passed!\n";
     return 0;
 }
