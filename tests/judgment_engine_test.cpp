@@ -869,24 +869,38 @@ int main() {
 
     // 18. Inclusive edges in the engine (OpenITG `<=`, Player.cpp:948,957-961;
     //     expiry only once strictly older than Way Off, Player.cpp:1373,1397).
+    //     Notes sit at 0.0 so the engine's delta equals the probe time exactly
+    //     in doubles, pinning the exact-edge comparisons.
     {
-        const double note_time = 2.0;
+        const double note_time = 0.0;
+        // 18.1 A step exactly at the Way Off edge is still Way Off.
         {
             blaze4k::Chart chart;
             chart.notes.push_back(make_note(1, note_time, blaze4k::NoteType::Tap));
             blaze4k::JudgmentEngine engine;
             engine.reset(&chart, &k);
-            engine.handle_step(1, note_time + w.way_off - 1e-6);
+            engine.handle_step(1, w.way_off);
             TEST_CHECK(engine.events().size() == 1);
             TEST_CHECK(engine.events().front().window == blaze4k::TapJudgment::WayOff);
         }
+        // 18.2 A note exactly Way Off old has not expired yet.
         {
             blaze4k::Chart chart;
             chart.notes.push_back(make_note(1, note_time, blaze4k::NoteType::Tap));
             blaze4k::JudgmentEngine engine;
             engine.reset(&chart, &k);
-            engine.update(note_time + w.way_off - 1e-6, held_none());
+            engine.update(w.way_off, held_none());
             TEST_CHECK(engine.events().empty());
+        }
+        // 18.3 A mine stepped on exactly at the mine edge explodes.
+        {
+            blaze4k::Chart chart;
+            chart.notes.push_back(make_note(1, note_time, blaze4k::NoteType::Mine));
+            blaze4k::JudgmentEngine engine;
+            engine.reset(&chart, &k);
+            engine.handle_step(1, w.hit_mine);
+            TEST_CHECK(engine.events().size() == 1);
+            TEST_CHECK(engine.events().front().kind == blaze4k::JudgmentKind::HitMine);
         }
         std::cout << "  - Engine window edges are inclusive.\n";
     }

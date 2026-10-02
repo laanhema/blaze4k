@@ -263,6 +263,8 @@ void JudgmentEngine::expire_notes(double music_time) {
 void JudgmentEngine::update_holds(double music_time, const std::array<bool, 4>& held_columns) {
     std::vector<int> still_active;
     still_active.reserve(active_holds_.size());
+    // OpenITG ADJUSTED_WINDOW_HOLD(HW_OK / HW_Roll): base * scale + add
+    // (Player.cpp:60-74, 563, 574).
     const TimingWindows w = constants_->effective_windows();
 
     for (int i : active_holds_) {
@@ -287,8 +289,6 @@ void JudgmentEngine::update_holds(double music_time, const std::array<bool, 4>& 
         // and emit NG, so the held state alone drives the life term; the tail is
         // resolved by the OK branch below.
         const bool held_now = held_columns[static_cast<std::size_t>(note.column)];
-        // OpenITG ADJUSTED_WINDOW_HOLD(HW_OK / HW_Roll): base * scale + add
-        // (Player.cpp:60-74, 563, 574).
 
         double life = 0.0;
         if (is_hold) {
