@@ -598,6 +598,37 @@ int main() {
         std::cout << "  - 18. fail is decided after the whole batch (same-frame rescue).\n";
     }
 
+    // 19. MercifulBeginner leaves life untouched (#67): OpenITG LifeMeterBar.cpp
+    //     has no Beginner branch, so the same Miss / Way Off drains the same
+    //     amount on a Beginner chart as on a Medium one.
+    {
+        blaze4k::Chart beginner_chart;
+        beginner_chart.difficulty = "Beginner";
+        beginner_chart.notes.push_back(make_note(0, 1.0, blaze4k::NoteType::Tap));
+        beginner_chart.tap_count = 1;
+        blaze4k::Chart medium_chart = beginner_chart;
+        medium_chart.difficulty = "Medium";
+        TEST_CHECK(beginner_chart.is_beginner());
+        TEST_CHECK(!medium_chart.is_beginner());
+
+        const blaze4k::JudgmentEvent cases[] = {
+            make_miss(0, 0),
+            make_tap(0, 0, blaze4k::TapJudgment::WayOff, 150.0),
+        };
+        for (const blaze4k::JudgmentEvent& event : cases) {
+            blaze4k::LifeKeeper beginner;
+            beginner.reset(&beginner_chart, &k);
+            beginner.consume(event);
+            blaze4k::LifeKeeper medium;
+            medium.reset(&medium_chart, &k);
+            medium.consume(event);
+            TEST_CHECK(beginner.life() < 0.5);
+            TEST_CHECK(approx(beginner.life(), medium.life()));
+            TEST_CHECK(beginner.has_failed() == medium.has_failed());
+        }
+        std::cout << "  - 19. life is identical on Beginner (no MercifulBeginner branch).\n";
+    }
+
     std::cout << "[life_keeper_test] All life/fail tests passed successfully!\n";
     return 0;
 }

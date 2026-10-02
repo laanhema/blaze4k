@@ -105,6 +105,9 @@ int main() {
     TEST_CHECK(multi_parser.charts()[0].meter == 2);
     TEST_CHECK(multi_parser.charts()[1].difficulty == "Expert");
     TEST_CHECK(multi_parser.charts()[1].meter == 9);
+    // MercifulBeginner detection (#67) on parsed labels.
+    TEST_CHECK(multi_parser.charts()[0].is_beginner());
+    TEST_CHECK(!multi_parser.charts()[1].is_beginner());
     std::cout << "  - Multiple difficulties in one file extracted correctly.\n";
 
     // 3. Test Graceful Rejection of non-4-panel (dance-double) charts
@@ -196,6 +199,19 @@ int main() {
     TEST_CHECK(quant_chart.notes[2].quantization == blaze4k::NoteQuantization::Fourth);
     TEST_CHECK(quant_chart.notes[3].quantization == blaze4k::NoteQuantization::Eighth);
     std::cout << "  - Notes carry the quantization of their measure row.\n";
+
+    // 8. Beginner label helper mirrors OpenITG StringToDifficulty
+    //    (Difficulty.cpp:22-26): only a case-insensitive "beginner" counts.
+    TEST_CHECK(blaze4k::is_beginner_difficulty("beginner"));
+    TEST_CHECK(blaze4k::is_beginner_difficulty("Beginner"));
+    TEST_CHECK(blaze4k::is_beginner_difficulty("BEGINNER"));
+    TEST_CHECK(!blaze4k::is_beginner_difficulty("Novice"));
+    TEST_CHECK(!blaze4k::is_beginner_difficulty("Easy"));
+    TEST_CHECK(!blaze4k::is_beginner_difficulty(""));
+    TEST_CHECK(!blaze4k::is_beginner_difficulty("beginners"));
+    TEST_CHECK(blaze4k::Chart{}.difficulty.empty());
+    TEST_CHECK(!blaze4k::Chart{}.is_beginner());
+    std::cout << "  - Beginner label detection matches OpenITG.\n";
 
     std::cout << "[note_parser_test] All note parser tests passed successfully!\n";
     return 0;

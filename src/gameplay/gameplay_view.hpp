@@ -106,6 +106,9 @@ private:
     std::filesystem::path assist_tick_path_;
     std::vector<double> due_ticks_;
     std::vector<JudgmentEvent> new_events_;
+    // MercifulBeginner early Way Off (display-only): feeds the popup only, never
+    // score/life/explosions (OpenITG Player.cpp:1089-1093 skips DidTapNote).
+    std::vector<JudgmentEvent> display_events_;
     std::vector<NoteRenderItem> items_;
     std::vector<NoteRenderItem> visible_items_;
     // Receptor press feedback (presentation only): last press per column in music time.

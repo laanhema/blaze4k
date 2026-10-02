@@ -211,6 +211,14 @@ JudgmentConstants load_judgment_constants(const std::filesystem::path& path, std
         if (tiers_it != document.end() && !tiers_it->is_null()) {
             override_grade_tiers(*tiers_it, constants.grade_tiers);
         }
+        // OpenITG MercifulBeginner (metrics.ini:157, [Preferences]).
+        auto merciful_it = document.find("merciful_beginner");
+        if (merciful_it != document.end() && !merciful_it->is_null()) {
+            if (!merciful_it->is_boolean()) {
+                throw std::runtime_error("field 'merciful_beginner' must be a boolean");
+            }
+            constants.merciful_beginner = merciful_it->get<bool>();
+        }
     } catch (const std::exception& ex) {
         return fallback(message, status,
                         std::string("invalid field in '") + path.string() + "': " + ex.what());

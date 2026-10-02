@@ -18,6 +18,11 @@ namespace blaze4k {
 //
 // It owns the append-only judgment log and nothing else: no combo, life, DP,
 // percent, or grade state. Those derive from the log (B5/B6).
+//
+// The one side channel is a display-only queue for OpenITG MercifulBeginner's
+// early Way Off (Player.cpp:1089-1093): on a Beginner chart an early step that
+// grades as Way Off is only shown, never recorded. Those events never enter the
+// log, so score, life, combo and results cannot see them.
 class JudgmentEngine {
 public:
     // `chart` and `constants` must outlive the engine. Builds per-column note
@@ -37,6 +42,17 @@ public:
 
     [[nodiscard]] const std::vector<JudgmentEvent>& events() const { return events_; }
     void drain_new_events(std::vector<JudgmentEvent>& out); // appends events since last drain
+
+    // Appends, then clears, the display-only events (MercifulBeginner early Way
+    // Off; kind Tap, window WayOff, negative delta_ms). Presentation only: they
+    // are never in events() / latest_event() / drain_new_events(), and must
+    // never reach score, life, combo or results. Cleared by reset().
+    void drain_display_only_events(std::vector<JudgmentEvent>& out);
+
+    // True when the chart passed to reset() is a Beginner chart (case-insensitive
+    // "beginner" label). Whether the merciful rules apply also depends on
+    // JudgmentConstants::merciful_beginner.
+    [[nodiscard]] bool is_beginner() const { return is_beginner_; }
 
     [[nodiscard]] bool is_note_judged(int note_index) const;
     [[nodiscard]] bool is_note_hidden(int note_index) const;
@@ -82,6 +98,9 @@ private:
     std::vector<int> active_holds_;                // hold/roll indices not yet complete
     std::vector<JudgmentEvent> events_;
     std::size_t new_event_begin_ = 0;
+    // MercifulBeginner: chart is Beginner (from reset()); display-only queue.
+    bool is_beginner_ = false;
+    std::vector<JudgmentEvent> display_only_events_;
     bool has_last_update_ = false;
     double last_update_time_ = 0.0;
     // Forward-only mine-crossing cursor (music time - pad_stick); mines at or

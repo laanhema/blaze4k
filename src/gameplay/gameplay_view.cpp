@@ -104,7 +104,9 @@ bool GameplayView::init(const Chart& chart, const JudgmentConstants& constants,
     std::cout << ", " << (options.scroll == ScrollDirection::Down ? "downscroll" : "upscroll")
               << ", time source " << (use_stub_ ? "stub" : "audio")
               << ", fail " << (options.fail_enabled ? "enabled" : "off")
-              << ", assist tick " << (assist_tick_ ? "on" : "off") << "\n";
+              << ", assist tick " << (assist_tick_ ? "on" : "off")
+              << ", merciful beginner "
+              << (constants.merciful_beginner_applies(chart_.is_beginner()) ? "on" : "off") << "\n";
     return true;
 }
 
@@ -201,8 +203,12 @@ void GameplayView::update(double fixed_dt, const std::array<bool, 4>& held_colum
     // both keepers. No independent judgment logic, no frame/wall-clock input.
     new_events_.clear();
     judge_.drain_new_events(new_events_);
+    display_events_.clear();
+    judge_.drain_display_only_events(display_events_);
     score_.consume(new_events_);
     life_.consume(new_events_);
+    // Display-only first, so a recorded judgment in the same tick wins the popup.
+    judge_anim_.consume(display_events_);
     judge_anim_.consume(new_events_);
     judge_anim_.update(fixed_dt, score_.state().combo);
     for (const JudgmentEvent& event : new_events_) {

@@ -14,6 +14,7 @@
 #include "gameplay/judgment.hpp"
 #include "gameplay/judgment_engine.hpp"
 #include "gameplay/score_keeper.hpp"
+#include "input/input_event.hpp"
 #include "timing/judgment_constants.hpp"
 
 #define TEST_CHECK(expr) \
@@ -702,6 +703,182 @@ int main() {
         TEST_CHECK(approx(keeper.percent(), 1.0));
         TEST_CHECK(std::string(keeper.grade().label) == "quad_star");
         std::cout << "  - Perfect play over a parsed reference chart yields 100% quad star.\n";
+    }
+
+    // 17. MercifulBeginner DP clamp (#67; OpenITG ScoreKeeperMAX2.cpp:529-530,
+    //     544-545): on a Beginner chart negative tap/mine/hold weights add 0.
+    //     possible_dp, counts and combo are unchanged (S5).
+    {
+        auto make_chart = [](const char* difficulty) {
+            blaze4k::Chart chart;
+            chart.difficulty = difficulty;
+            chart.notes.push_back(make_note(0, 1.0, blaze4k::NoteType::Tap));
+            chart.notes.push_back(make_note(1, 2.0, blaze4k::NoteType::Tap));
+            chart.notes.push_back(make_note(2, 3.0, blaze4k::NoteType::Tap));
+            chart.notes.push_back(make_note(3, 4.0, blaze4k::NoteType::Tap));
+            chart.notes.push_back(make_note(0, 5.0, blaze4k::NoteType::HoldHead, 6.0));
+            chart.notes.push_back(make_note(1, 7.0, blaze4k::NoteType::Mine));
+            chart.tap_count = 4;
+            chart.hold_count = 1;
+            chart.mine_count = 1;
+            return chart;
+        };
+        auto play = [](blaze4k::ScoreKeeper& keeper) {
+            keeper.consume(make_tap(0, 0, blaze4k::TapJudgment::WayOff, -150.0));
+            keeper.consume(make_miss(1, 1));
+            keeper.consume(make_tap(2, 2, blaze4k::TapJudgment::Fantastic, 0.0));
+            keeper.consume(make_tap(3, 3, blaze4k::TapJudgment::Decent, 120.0));
+            keeper.consume(make_tap(4, 0, blaze4k::TapJudgment::Fantastic, 0.0));
+            keeper.consume(make_hold_outcome(4, 0, blaze4k::NoteType::HoldHead,
+                                             blaze4k::JudgmentKind::HoldNg, blaze4k::HoldJudgment::Ng));
+            blaze4k::JudgmentEvent mine;
+            mine.kind = blaze4k::JudgmentKind::HitMine;
+            mine.column = 1;
+            mine.note_index = 5;
+            mine.note_type = blaze4k::NoteType::Mine;
+            mine.window = blaze4k::TapJudgment::HitMine;
+            keeper.consume(mine);
+        };
+        auto count = [](const blaze4k::ScoreKeeper& keeper, blaze4k::TapJudgment j) {
+            return keeper.state().tap_counts[static_cast<std::size_t>(j)];
+        };
+
+        blaze4k::Chart beginner_chart = make_chart("Beginner");
+        blaze4k::ScoreKeeper beginner;
+        beginner.reset(&beginner_chart, &k);
+        play(beginner);
+
+        blaze4k::Chart hard_chart = make_chart("Hard");
+        blaze4k::ScoreKeeper hard;
+        hard.reset(&hard_chart, &k);
+        play(hard);
+
+        TEST_CHECK(beginner.actual_dance_points() == 10); // 0+0+5+0+5+0+0
+        TEST_CHECK(beginner.possible_dance_points() == 30);
+        TEST_CHECK(approx(beginner.percent(), 10.0 / 30.0));
+        TEST_CHECK(hard.actual_dance_points() == -14); // -6-12+5+0+5+0-6
+        TEST_CHECK(hard.possible_dance_points() == 30);
+        for (const blaze4k::ScoreKeeper* keeper : {&beginner, &hard}) {
+            TEST_CHECK(count(*keeper, blaze4k::TapJudgment::WayOff) == 1);
+            TEST_CHECK(count(*keeper, blaze4k::TapJudgment::Miss) == 1);
+            TEST_CHECK(count(*keeper, blaze4k::TapJudgment::Fantastic) == 2);
+            TEST_CHECK(count(*keeper, blaze4k::TapJudgment::Decent) == 1);
+            TEST_CHECK(count(*keeper, blaze4k::TapJudgment::HitMine) == 1);
+            TEST_CHECK(keeper->state().hold_counts[static_cast<std::size_t>(blaze4k::HoldJudgment::Ng)] == 1);
+            TEST_CHECK(keeper->state().max_combo == 1);
+            TEST_CHECK(keeper->is_complete());
+        }
+        TEST_CHECK(beginner.state().combo == hard.state().combo);
+        TEST_CHECK(beginner.state().miss_combo == hard.state().miss_combo);
+
+        // Flag off: a Beginner chart scores like the control.
+        blaze4k::JudgmentConstants off = blaze4k::JudgmentConstants::compiled_defaults();
+        off.merciful_beginner = false;
+        blaze4k::Chart off_chart = make_chart("Beginner");
+        blaze4k::ScoreKeeper flag_off;
+        flag_off.reset(&off_chart, &off);
+        play(flag_off);
+        TEST_CHECK(flag_off.actual_dance_points() == -14);
+
+        // Hold clamp proof with a negative NG weight.
+        blaze4k::JudgmentConstants ng = blaze4k::JudgmentConstants::compiled_defaults();
+        ng.dp_weights.hold_ng = -3;
+        for (const char* label : {"Beginner", "Hard"}) {
+            blaze4k::Chart chart;
+            chart.difficulty = label;
+            chart.notes.push_back(make_note(0, 1.0, blaze4k::NoteType::HoldHead, 2.0));
+            chart.hold_count = 1;
+            blaze4k::ScoreKeeper keeper;
+            keeper.reset(&chart, &ng);
+            keeper.consume(make_tap(0, 0, blaze4k::TapJudgment::Fantastic, 0.0));
+            const int before = keeper.actual_dance_points();
+            keeper.consume(make_hold_outcome(0, 0, blaze4k::NoteType::HoldHead,
+                                             blaze4k::JudgmentKind::HoldNg, blaze4k::HoldJudgment::Ng));
+            const int expected = std::string(label) == "Beginner" ? 0 : -3;
+            TEST_CHECK(keeper.actual_dance_points() - before == expected);
+        }
+
+        // Positive weights are never clamped down: all-Fantastic Beginner = 100%.
+        {
+            blaze4k::Chart chart = make_chart("Beginner");
+            blaze4k::ScoreKeeper keeper;
+            keeper.reset(&chart, &k);
+            for (int i = 0; i < 5; ++i) {
+                keeper.consume(make_tap(i, chart.notes[static_cast<std::size_t>(i)].column,
+                                        blaze4k::TapJudgment::Fantastic, 0.0));
+            }
+            keeper.consume(make_hold_outcome(4, 0, blaze4k::NoteType::HoldHead,
+                                             blaze4k::JudgmentKind::HoldOk, blaze4k::HoldJudgment::Ok));
+            TEST_CHECK(keeper.actual_dance_points() == keeper.possible_dance_points());
+            TEST_CHECK(approx(keeper.percent(), 1.0));
+        }
+        std::cout << "  - MercifulBeginner clamps negative DP weights to 0 (controls unchanged).\n";
+    }
+
+    // 18. GameplayView boundary on Beginner: the chart difficulty reaches both the
+    //     engine and the keeper through init(). An untouched tap expires at the
+    //     widened Way Off (1.0 + 0.6815 s) and the Miss costs 0 DP (section 15: -12).
+    {
+        blaze4k::Chart chart;
+        chart.difficulty = "Beginner";
+        chart.notes.push_back(make_note(0, 1.0, blaze4k::NoteType::Tap));
+        chart.tap_count = 1;
+
+        blaze4k::GameplayView view;
+        blaze4k::GameplayOptions options;
+        TEST_CHECK(view.init(chart, k, "", options));
+        TEST_CHECK(view.is_ready());
+
+        for (int i = 0; i < 90; ++i) { // 1.5 s: past the base Way Off, not the Beginner one
+            view.update(1.0 / 60.0, held_none());
+        }
+        TEST_CHECK(view.judgment_events().empty());
+        for (int i = 0; i < 60; ++i) { // 2.5 s total
+            view.update(1.0 / 60.0, held_none());
+        }
+
+        TEST_CHECK(view.dance_points() == 0);
+        TEST_CHECK(view.score_state().possible_dp == 5);
+        TEST_CHECK(approx(view.score_percent(), 0.0));
+        TEST_CHECK(view.score_state().tap_counts[static_cast<std::size_t>(blaze4k::TapJudgment::Miss)] == 1);
+        view.shutdown();
+    }
+    // 18b. An early Way Off through the real input path is display-only: it never
+    //      reaches the log or the keeper, and the note still expires as a Miss.
+    {
+        blaze4k::Chart chart;
+        chart.difficulty = "Beginner";
+        chart.notes.push_back(make_note(0, 1.0, blaze4k::NoteType::Tap));
+        chart.tap_count = 1;
+
+        blaze4k::GameplayView view;
+        blaze4k::GameplayOptions options;
+        TEST_CHECK(view.init(chart, k, "", options));
+        for (int i = 0; i < 600 && view.music_time_seconds() < 0.6; ++i) {
+            view.update(1.0 / 60.0, held_none());
+        }
+        const double press_time = view.music_time_seconds();
+        TEST_CHECK(press_time < 1.0 - k.effective_windows().decent);
+        TEST_CHECK(press_time > 1.0 - k.effective_windows(true).way_off);
+        blaze4k::InputEvent press;
+        press.action = blaze4k::GameAction::Left;
+        press.pressed = true;
+        press.timestamp_ns = 0; // unset: judged at the current music time
+        view.handle_input_events({press}, 1);
+        view.update(1.0 / 60.0, held_none());
+        TEST_CHECK(view.judgment_events().empty());
+        TEST_CHECK(view.dance_points() == 0);
+
+        for (int i = 0; i < 150; ++i) {
+            view.update(1.0 / 60.0, held_none());
+        }
+        TEST_CHECK(view.judgment_events().size() == 1);
+        TEST_CHECK(view.judgment_events().front().kind == blaze4k::JudgmentKind::Miss);
+        TEST_CHECK(view.score_state().tap_counts[static_cast<std::size_t>(blaze4k::TapJudgment::WayOff)] == 0);
+        TEST_CHECK(view.score_state().tap_counts[static_cast<std::size_t>(blaze4k::TapJudgment::Miss)] == 1);
+        TEST_CHECK(view.dance_points() == 0);
+        view.shutdown();
+        std::cout << "  - GameplayView carries Beginner into engine + keeper; early Way Off is display-only.\n";
     }
 
     std::cout << "[score_keeper_test] All scoring tests passed successfully!\n";
