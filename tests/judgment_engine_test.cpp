@@ -738,6 +738,44 @@ int main() {
             TEST_CHECK(engine.events().back().window == blaze4k::TapJudgment::Decent);
         }
 
+        // 16.12 A backward clock resync must not rewind the crossing cursor: a
+        // mine crossed unheld is not crossed again after the clock jumps back.
+        {
+            blaze4k::Chart chart;
+            chart.notes.push_back(make_note(0, 2.0, NoteType::Mine));
+            blaze4k::JudgmentEngine engine;
+            engine.reset(&chart, &k);
+            engine.update(1.9, held_none());
+            engine.update(2.06, held_none()); // cursor 2.01: crossed while unheld
+            engine.update(1.95, held_none()); // backward resync
+            engine.update(2.07, held_col(0)); // cursor 2.02: mine 0.02 s away
+            engine.update(2.09, held_col(0));
+            TEST_CHECK(count_kind(engine, JudgmentKind::HitMine) == 0);
+            engine.update(expire_after, held_none());
+            TEST_CHECK(count_kind(engine, JudgmentKind::AvoidedMine) == 1);
+        }
+
+        // 16.13 pad_stick == 0 (OpenITG IsButtonDown branch): the crossing runs at
+        // the music time itself, and a press before it counts as held at once.
+        {
+            blaze4k::JudgmentConstants k0 = k;
+            k0.windows.pad_stick = 0.0;
+            blaze4k::Chart chart;
+            chart.notes.push_back(make_note(0, 1.95, NoteType::Tap));
+            chart.notes.push_back(make_note(0, 2.0, NoteType::Mine));
+            blaze4k::JudgmentEngine engine;
+            engine.reset(&chart, &k0);
+            engine.update(1.9, held_none());
+            engine.handle_step(0, 1.97); // the tap is closer than the mine
+            TEST_CHECK(engine.events().size() == 1);
+            TEST_CHECK(engine.events().back().kind == JudgmentKind::Tap);
+            engine.update(2.01, held_col(0)); // with P = 0.05 the press would be too recent
+            TEST_CHECK(count_kind(engine, JudgmentKind::HitMine) == 1);
+            TEST_CHECK(engine.events().back().note_index == 1);
+            TEST_CHECK(approx(engine.events().back().hit_time_seconds, 2.01));
+            TEST_CHECK(approx(engine.events().back().delta_ms, 10.0, 1e-6));
+        }
+
         std::cout << "  - Mine semantics match OpenITG Step/CrossedMineRow (pad-stick, once-only crossing).\n";
     }
 

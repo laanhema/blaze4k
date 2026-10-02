@@ -28,6 +28,7 @@ void JudgmentEngine::reset(const Chart* chart, const JudgmentConstants* constant
     column_mines_.assign(4, {});
     has_last_update_ = false;
     last_update_time_ = 0.0;
+    mine_cursor_ = -std::numeric_limits<double>::infinity();
     // No press recorded yet: a held column counts as held long enough
     // (e.g. a panel already down before the song started).
     last_press_time_.fill(-std::numeric_limits<double>::infinity());
@@ -337,8 +338,9 @@ void JudgmentEngine::update_holds(double music_time, const std::array<bool, 4>& 
 // (Player.cpp:632-646) and Player::CrossedMineRow (Player.cpp:1461-1488):
 //  - The cursor runs `pad_stick` (PadStickSeconds) behind the music, and only
 //    mines crossed since the previous update, i.e. in (prev_cursor, cursor],
-//    are checked. Each mine is evaluated exactly once, when it crosses. A mine
-//    already in the past is never re-checked, so a later press in the column
+//    are checked. The cursor only moves forward (a backward clock resync does
+//    not rewind it), so each mine is evaluated exactly once, when it crosses.
+//    A mine already in the past is never re-checked, so a later press in the column
 //    (e.g. on the next arrow) cannot explode it. Re-checking every past,
 //    unexpired mine was the root cause of #56.
 //  - A held column counts only if the panel has been down for at least
@@ -352,8 +354,8 @@ void JudgmentEngine::update_holds(double music_time, const std::array<bool, 4>& 
 void JudgmentEngine::cross_mines(double music_time, const std::array<bool, 4>& held_columns) {
     const double pad_stick = constants_->windows.pad_stick;
     const double cursor = music_time - pad_stick;
-    const double lower = has_last_update_ ? last_update_time_ - pad_stick
-                                          : -std::numeric_limits<double>::infinity();
+    const double lower = mine_cursor_;
+    mine_cursor_ = std::max(mine_cursor_, cursor);
 
     for (int column = 0; column < 4; ++column) {
         const auto col = static_cast<std::size_t>(column);

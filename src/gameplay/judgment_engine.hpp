@@ -84,6 +84,9 @@ private:
     std::size_t new_event_begin_ = 0;
     bool has_last_update_ = false;
     double last_update_time_ = 0.0;
+    // Forward-only mine-crossing cursor (music time - pad_stick); mines at or
+    // before it have crossed. Not rewound by a backward clock resync.
+    double mine_cursor_ = 0.0;
     // Music time of the latest button-down per column (-inf = none recorded).
     std::array<double, 4> last_press_time_{};
 };
