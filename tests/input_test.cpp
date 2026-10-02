@@ -214,6 +214,15 @@ int main() {
     TEST_CHECK(!input.is_action_down(blaze4k::GameAction::Right));
     std::cout << "  - Focus loss clears held-action state.\n";
 
+    // 7b. A rebind clears the cached down-state too: a key held across
+    // apply_bindings would otherwise have its release looked up in the new map
+    // and leave the action stuck down (#56).
+    input.handle_sdl_event(dfjk_events[0]); // Left is held again
+    TEST_CHECK(input.is_action_down(blaze4k::GameAction::Left));
+    input.apply_bindings(blaze4k::InputSettings{});
+    TEST_CHECK(!input.is_action_down(blaze4k::GameAction::Left));
+    std::cout << "  - apply_bindings releases held-action state.\n";
+
     // 8. C6: apply_bindings rebuilds the runtime maps from persisted names and
     // falls back per action when none of its names parse.
     blaze4k::InputSettings settings;

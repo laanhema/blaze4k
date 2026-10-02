@@ -43,6 +43,7 @@ bool same_constants(const blaze4k::JudgmentConstants& a, const blaze4k::Judgment
         !nearly(a.windows.hit_mine, b.windows.hit_mine) ||
         !nearly(a.windows.hold_ok, b.windows.hold_ok) ||
         !nearly(a.windows.hold_roll, b.windows.hold_roll) ||
+        !nearly(a.windows.pad_stick, b.windows.pad_stick) ||
         !nearly(a.windows.judge_window_scale, b.windows.judge_window_scale) ||
         !nearly(a.windows.judge_window_add, b.windows.judge_window_add)) {
         return false;
@@ -114,6 +115,8 @@ int main() {
     TEST_CHECK(nearly(defaults.windows.hit_mine, 0.0700));
     TEST_CHECK(nearly(defaults.windows.hold_ok, 0.3200));
     TEST_CHECK(nearly(defaults.windows.hold_roll, 0.3500));
+    // PadStickSeconds=0.05 (arcade metrics.ini:103; #56).
+    TEST_CHECK(nearly(defaults.windows.pad_stick, 0.05));
     TEST_CHECK(nearly(defaults.windows.judge_window_scale, 1.0));
     TEST_CHECK(nearly(defaults.windows.judge_window_add, 0.0));
     TEST_CHECK(same_weights(defaults.dp_weights, blaze4k::Weights{5, 4, 2, 0, -6, -12, -6, 5, 0}));
@@ -202,6 +205,17 @@ int main() {
     TEST_CHECK(nearly(overridden.life.miss, defaults.life.miss));
     std::cout << "  - 5. configurable via JSON without recompiling.\n";
 
+    // 5b. pad_stick is overridable and 0 is legal (OpenITG IsButtonDown branch).
+    fs::path pad_stick_path = temp_dir / "pad_stick.json";
+    write_file(pad_stick_path, "{\"windows_seconds\": {\"pad_stick\": 0.0}}");
+    std::string pad_stick_message;
+    blaze4k::JudgmentConstants pad_stick_zero =
+        blaze4k::load_judgment_constants(pad_stick_path, &pad_stick_message);
+    TEST_CHECK(nearly(pad_stick_zero.windows.pad_stick, 0.0));
+    TEST_CHECK(pad_stick_zero.validate());
+    TEST_CHECK(nearly(pad_stick_zero.windows.hit_mine, defaults.windows.hit_mine));
+    std::cout << "  - 5b. pad_stick override (0 allowed) loads.\n";
+
     // 6. Seed file parity.
     fs::path seed_path = find_seed_file();
     TEST_CHECK(!seed_path.empty());
@@ -242,6 +256,22 @@ int main() {
     blaze4k::JudgmentConstants nonmono = blaze4k::load_judgment_constants(nonmono_path, &nonmono_message);
     TEST_CHECK(same_constants(nonmono, defaults));
     TEST_CHECK(!nonmono_message.empty());
+
+    // 9b2. Negative pad_stick is rejected and falls back.
+    fs::path bad_pad_stick_path = temp_dir / "bad_pad_stick.json";
+    write_file(bad_pad_stick_path, "{\"windows_seconds\": {\"pad_stick\": -0.01}}");
+    std::string bad_pad_stick_message;
+    blaze4k::JudgmentConstants bad_pad_stick =
+        blaze4k::load_judgment_constants(bad_pad_stick_path, &bad_pad_stick_message);
+    TEST_CHECK(same_constants(bad_pad_stick, defaults));
+    TEST_CHECK(!bad_pad_stick_message.empty());
+    {
+        blaze4k::JudgmentConstants negative = defaults;
+        negative.windows.pad_stick = -0.01;
+        std::string reason;
+        TEST_CHECK(!negative.validate(&reason));
+        TEST_CHECK(reason.find("pad_stick") != std::string::npos);
+    }
 
     // 9c. Partial file: absent keys keep compiled defaults.
     fs::path partial_path = temp_dir / "partial.json";

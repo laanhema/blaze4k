@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <limits>
 
 namespace blaze4k {
 
@@ -27,6 +28,9 @@ void JudgmentEngine::reset(const Chart* chart, const JudgmentConstants* constant
     column_mines_.assign(4, {});
     has_last_update_ = false;
     last_update_time_ = 0.0;
+    // No press recorded yet: a held column counts as held long enough
+    // (e.g. a panel already down before the song started).
+    last_press_time_.fill(-std::numeric_limits<double>::infinity());
 
     if (chart_ == nullptr) {
         states_.clear();
@@ -53,12 +57,19 @@ void JudgmentEngine::handle_step(int column, double music_time_seconds) {
         return;
     }
 
+    // Remember the press instant: a held crossing only counts once the panel
+    // has been down for `pad_stick` (OpenITG GetSecsHeld, Player.cpp:1474-1478).
+    last_press_time_[static_cast<std::size_t>(column)] = music_time_seconds;
+    step(column, music_time_seconds);
+}
+
+void JudgmentEngine::step(int column, double music_time_seconds) {
     // A roll is refreshed by any button-down in its column while active,
-    // independent of the closest-note search (Player.cpp:1190-1225).
+    // independent of the closest-note search (Player.cpp:1164-1222).
     refresh_active_rolls(column, music_time_seconds);
 
-    // Closest ungraded note within +/- StepSearchDistance; ties prefer the later
-    // note (Player.cpp:791-823, 894-895).
+    // Closest ungraded note (mines included) within +/- StepSearchDistance;
+    // ties prefer the later note (Player.cpp:779-829, 903-905).
     const std::vector<int>& notes = column_notes_[static_cast<std::size_t>(column)];
     int best = -1;
     double best_distance = 0.0;
@@ -127,7 +138,7 @@ void JudgmentEngine::handle_step_tap(int note_index, double delta_seconds, doubl
 
 void JudgmentEngine::handle_step_mine(int note_index, double delta_seconds, double hit_time) {
     if (delta_seconds > constants_->windows.hit_mine) {
-        return; // Outside the mine window: no event (Player.cpp:930-934).
+        return; // Outside the mine window: no event (Player.cpp:946-949).
     }
 
     NoteState& state = states_[static_cast<std::size_t>(note_index)];
@@ -322,35 +333,45 @@ void JudgmentEngine::update_holds(double music_time, const std::array<bool, 4>& 
     active_holds_ = std::move(still_active);
 }
 
+// Held-over-mine crossing, mirroring OpenITG Player::Update's mine-row cursor
+// (Player.cpp:632-646) and Player::CrossedMineRow (Player.cpp:1461-1488):
+//  - The cursor runs `pad_stick` (PadStickSeconds) behind the music, and only
+//    mines crossed since the previous update, i.e. in (prev_cursor, cursor],
+//    are checked. Each mine is evaluated exactly once, when it crosses. A mine
+//    already in the past is never re-checked, so a later press in the column
+//    (e.g. on the next arrow) cannot explode it. Re-checking every past,
+//    unexpired mine was the root cause of #56.
+//  - A held column counts only if the panel has been down for at least
+//    `pad_stick` (GetSecsHeld >= PadStickSeconds); with pad_stick == 0 this is
+//    OpenITG's IsButtonDown branch.
+//  - The crossing goes through the shared step routine at `cursor`
+//    (Step(t, now - PadStickSeconds, bHeld=true)), so selection, the mine window
+//    and roll refresh behave exactly like a deliberate press. Like OpenITG, no
+//    "already graded" check is made before stepping; `step` skips graded notes.
+// OpenITG works in note rows; seconds are equivalent at constant BPM.
 void JudgmentEngine::cross_mines(double music_time, const std::array<bool, 4>& held_columns) {
+    const double pad_stick = constants_->windows.pad_stick;
+    const double cursor = music_time - pad_stick;
+    const double lower = has_last_update_ ? last_update_time_ - pad_stick
+                                          : -std::numeric_limits<double>::infinity();
+
     for (int column = 0; column < 4; ++column) {
-        const bool held = held_columns[static_cast<std::size_t>(column)];
-        for (int i : column_mines_[static_cast<std::size_t>(column)]) {
-            NoteState& state = states_[static_cast<std::size_t>(i)];
-            if (state.complete) {
+        const auto col = static_cast<std::size_t>(column);
+        if (!held_columns[col] || last_press_time_[col] > cursor) {
+            continue; // Not held, or not held for pad_stick yet: mines are avoided.
+        }
+        for (int i : column_mines_[col]) {
+            const double t = chart_->notes[static_cast<std::size_t>(i)].time_seconds;
+            if (t <= lower) {
+                continue; // Crossed during an earlier update.
+            }
+            if (t > cursor) {
+                // Not crossed yet. `continue` rather than `break`: notes are
+                // beat-ordered, and a warp (negative stop) can make seconds
+                // non-monotonic in beat order.
                 continue;
             }
-            const Note& note = chart_->notes[static_cast<std::size_t>(i)];
-            if (note.time_seconds > music_time) {
-                continue;
-            }
-            if (!held) {
-                continue; // Left for expiry -> AvoidedMine.
-            }
-
-            state.tap = TapJudgment::HitMine;
-            state.complete = true;
-
-            JudgmentEvent event;
-            event.kind = JudgmentKind::HitMine;
-            event.column = note.column;
-            event.note_time_seconds = note.time_seconds;
-            event.hit_time_seconds = music_time;
-            event.delta_ms = (music_time - note.time_seconds) * 1000.0;
-            event.window = TapJudgment::HitMine;
-            event.note_type = note.type;
-            event.note_index = i;
-            emit(event);
+            step(column, cursor); // Once per crossed mine (Player.cpp:1466-1484).
         }
     }
 }

@@ -94,6 +94,7 @@ void override_windows(const json& node, TimingWindows& target) {
     override_number(node, "hit_mine", target.hit_mine);
     override_number(node, "hold_ok", target.hold_ok);
     override_number(node, "hold_roll", target.hold_roll);
+    override_number(node, "pad_stick", target.pad_stick);
     override_number(node, "judge_window_scale", target.judge_window_scale);
     override_number(node, "judge_window_add", target.judge_window_add);
 }

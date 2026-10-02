@@ -9,6 +9,8 @@ const JudgmentConstants& JudgmentConstants::compiled_defaults() {
     // arcade runtime layer assets/patch-data/Themes/default/metrics.ini.
     // Hold/roll window holds JudgeWindowSecondsRoll=0.350 from the compiled
     // default (src/PrefsManager.cpp:94) - no arcade override exists.
+    // pad_stick holds PadStickSeconds=0.05 from metrics.ini:103 (compiled
+    // default 0 at src/PrefsManager.cpp:250).
     static const JudgmentConstants defaults = [] {
         JudgmentConstants c;
         // Timing windows (seconds)
@@ -20,6 +22,7 @@ const JudgmentConstants& JudgmentConstants::compiled_defaults() {
         c.windows.hit_mine = 0.0700;
         c.windows.hold_ok = 0.3200;
         c.windows.hold_roll = 0.3500;
+        c.windows.pad_stick = 0.05;
         c.windows.judge_window_scale = 1.0;
         c.windows.judge_window_add = 0.0;
 
@@ -74,6 +77,10 @@ bool JudgmentConstants::validate(std::string* error) const {
         if (!std::isfinite(value) || value <= 0.0) {
             return fail("timing window must be finite and > 0");
         }
+    }
+    // pad_stick is not a judge window: 0 is legal (OpenITG IsButtonDown branch).
+    if (!std::isfinite(windows.pad_stick) || windows.pad_stick < 0.0) {
+        return fail("pad_stick must be finite and >= 0");
     }
     if (!std::isfinite(windows.judge_window_scale)) {
         return fail("judge_window_scale must be finite");
