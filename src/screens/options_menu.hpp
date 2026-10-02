@@ -61,14 +61,15 @@ void options_menu_apply(const OptionsMenu& menu, GameConfig& config);
 void options_menu_move_row(OptionsMenu& menu, int delta);
 
 // Advances the highlighted row's value by `delta` (row-specific). The speed
-// type and the X-mod value wrap at both ends (8x <-> 1x); C/M values clamp to
-// [1, 9999]; toggle rows flip.
+// type cycles X->C->M; the X-mod value wraps at both ends (8x <-> 1x); C/M
+// values clamp to [1, 9999]; toggle rows flip.
 void options_menu_adjust(OptionsMenu& menu, int delta);
 
 // The ordered grid the menu steps through for X-mod (OpenITG menu values
-// extended to 8x; see options_menu.cpp for provenance). For C/M it returns the parser-valid range
-// endpoints [1, 9999]: OpenITG defines no C/M increment, so those rows step
-// relative to the current value and use this only for clamping. Data-driven.
+// extended to 8x; see options_menu.cpp for provenance). For C/M it returns the
+// parser-valid range endpoints [1, 9999]: OpenITG defines no C/M increment, so
+// those rows step relative to the current value and use this only for
+// clamping. Data-driven.
 [[nodiscard]] std::vector<double> options_speed_values(SpeedModType type);
 
 // Display strings for the overlay.
