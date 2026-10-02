@@ -128,6 +128,33 @@ int main() {
         std::cout << "  - X-mod beat spacing follows BPM segments.\n";
     }
 
+    // 3b. X-mod 8x (#61) scales beat spacing exactly 8x relative to 1x.
+    {
+        blaze4k::TimingData timing;
+        timing.parse_bpms_string("0=120");
+
+        blaze4k::Chart chart;
+        chart.timing = timing;
+        chart.notes.push_back(make_note(0, 16.0, timing.beat_to_seconds(16.0), blaze4k::NoteType::Tap));
+
+        blaze4k::NoteField x1;
+        x1.set_chart(&chart);
+        x1.set_speed_mod(blaze4k::SpeedMod{blaze4k::SpeedModType::XMod, 1.0});
+
+        blaze4k::NoteField x8;
+        x8.set_chart(&chart);
+        x8.set_speed_mod(blaze4k::SpeedMod{blaze4k::SpeedModType::XMod, 8.0});
+
+        TEST_CHECK(approx(x8.effective_x_speed(), 8.0));
+        const blaze4k::Note& note = chart.notes.front();
+        for (double t = 0.0; t < 8.0; t += 0.5) {
+            TEST_CHECK(approx(x8.offset_for_note(note, t), 8.0 * x1.offset_for_note(note, t), 1e-6));
+        }
+        TEST_CHECK(approx(x1.offset_for_note(note, 0.0), 16.0 * 64.0));
+        TEST_CHECK(approx(x8.offset_for_note(note, 0.0), 8.0 * 16.0 * 64.0, 1e-6));
+        std::cout << "  - X-mod 8x scales beat spacing 8x.\n";
+    }
+
     // 4. M-mod resolves to an X-mod via the chart's max BPM.
     {
         blaze4k::TimingData timing;

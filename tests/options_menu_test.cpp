@@ -114,21 +114,46 @@ void test_type_cycle_and_memory() {
     std::cout << "  - speed type cycle + per-type memory ok.\n";
 }
 
-void test_speed_value_step_clamp() {
+void test_speed_value_step_wrap_clamp() {
     OptionsMenu menu;
     menu.row = kSpeedValueRow;
 
-    // X-mod: OpenITG option-menu grid {1,1.5,2,2.5,3,4,5,6}.
+    // X-mod: OpenITG option-menu grid {1,1.5,2,2.5,3,4,5,6} extended with
+    // 7x and 8x (#61).
+    const std::vector<double> x_values = blaze4k::options_speed_values(SpeedModType::XMod);
+    TEST_CHECK(x_values.size() == 10);
+    TEST_CHECK(near(x_values.front(), 1.0));
+    TEST_CHECK(near(x_values[8], 7.0));
+    TEST_CHECK(near(x_values[9], 8.0));
+    TEST_CHECK(near(x_values.back(), 8.0));
+
     menu.speed_type = SpeedModType::XMod;
     menu.set_speed_value(1.0);
     blaze4k::options_menu_adjust(menu, +1);
     TEST_CHECK(near(menu.x_value, 1.5));
-    menu.set_speed_value(1.0);
-    blaze4k::options_menu_adjust(menu, -1);
-    TEST_CHECK(near(menu.x_value, 1.0)); // floor
+
+    // Forward past 6x reaches 7x, 8x, then wraps to 1x.
     menu.set_speed_value(6.0);
     blaze4k::options_menu_adjust(menu, +1);
-    TEST_CHECK(near(menu.x_value, 6.0)); // ceiling
+    TEST_CHECK(near(menu.x_value, 7.0));
+    blaze4k::options_menu_adjust(menu, +1);
+    TEST_CHECK(near(menu.x_value, 8.0));
+    blaze4k::options_menu_adjust(menu, +1);
+    TEST_CHECK(near(menu.x_value, 1.0)); // wraps forward
+
+    // Backward from 1x wraps to 8x, then steps down to 7x.
+    menu.set_speed_value(1.0);
+    blaze4k::options_menu_adjust(menu, -1);
+    TEST_CHECK(near(menu.x_value, 8.0)); // wraps backward
+    blaze4k::options_menu_adjust(menu, -1);
+    TEST_CHECK(near(menu.x_value, 7.0));
+
+    // A full cycle of ten steps returns to the starting value.
+    menu.set_speed_value(2.5);
+    for (int i = 0; i < 10; ++i) {
+        blaze4k::options_menu_adjust(menu, +1);
+    }
+    TEST_CHECK(near(menu.x_value, 2.5));
 
     // C/M-mod: OpenITG defines no increment, so the menu steps relative to the
     // current value and clamps to the parser-valid range [1, 9999].
@@ -161,7 +186,7 @@ void test_speed_value_step_clamp() {
     const std::vector<double> cm_values = blaze4k::options_speed_values(SpeedModType::CMod);
     TEST_CHECK(near(cm_values.front(), 1.0));
     TEST_CHECK(near(cm_values.back(), 9999.0));
-    std::cout << "  - speed value step/clamp ok.\n";
+    std::cout << "  - speed value step (X wraps, C/M clamp) ok.\n";
 }
 
 void test_toggles() {
@@ -325,6 +350,60 @@ void test_apply_and_round_trip() {
     std::cout << "  - apply + round-trip ok.\n";
 }
 
+void test_xmod_high_values_round_trip() {
+    for (const double value : {7.0, 8.0}) {
+        const std::string text = value == 7.0 ? "7x" : "8x";
+
+        OptionsMenu menu;
+        menu.speed_type = SpeedModType::XMod;
+        menu.x_value = value;
+        TEST_CHECK(blaze4k::options_row_value_text(menu, kSpeedValueRow) == text);
+
+        blaze4k::GameConfig config;
+        blaze4k::options_menu_apply(menu, config);
+        TEST_CHECK(config.gameplay.speed_mod == text);
+
+        SpeedMod parsed;
+        TEST_CHECK(blaze4k::parse_speed_mod(config.gameplay.speed_mod, parsed));
+        TEST_CHECK(parsed.type == SpeedModType::XMod);
+        TEST_CHECK(near(parsed.value, value));
+
+        const OptionsMenu restored = blaze4k::options_menu_from_config(config);
+        TEST_CHECK(restored.speed_type == SpeedModType::XMod);
+        TEST_CHECK(near(restored.x_value, value));
+    }
+
+    // Seeded 8x + Right wraps to 1x and the wrap is what gets persisted.
+    {
+        blaze4k::GameConfig config;
+        config.gameplay.speed_mod = "8x";
+        OptionsMenu menu = blaze4k::options_menu_from_config(config);
+        menu.row = kSpeedValueRow;
+        blaze4k::options_menu_adjust(menu, +1);
+        blaze4k::options_menu_apply(menu, config);
+        TEST_CHECK(config.gameplay.speed_mod == "1x");
+    }
+
+    // An off-grid seeded value persists until adjusted, then snaps to the
+    // nearest grid entry (8x) and steps with wrap.
+    {
+        blaze4k::GameConfig config;
+        config.gameplay.speed_mod = "10x";
+        OptionsMenu menu = blaze4k::options_menu_from_config(config);
+        TEST_CHECK(menu.speed_type == SpeedModType::XMod);
+        TEST_CHECK(near(menu.x_value, 10.0));
+        menu.row = kSpeedValueRow;
+        blaze4k::options_menu_adjust(menu, -1);
+        TEST_CHECK(near(menu.x_value, 7.0));
+
+        OptionsMenu forward = blaze4k::options_menu_from_config(config);
+        forward.row = kSpeedValueRow;
+        blaze4k::options_menu_adjust(forward, +1);
+        TEST_CHECK(near(forward.x_value, 1.0));
+    }
+    std::cout << "  - 7x/8x display + apply/parse/seed round-trip ok.\n";
+}
+
 } // namespace
 
 int main() {
@@ -333,12 +412,13 @@ int main() {
     test_invalid_speed();
     test_row_navigation();
     test_type_cycle_and_memory();
-    test_speed_value_step_clamp();
+    test_speed_value_step_wrap_clamp();
     test_toggles();
     test_formatting();
     test_calibration_row_is_action_only();
     test_remap_row_is_action_only();
     test_apply_and_round_trip();
+    test_xmod_high_values_round_trip();
     std::cout << "[options_menu_test] All tests passed!\n";
     return 0;
 }
