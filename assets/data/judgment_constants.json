@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "source": "OpenITG f2c129fe65c65e4a9b3a691ff35e7717b4e8de51 assets/patch-data/Themes/default/metrics.ini; hot_downgrade/regen_combo_after_miss/regen_combo_after_fail/max_regen_combo_after_miss/max_regen_combo_after_fail from src/PrefsManager.cpp + src/LifeMeterBar.cpp; pad_stick is PadStickSeconds from metrics.ini [Preferences]",
+  "source": "OpenITG f2c129fe65c65e4a9b3a691ff35e7717b4e8de51 assets/patch-data/Themes/default/metrics.ini; hot_downgrade/regen_combo_after_miss/regen_combo_after_fail/max_regen_combo_after_miss/max_regen_combo_after_fail from src/PrefsManager.cpp + src/LifeMeterBar.cpp; pad_stick is PadStickSeconds from metrics.ini [Preferences]; judge_window_add is [Preferences-cabinet] JudgeWindowAdd (metrics.ini:262), the section dedicated ITG cabinets launch with (assets/arcade-patch/start-3.sh:17)",
   "label_note": "grade_tiers[].label is informational only; labels are compiled in and copied by tier index, so editing them here has no effect.",
   "windows_seconds": {
     "fantastic": 0.0215,
@@ -13,7 +13,7 @@
     "hold_roll": 0.35,
     "pad_stick": 0.05,
     "judge_window_scale": 1.0,
-    "judge_window_add": 0.0
+    "judge_window_add": 0.0015
   },
   "dp_weights": {
     "fantastic": 5,

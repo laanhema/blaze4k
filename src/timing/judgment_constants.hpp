@@ -9,10 +9,15 @@ namespace blaze4k {
 //
 // Values are seeded from OpenITG tag commit
 //   f2c129fe65c65e4a9b3a691ff35e7717b4e8de51
-// using the arcade runtime override layer
+// using the theme runtime override layer
 //   assets/patch-data/Themes/default/metrics.ini
 // (theme metrics override the compiled StepMania-4 code defaults in
-// src/PrefsManager.cpp, so the arcade table is the effective ITG behavior).
+// src/PrefsManager.cpp). The base windows come from the `[Preferences]`
+// section (metrics.ini:90-103), the base/home layer. Dedicated ITG cabinets
+// launch with `--type=Preferences-cabinet` (assets/arcade-patch/start-3.sh:17),
+// which on top of that only sets `JudgeWindowAdd=0.0015` (metrics.ini:262) and
+// a hardware `GlobalOffsetSeconds` that Blaze does not adopt (it calibrates per
+// user instead). Blaze ships the cabinet add as its default.
 //
 // This module must remain pure: it includes only <array> and <string>, with no
 // platform, audio, or filesystem/JSON dependencies. Loading lives in
@@ -37,8 +42,14 @@ struct TimingWindows {
     // least this long (src/Player.cpp:632-646, 1461-1488). Not a judge window:
     // `judge_window_scale/add` must never apply to it. 0 is legal (IsButtonDown).
     double pad_stick = 0.05;
+    // OpenITG `JudgeWindowScale` / `JudgeWindowAdd`: every judge window above
+    // (not pad_stick) is applied as `base * scale + add` (src/Player.cpp:34-74).
+    // Use JudgmentConstants::effective_windows() instead of reading the bases.
     double judge_window_scale = 1.0;
-    double judge_window_add   = 0.0;
+    // RoXoR/OpenITG dedicated-cabinet JudgeWindowAdd (metrics.ini:262,
+    // [Preferences-cabinet]; selected by assets/arcade-patch/start-3.sh:17).
+    // 0.0 gives the home `[Preferences]` timing (metrics.ini:91).
+    double judge_window_add   = 0.0015;
 };
 
 // Used for both DP (percent score) and grade weights; the two OpenITG tables
@@ -101,6 +112,15 @@ struct JudgmentConstants {
     static const JudgmentConstants& compiled_defaults();
 
     [[nodiscard]] bool validate(std::string* error = nullptr) const;
+
+    // The windows the judgment path must use. Mirrors OpenITG
+    // `AdjustedWindowTap` / `AdjustedWindowHold` (src/Player.cpp:34-74): each of
+    // fantastic..way_off, hit_mine, hold_ok and hold_roll becomes
+    // `base * judge_window_scale + judge_window_add` (scale first, then add).
+    // `pad_stick` is copied unchanged (not a judge window). The returned struct
+    // has judge_window_scale = 1.0 and judge_window_add = 0.0, so adjusting it a
+    // second time is a no-op.
+    [[nodiscard]] TimingWindows effective_windows() const;
 
     // Pure lookups (units: seconds, percent as fraction 0.0-1.0)
     [[nodiscard]] TapJudgment classify_tap(double delta_seconds) const;

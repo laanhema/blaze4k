@@ -118,7 +118,9 @@ int main() {
     // PadStickSeconds=0.05 (arcade metrics.ini:103; #56).
     TEST_CHECK(nearly(defaults.windows.pad_stick, 0.05));
     TEST_CHECK(nearly(defaults.windows.judge_window_scale, 1.0));
-    TEST_CHECK(nearly(defaults.windows.judge_window_add, 0.0));
+    // RoXoR/OpenITG dedicated-cabinet JudgeWindowAdd (metrics.ini:262,
+    // [Preferences-cabinet]; selected by assets/arcade-patch/start-3.sh:17).
+    TEST_CHECK(nearly(defaults.windows.judge_window_add, 0.0015));
     TEST_CHECK(same_weights(defaults.dp_weights, blaze4k::Weights{5, 4, 2, 0, -6, -12, -6, 5, 0}));
     TEST_CHECK(same_weights(defaults.grade_weights, blaze4k::Weights{5, 4, 2, 0, -6, -12, -6, 5, 0}));
     TEST_CHECK(nearly(defaults.life.fantastic, 0.008));
@@ -146,16 +148,66 @@ int main() {
     TEST_CHECK(defaults.validate(&validation_error));
     std::cout << "  - 1. compiled defaults match pinned OpenITG values.\n";
 
-    // 2. classify_tap boundaries (symmetric, NaN -> Miss).
-    TEST_CHECK(defaults.classify_tap(0.0215) == blaze4k::TapJudgment::Fantastic);
-    TEST_CHECK(defaults.classify_tap(0.0215 + kEps) == blaze4k::TapJudgment::Excellent);
-    TEST_CHECK(defaults.classify_tap(0.0430 + kEps) == blaze4k::TapJudgment::Great);
-    TEST_CHECK(defaults.classify_tap(0.1020 + kEps) == blaze4k::TapJudgment::Decent);
-    TEST_CHECK(defaults.classify_tap(0.1350 + kEps) == blaze4k::TapJudgment::WayOff);
-    TEST_CHECK(defaults.classify_tap(0.1800 + kEps) == blaze4k::TapJudgment::Miss);
-    TEST_CHECK(defaults.classify_tap(-0.0215) == blaze4k::TapJudgment::Fantastic);
-    TEST_CHECK(defaults.classify_tap(-(0.0215 + kEps)) == blaze4k::TapJudgment::Excellent);
-    TEST_CHECK(defaults.classify_tap(-(0.1800 + kEps)) == blaze4k::TapJudgment::Miss);
+    // 1b. Effective windows = base * scale + add (OpenITG AdjustedWindowTap/Hold,
+    //     src/Player.cpp:34-74). pad_stick is never adjusted.
+    const blaze4k::TimingWindows w = defaults.effective_windows();
+    TEST_CHECK(nearly(w.fantastic, 0.0230));
+    TEST_CHECK(nearly(w.excellent, 0.0445));
+    TEST_CHECK(nearly(w.great, 0.1035));
+    TEST_CHECK(nearly(w.decent, 0.1365));
+    TEST_CHECK(nearly(w.way_off, 0.1815));
+    TEST_CHECK(nearly(w.hit_mine, 0.0715));
+    TEST_CHECK(nearly(w.hold_ok, 0.3215));
+    TEST_CHECK(nearly(w.hold_roll, 0.3515));
+    TEST_CHECK(w.pad_stick == 0.05);
+    TEST_CHECK(w.judge_window_scale == 1.0);
+    TEST_CHECK(w.judge_window_add == 0.0);
+    {
+        // Re-adjusting an already effective set is a no-op.
+        blaze4k::JudgmentConstants twice = defaults;
+        twice.windows = w;
+        const blaze4k::TimingWindows w2 = twice.effective_windows();
+        TEST_CHECK(w2.fantastic == w.fantastic);
+        TEST_CHECK(w2.hold_roll == w.hold_roll);
+    }
+    {
+        // Scale is applied before add (Player.cpp:49-50).
+        blaze4k::JudgmentConstants scaled = defaults;
+        scaled.windows.judge_window_scale = 2.0;
+        scaled.windows.judge_window_add = 0.01;
+        TEST_CHECK(scaled.validate());
+        const blaze4k::TimingWindows sw = scaled.effective_windows();
+        TEST_CHECK(nearly(sw.fantastic, 0.0215 * 2.0 + 0.01));
+        TEST_CHECK(nearly(sw.way_off, 0.18 * 2.0 + 0.01));
+        TEST_CHECK(nearly(sw.hit_mine, 0.07 * 2.0 + 0.01));
+        TEST_CHECK(nearly(sw.hold_ok, 0.32 * 2.0 + 0.01));
+        TEST_CHECK(nearly(sw.hold_roll, 0.35 * 2.0 + 0.01));
+        TEST_CHECK(sw.pad_stick == 0.05);
+        TEST_CHECK(scaled.classify_tap(0.0215 * 2.0 + 0.01) == blaze4k::TapJudgment::Fantastic);
+        TEST_CHECK(scaled.classify_tap(0.0215 * 2.0 + 0.011) == blaze4k::TapJudgment::Excellent);
+    }
+    std::cout << "  - 1b. effective windows apply base * scale + add (pad_stick unadjusted).\n";
+
+    // 2. classify_tap boundaries on the effective windows: every edge is
+    //    inclusive and symmetric (OpenITG `<=`, Player.cpp:935,957-961), NaN -> Miss.
+    {
+        const double edges[] = {w.fantastic, w.excellent, w.great, w.decent, w.way_off};
+        const blaze4k::TapJudgment tiers[] = {
+            blaze4k::TapJudgment::Fantastic, blaze4k::TapJudgment::Excellent,
+            blaze4k::TapJudgment::Great, blaze4k::TapJudgment::Decent,
+            blaze4k::TapJudgment::WayOff, blaze4k::TapJudgment::Miss,
+        };
+        for (std::size_t i = 0; i < 5; ++i) {
+            const double e = edges[i];
+            TEST_CHECK(defaults.classify_tap(e) == tiers[i]);
+            TEST_CHECK(defaults.classify_tap(-e) == tiers[i]);
+            TEST_CHECK(defaults.classify_tap(std::nextafter(e, 1.0)) == tiers[i + 1]);
+            TEST_CHECK(defaults.classify_tap(-std::nextafter(e, 1.0)) == tiers[i + 1]);
+        }
+    }
+    // The base Fantastic edge (21.5 ms) is now inside the effective 23.0 ms window.
+    TEST_CHECK(defaults.classify_tap(0.0215 + kEps) == blaze4k::TapJudgment::Fantastic);
+    TEST_CHECK(defaults.classify_tap(0.0) == blaze4k::TapJudgment::Fantastic);
     TEST_CHECK(defaults.classify_tap(std::nan("")) == blaze4k::TapJudgment::Miss);
     std::cout << "  - 2. classify_tap boundary and NaN behavior correct.\n";
 
@@ -272,6 +324,47 @@ int main() {
         TEST_CHECK(!negative.validate(&reason));
         TEST_CHECK(reason.find("pad_stick") != std::string::npos);
     }
+
+    // 9b3. judge_window_scale must be > 0; the effective windows must stay > 0.
+    {
+        blaze4k::JudgmentConstants zero_scale = defaults;
+        zero_scale.windows.judge_window_scale = 0.0;
+        std::string reason;
+        TEST_CHECK(!zero_scale.validate(&reason));
+        TEST_CHECK(reason.find("judge_window_scale") != std::string::npos);
+
+        blaze4k::JudgmentConstants negative_add = defaults;
+        negative_add.windows.judge_window_add = -0.03;
+        reason.clear();
+        TEST_CHECK(!negative_add.validate(&reason));
+        TEST_CHECK(reason.find("effective") != std::string::npos);
+    }
+    fs::path zero_scale_path = temp_dir / "zero_scale.json";
+    write_file(zero_scale_path, "{\"windows_seconds\": {\"judge_window_scale\": 0.0}}");
+    std::string zero_scale_message;
+    blaze4k::JudgmentConstants zero_scale_loaded =
+        blaze4k::load_judgment_constants(zero_scale_path, &zero_scale_message);
+    TEST_CHECK(same_constants(zero_scale_loaded, defaults));
+    TEST_CHECK(!zero_scale_message.empty());
+
+    fs::path negative_add_path = temp_dir / "negative_add.json";
+    write_file(negative_add_path, "{\"windows_seconds\": {\"judge_window_add\": -0.03}}");
+    std::string negative_add_message;
+    blaze4k::JudgmentConstants negative_add_loaded =
+        blaze4k::load_judgment_constants(negative_add_path, &negative_add_message);
+    TEST_CHECK(same_constants(negative_add_loaded, defaults));
+    TEST_CHECK(!negative_add_message.empty());
+
+    // 9b4. judge_window_add = 0 restores the home [Preferences] timing (metrics.ini:91).
+    fs::path home_add_path = temp_dir / "home_add.json";
+    write_file(home_add_path, "{\"windows_seconds\": {\"judge_window_add\": 0.0}}");
+    std::string home_add_message;
+    blaze4k::JudgmentConstants home_add = blaze4k::load_judgment_constants(home_add_path, &home_add_message);
+    TEST_CHECK(home_add.windows.judge_window_add == 0.0);
+    TEST_CHECK(home_add.validate());
+    TEST_CHECK(home_add.effective_windows().fantastic == 0.0215);
+    TEST_CHECK(home_add.classify_tap(0.0215 + kEps) == blaze4k::TapJudgment::Excellent);
+    std::cout << "  - 9b. bad judge_window_scale/add rejected; add 0 gives home timing.\n";
 
     // 9c. Partial file: absent keys keep compiled defaults.
     fs::path partial_path = temp_dir / "partial.json";

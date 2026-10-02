@@ -6,7 +6,10 @@ namespace blaze4k {
 
 const JudgmentConstants& JudgmentConstants::compiled_defaults() {
     // Values pinned from OpenITG commit f2c129fe65c65e4a9b3a691ff35e7717b4e8de51,
-    // arcade runtime layer assets/patch-data/Themes/default/metrics.ini.
+    // theme runtime layer assets/patch-data/Themes/default/metrics.ini: base
+    // windows from [Preferences] (metrics.ini:90-103), judge_window_add from
+    // [Preferences-cabinet] (metrics.ini:262), the section dedicated cabinets
+    // launch with (assets/arcade-patch/start-3.sh:17).
     // Hold/roll window holds JudgeWindowSecondsRoll=0.350 from the compiled
     // default (src/PrefsManager.cpp:94) - no arcade override exists.
     // pad_stick holds PadStickSeconds=0.05 from metrics.ini:103 (compiled
@@ -24,7 +27,9 @@ const JudgmentConstants& JudgmentConstants::compiled_defaults() {
         c.windows.hold_roll = 0.3500;
         c.windows.pad_stick = 0.05;
         c.windows.judge_window_scale = 1.0;
-        c.windows.judge_window_add = 0.0;
+        // RoXoR/OpenITG dedicated-cabinet JudgeWindowAdd (metrics.ini:262,
+        // [Preferences-cabinet]; selected by assets/arcade-patch/start-3.sh:17).
+        c.windows.judge_window_add = 0.0015;
 
         // DP / grade weights (arcade PercentScoreWeight* / GradeWeight*)
         c.dp_weights = Weights{5, 4, 2, 0, -6, -12, -6, 5, 0};
@@ -88,6 +93,21 @@ bool JudgmentConstants::validate(std::string* error) const {
     if (!std::isfinite(windows.judge_window_add)) {
         return fail("judge_window_add must be finite");
     }
+    if (windows.judge_window_scale <= 0.0) {
+        return fail("judge_window_scale must be > 0");
+    }
+    // Base monotonicity (checked below) plus a positive scale and a common add
+    // keep the effective windows monotonic, so only positivity is checked here.
+    const TimingWindows effective = effective_windows();
+    const double effective_windows_list[] = {
+        effective.fantastic, effective.excellent, effective.great, effective.decent,
+        effective.way_off, effective.hit_mine, effective.hold_ok, effective.hold_roll,
+    };
+    for (double value : effective_windows_list) {
+        if (!std::isfinite(value) || value <= 0.0) {
+            return fail("effective timing window (base * scale + add) must be > 0");
+        }
+    }
 
     if (windows.fantastic > windows.excellent ||
         windows.excellent > windows.great ||
@@ -122,17 +142,40 @@ bool JudgmentConstants::validate(std::string* error) const {
     return true;
 }
 
+TimingWindows JudgmentConstants::effective_windows() const {
+    // OpenITG AdjustedWindowTap/AdjustedWindowHold (src/Player.cpp:34-74):
+    // fSecs *= JudgeWindowScale; fSecs += JudgeWindowAdd.
+    const double scale = windows.judge_window_scale;
+    const double add = windows.judge_window_add;
+    TimingWindows w = windows;
+    w.fantastic = windows.fantastic * scale + add;
+    w.excellent = windows.excellent * scale + add;
+    w.great = windows.great * scale + add;
+    w.decent = windows.decent * scale + add;
+    w.way_off = windows.way_off * scale + add;
+    w.hit_mine = windows.hit_mine * scale + add;
+    w.hold_ok = windows.hold_ok * scale + add;
+    w.hold_roll = windows.hold_roll * scale + add;
+    // pad_stick is not a judge window: copied unchanged.
+    w.judge_window_scale = 1.0;
+    w.judge_window_add = 0.0;
+    return w;
+}
+
 TapJudgment JudgmentConstants::classify_tap(double delta_seconds) const {
     // NaN cannot be classified; treat it as a Miss (documented behavior).
     if (std::isnan(delta_seconds)) {
         return TapJudgment::Miss;
     }
+    // OpenITG compares against ADJUSTED_WINDOW_TAP(...) with `<=` on each tier
+    // (src/Player.cpp:957-961), so every edge is inclusive.
+    const TimingWindows w = effective_windows();
     const double delta = std::fabs(delta_seconds);
-    if (delta <= windows.fantastic) return TapJudgment::Fantastic;
-    if (delta <= windows.excellent) return TapJudgment::Excellent;
-    if (delta <= windows.great) return TapJudgment::Great;
-    if (delta <= windows.decent) return TapJudgment::Decent;
-    if (delta <= windows.way_off) return TapJudgment::WayOff;
+    if (delta <= w.fantastic) return TapJudgment::Fantastic;
+    if (delta <= w.excellent) return TapJudgment::Excellent;
+    if (delta <= w.great) return TapJudgment::Great;
+    if (delta <= w.decent) return TapJudgment::Decent;
+    if (delta <= w.way_off) return TapJudgment::WayOff;
     return TapJudgment::Miss;
 }
 

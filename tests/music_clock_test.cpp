@@ -10,6 +10,10 @@
 #include <limits>
 #include "audio/audio_engine.hpp"
 #include "audio/sound_stream.hpp"
+#include "chart/chart.hpp"
+#include "gameplay/judgment_engine.hpp"
+#include "gameplay/judgment_input.hpp"
+#include "timing/judgment_constants.hpp"
 #include "timing/music_clock.hpp"
 #include "test_wav_writer.hpp"
 
@@ -93,6 +97,64 @@ int main() {
     ns_clock.set_global_offset_seconds(0.5);
     TEST_CHECK(ns_clock.time_nanoseconds() == 1500000000LL);
     std::cout << "  - Nanosecond conversion correct.\n";
+
+    // 7b. Global offset is applied exactly once, with OpenITG's sign, through the
+    //     real chain GameplayView uses (gameplay_view.cpp:70,135,153-154,187):
+    //     MusicClock -> music_time_for_event -> JudgmentEngine. OpenITG applies
+    //     GlobalOffsetSeconds once in the time<->beat conversion (TimingData.cpp:192,255)
+    //     and Blaze delta_ms equals OpenITG fTapNoteOffset (Player.cpp:1099).
+    {
+        const blaze4k::JudgmentConstants& k = blaze4k::JudgmentConstants::compiled_defaults();
+        blaze4k::Chart chart;
+        blaze4k::Note note;
+        note.column = 0;
+        note.beat = 4.0;
+        note.time_seconds = 2.0; // chart time: song #OFFSET only, no global offset
+        note.type = blaze4k::NoteType::Tap;
+        chart.notes.push_back(note);
+
+        // Raw stream position 2.0 - 0.050 s: 93600 frames at 48 kHz.
+        const uint64_t frames_at = 93600;
+        blaze4k::MusicClock chain_clock([frames_at] {
+            return blaze4k::SamplePosition{frames_at, 48000};
+        });
+        const uint64_t ref_ns = 10'000'000'000ULL;
+
+        // Offset +0.050: music time lands exactly on the note.
+        chain_clock.set_global_offset_seconds(0.050);
+        const double reference_music = chain_clock.time_seconds();
+        TEST_CHECK(std::abs(reference_music - 2.0) < 1e-12);
+        {
+            blaze4k::JudgmentEngine engine;
+            engine.reset(&chart, &k);
+            engine.handle_step(0, blaze4k::music_time_for_event(ref_ns, ref_ns, reference_music));
+            TEST_CHECK(engine.events().size() == 1);
+            const blaze4k::JudgmentEvent& e = engine.events().front();
+            TEST_CHECK(e.kind == blaze4k::JudgmentKind::Tap);
+            TEST_CHECK(std::abs(e.delta_ms) < 1e-6);
+            TEST_CHECK(e.window == blaze4k::TapJudgment::Fantastic);
+        }
+
+        // Input path adds no second offset: an event aged 5 ms is exactly 5 ms
+        // earlier than the clock sample it is aged against.
+        TEST_CHECK(blaze4k::music_time_for_event(ref_ns - 5'000'000ULL, ref_ns, reference_music) ==
+                   reference_music - 0.005);
+
+        // Offset +0.010 with the same frames: music time 1.96, hit 40 ms early,
+        // so delta_ms is negative (OpenITG fTapNoteOffset = -fNoteOffset).
+        chain_clock.set_global_offset_seconds(0.010);
+        {
+            blaze4k::JudgmentEngine engine;
+            engine.reset(&chart, &k);
+            engine.handle_step(0, blaze4k::music_time_for_event(ref_ns, ref_ns,
+                                                                chain_clock.time_seconds()));
+            TEST_CHECK(engine.events().size() == 1);
+            const blaze4k::JudgmentEvent& e = engine.events().front();
+            TEST_CHECK(std::abs(e.delta_ms - (-40.0)) < 1e-6);
+            TEST_CHECK(e.window == blaze4k::TapJudgment::Excellent);
+        }
+        std::cout << "  - Global offset applied once through clock -> input -> engine, OpenITG sign.\n";
+    }
 
     // 8. Guarded audio integration (End-to-End)
     blaze4k::AudioEngine& engine = blaze4k::AudioEngine::instance();

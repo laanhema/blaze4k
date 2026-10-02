@@ -138,7 +138,9 @@ void JudgmentEngine::handle_step_tap(int note_index, double delta_seconds, doubl
 }
 
 void JudgmentEngine::handle_step_mine(int note_index, double delta_seconds, double hit_time) {
-    if (delta_seconds > constants_->windows.hit_mine) {
+    // OpenITG ADJUSTED_WINDOW_TAP(TW_Mine): base * scale + add (Player.cpp:34-58, 948).
+    const TimingWindows w = constants_->effective_windows();
+    if (delta_seconds > w.hit_mine) {
         return; // Outside the mine window: no event (Player.cpp:946-949).
     }
 
@@ -207,7 +209,10 @@ void JudgmentEngine::update(double music_time_seconds, const std::array<bool, 4>
 }
 
 void JudgmentEngine::expire_notes(double music_time) {
-    const double threshold = music_time - constants_->windows.way_off;
+    // Miss expiry uses the adjusted Boo window, like OpenITG
+    // GetMaxStepDistanceSeconds = ADJUSTED_WINDOW_TAP(TW_Boo) (Player.cpp:1710-1713).
+    const TimingWindows w = constants_->effective_windows();
+    const double threshold = music_time - w.way_off;
     for (int column = 0; column < 4; ++column) {
         for (int i : column_notes_[static_cast<std::size_t>(column)]) {
             NoteState& state = states_[static_cast<std::size_t>(i)];
@@ -226,8 +231,8 @@ void JudgmentEngine::expire_notes(double music_time) {
                 event.kind = JudgmentKind::AvoidedMine;
                 event.column = note.column;
                 event.note_time_seconds = note.time_seconds;
-                event.hit_time_seconds = note.time_seconds + constants_->windows.way_off;
-                event.delta_ms = constants_->windows.way_off * 1000.0;
+                event.hit_time_seconds = note.time_seconds + w.way_off;
+                event.delta_ms = w.way_off * 1000.0;
                 event.window = TapJudgment::Num;
                 event.note_type = note.type;
                 event.note_index = i;
@@ -245,8 +250,8 @@ void JudgmentEngine::expire_notes(double music_time) {
             event.kind = JudgmentKind::Miss;
             event.column = note.column;
             event.note_time_seconds = note.time_seconds;
-            event.hit_time_seconds = note.time_seconds + constants_->windows.way_off;
-            event.delta_ms = constants_->windows.way_off * 1000.0;
+            event.hit_time_seconds = note.time_seconds + w.way_off;
+            event.delta_ms = w.way_off * 1000.0;
             event.window = TapJudgment::Miss;
             event.note_type = note.type;
             event.note_index = i;
@@ -258,6 +263,7 @@ void JudgmentEngine::expire_notes(double music_time) {
 void JudgmentEngine::update_holds(double music_time, const std::array<bool, 4>& held_columns) {
     std::vector<int> still_active;
     still_active.reserve(active_holds_.size());
+    const TimingWindows w = constants_->effective_windows();
 
     for (int i : active_holds_) {
         NoteState& state = states_[static_cast<std::size_t>(i)];
@@ -281,6 +287,8 @@ void JudgmentEngine::update_holds(double music_time, const std::array<bool, 4>& 
         // and emit NG, so the held state alone drives the life term; the tail is
         // resolved by the OK branch below.
         const bool held_now = held_columns[static_cast<std::size_t>(note.column)];
+        // OpenITG ADJUSTED_WINDOW_HOLD(HW_OK / HW_Roll): base * scale + add
+        // (Player.cpp:60-74, 563, 574).
 
         double life = 0.0;
         if (is_hold) {
@@ -290,11 +298,11 @@ void JudgmentEngine::update_holds(double music_time, const std::array<bool, 4>& 
             life = held_now
                        ? 1.0
                        : std::clamp(1.0 - (music_time - state.hold_satisfied_time) /
-                                              constants_->windows.hold_ok,
+                                              w.hold_ok,
                                     0.0, 1.0);
         } else {
             life = std::clamp(1.0 - (music_time - state.hold_satisfied_time) /
-                                        constants_->windows.hold_roll,
+                                        w.hold_roll,
                               0.0, 1.0);
         }
 

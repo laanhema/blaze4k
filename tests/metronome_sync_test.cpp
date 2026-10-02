@@ -30,8 +30,12 @@ bool approx(double a, double b, double epsilon) {
 int main() {
     std::cout << "[metronome_sync_test] Starting metronome sync regression tests...\n";
     const blaze4k::JudgmentConstants& k = blaze4k::JudgmentConstants::compiled_defaults();
-    const double fw = k.windows.fantastic;
-    const double one_window_ms = fw * 1000.0;
+    // Sync tolerance uses the base Fantastic window (21.5 ms), which is stricter
+    // than the effective one (base * scale + add = 23.0 ms with the cabinet add).
+    const double one_window_ms = k.windows.fantastic * 1000.0;
+    // The classification boundary is the effective window (OpenITG
+    // ADJUSTED_WINDOW_TAP(TW_Marvelous), Player.cpp:34-58, 957).
+    const double fw = k.effective_windows().fantastic;
 
     // Resolve the fixture from whatever directory CTest launched the binary in.
     std::filesystem::path ref = "tests/fixtures/sync_test/metronome.sm";
