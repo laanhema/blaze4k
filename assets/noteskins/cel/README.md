@@ -15,7 +15,7 @@ color set or hold color).
 | `_Down Tap Note 16x16 (doubleres).png` | Tap/hold/roll heads: 8 quantization colors x 32 frames animated over 2 beats |
 | `_Down Receptor tex 4x1 (res 256x64).png` | Receptors (frame 0), beat-pulsed |
 | `Down {Hold,Roll} Body {Active,Inactive} (res 64x256).png` | Hold/roll bodies, tiled from the tail |
-| `Down {Hold,Roll} BottomCap {Active,Inactive} (res 64x64).png` | Hold/roll end caps |
+| `Down {Hold,Roll} BottomCap {Active,Inactive} (res 64x64).png` | Hold/roll end caps, centred on the hold's end (the body stops half a note before it: `metrics.ini` `StopDrawingHoldBodyOffsetFromTail=-32`) |
 | `_mine tex.png` | Mine ring (top half) and core colors (bottom half) |
 | `explosions/Down Tap Explosion Dim W{1..5} (res 125x125).png` | Receptor flash per tap judgment (Fantastic..Way Off); W1 also flashes when a hold/roll ends OK |
 | `explosions/down hold explosion (res 125x125).png` | Receptor glow while a hold/roll is active |

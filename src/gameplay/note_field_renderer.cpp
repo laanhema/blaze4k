@@ -34,56 +34,100 @@ int draw_sprite(GlQuadRenderer& renderer, const SkinSprite& sprite, double x, do
     return 1;
 }
 
-// Draws a hold/roll body from `head_y` to `tail_y`, then its end cap just past
-// the tail. The art is authored head-on-top; when the tail is above the head
-// (reverse) it is flipped vertically. A tiled body repeats from the tail toward
-// the head, so the pattern moves with the note even while the head is pinned.
-// Segments entirely outside [0, screen_h] are skipped. Returns quads drawn.
+// Draws a hold/roll body from `head_y` toward the tail; the body stops
+// `tail_inset_scale` note sizes before the tail and the end cap starts there
+// (centred on the tail for Cel), clipped at the head centre (see `layout_hold`).
+// The art is authored head-on-top; in reverse it is flipped vertically. A tiled
+// body repeats from the body/cap junction toward the head, so the pattern moves
+// with the note even while the head is pinned. Pieces entirely outside
+// [0, screen_h] are skipped. Returns quads drawn.
 int draw_hold(GlQuadRenderer& renderer, const HoldSprites& hold, double x, double head_y,
-              double tail_y, double screen_h) {
+              double tail_y, bool reverse, double screen_h) {
     if (hold.body == nullptr) {
         return 0;
     }
     int drawn = 0;
     const double width = NoteSkin::kNoteSize * hold.width_scale;
-    const double length = std::abs(tail_y - head_y);
-    const bool reverse = tail_y < head_y;
-    const double toward_head = reverse ? 1.0 : -1.0; // screen-y step from tail to head
-    const double tile = hold.tile_scale > 0.0f ? NoteSkin::kNoteSize * hold.tile_scale : length;
+    const HoldLayout layout =
+        layout_hold(head_y, tail_y, reverse, width, NoteSkin::kNoteSize * hold.tail_inset_scale,
+                    hold.cap != nullptr);
+    // One float for the shared body/cap edge, so both quads meet without a seam.
+    const float junction_y = static_cast<float>(layout.body_end_y);
+    const float left = static_cast<float>(x - width * 0.5);
 
-    // Segment [near, far] in distance from the tail; texture v runs 1 at a tile's
-    // tail edge to 0 at its head edge.
-    for (double near = 0.0; tile > 0.0 && near < length; near += tile) {
-        const double far = std::min(near + tile, length);
-        const double y_near = tail_y + toward_head * near;
-        const double y_far = tail_y + toward_head * far;
-        const double top = std::min(y_near, y_far);
-        const double bottom = std::max(y_near, y_far);
-        if (bottom < 0.0 || top > screen_h) {
-            continue;
+    if (layout.has_body) {
+        const double length = std::abs(layout.body_end_y - head_y);
+        const double toward_head = reverse ? 1.0 : -1.0; // screen-y step from tail to head
+        const double tile =
+            hold.tile_scale > 0.0f ? NoteSkin::kNoteSize * hold.tile_scale : length;
+
+        // Segment [near, far] in distance from the junction; texture v runs 1 at a
+        // tile's tail edge to 0 at its head edge.
+        for (double near = 0.0; tile > 0.0 && near < length; near += tile) {
+            const double far = std::min(near + tile, length);
+            const double y_near = layout.body_end_y + toward_head * near;
+            const double y_far = layout.body_end_y + toward_head * far;
+            const double top = std::min(y_near, y_far);
+            const double bottom = std::max(y_near, y_far);
+            if (bottom < 0.0 || top > screen_h) {
+                continue;
+            }
+            const float v_near = 1.0f;
+            const float v_far = static_cast<float>(1.0 - (far - near) / tile);
+            const UVRect uv = reverse ? UVRect{0.0f, v_near, 1.0f, v_far}
+                                      : UVRect{0.0f, v_far, 1.0f, v_near};
+            const float f_near = near == 0.0 ? junction_y : static_cast<float>(y_near);
+            const float f_far = static_cast<float>(y_far);
+            const float f_top = std::min(f_near, f_far);
+            const float f_bottom = std::max(f_near, f_far);
+            const Rect quad{left, f_top, static_cast<float>(width), f_bottom - f_top};
+            renderer.draw_textured_quad(quad, *hold.body, uv, hold.tint);
+            ++drawn;
         }
-        const float v_near = 1.0f;
-        const float v_far = static_cast<float>(1.0 - (far - near) / tile);
-        const UVRect uv = reverse ? UVRect{0.0f, v_near, 1.0f, v_far}
-                                  : UVRect{0.0f, v_far, 1.0f, v_near};
-        const Rect quad{static_cast<float>(x - width * 0.5), static_cast<float>(top),
-                        static_cast<float>(width), static_cast<float>(bottom - top)};
-        renderer.draw_textured_quad(quad, *hold.body, uv, hold.tint);
-        ++drawn;
     }
 
-    if (hold.cap != nullptr) {
-        const double cap_top = reverse ? tail_y - width : tail_y;
-        const UVRect uv = reverse ? UVRect{0.0f, 1.0f, 1.0f, 0.0f} : UVRect{};
-        const Rect quad{static_cast<float>(x - width * 0.5), static_cast<float>(cap_top),
-                        static_cast<float>(width), static_cast<float>(width)};
-        renderer.draw_textured_quad(quad, *hold.cap, uv, hold.tint);
-        ++drawn;
+    if (layout.has_cap) {
+        const double top = std::min(layout.cap_near_y, layout.cap_far_y);
+        const double bottom = std::max(layout.cap_near_y, layout.cap_far_y);
+        if (bottom >= 0.0 && top <= screen_h) {
+            // Unclipped, cap_near_y == body_end_y exactly, so this is junction_y.
+            const float f_near = static_cast<float>(layout.cap_near_y);
+            const float f_far = static_cast<float>(layout.cap_far_y);
+            const float f_top = std::min(f_near, f_far);
+            const float f_bottom = std::max(f_near, f_far);
+            const Rect quad{left, f_top, static_cast<float>(width), f_bottom - f_top};
+            renderer.draw_textured_quad(quad, *hold.cap, layout.cap_uv, hold.tint);
+            ++drawn;
+        }
     }
     return drawn;
 }
 
 } // namespace
+
+HoldLayout layout_hold(double head_y, double tail_y, bool reverse, double cap_size,
+                       double tail_inset, bool has_cap) {
+    const double d = reverse ? -1.0 : 1.0; // screen-y step from head toward tail
+    HoldLayout out;
+    const bool cap = has_cap && cap_size > 0.0;
+    out.body_end_y = cap ? tail_y - d * tail_inset : tail_y;
+    out.has_body = d * (out.body_end_y - head_y) > 0.0;
+    if (cap) {
+        out.cap_far_y = out.body_end_y + d * cap_size;
+        // OpenITG DrawHoldBottomCap (up-scroll), mirrored for reverse: never draw the
+        // cap on the head side of the head centre; offset the texture by the clipped length.
+        const double clipped = std::max(0.0, d * (head_y - out.body_end_y));
+        if (clipped < cap_size) {
+            out.has_cap = true;
+            out.cap_near_y = out.body_end_y + d * clipped;
+            out.cap_v_near = static_cast<float>(clipped / cap_size);
+            // Quad top..bottom: the art is head-on-top, flipped vertically in reverse.
+            out.cap_uv = reverse ? UVRect{0.0f, 1.0f, 1.0f, out.cap_v_near}
+                                 : UVRect{0.0f, out.cap_v_near, 1.0f, 1.0f};
+        }
+    }
+    return out;
+}
 
 void NoteFieldRenderer::render(const NoteField& field,
                                const std::vector<NoteRenderItem>& items,
@@ -100,6 +144,7 @@ void NoteFieldRenderer::render(const NoteField& field,
     const double field_left = (static_cast<double>(screen_w) - field.field_width()) * 0.5;
     const double receptor_y = field.screen_y(0.0);
     const double note_size = NoteSkin::kNoteSize;
+    const bool reverse = field.config().direction == ScrollDirection::Down;
 
     // 1. Receptor row.
     for (int column = 0; column < 4; ++column) {
@@ -120,7 +165,7 @@ void NoteFieldRenderer::render(const NoteField& field,
         // receptor; clamp the leading edge to the receptor so the body recedes
         // (OpenITG draws the remaining, still-held portion of the hold).
         if (item.held) {
-            if (field.config().direction == ScrollDirection::Down) {
+            if (reverse) {
                 head_y = std::min(head_y, receptor_y);
             } else {
                 head_y = std::max(head_y, receptor_y);
@@ -128,7 +173,7 @@ void NoteFieldRenderer::render(const NoteField& field,
         }
         const HoldSprites hold = skin.hold(item.type, item.held, quantization_of(item));
         last_drawn_quads_ += draw_hold(renderer, hold, field.column_x(item.column, field_left),
-                                       head_y, tail_y, static_cast<double>(screen_h));
+                                       head_y, tail_y, reverse, static_cast<double>(screen_h));
     }
 
     // 3. Heads (taps, hold heads, roll heads). A hold being held keeps its head
