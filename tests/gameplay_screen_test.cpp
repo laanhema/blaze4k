@@ -46,7 +46,7 @@ blaze4k::Note make_tap(int column, double beat, double time_seconds) {
 
 // A finished run must linger for the full end delay before the score screen,
 // instead of snapping over the instant the last note resolves. A single unhit
-// tap expires at music time > way_off (0.18 s); with an exact 0.25 s timestep it
+// tap expires at music time > effective way_off (0.1815 s); with an exact 0.25 s timestep it
 // misses on the first update, so the 2 s delay lands exactly on the 8th update.
 void test_end_delay_before_results() {
     blaze4k::Song song;
