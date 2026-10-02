@@ -17,13 +17,17 @@ namespace {
 //
 // Authority: OpenITG commit f2c129fe65c65e4a9b3a691ff35e7717b4e8de51.
 //
-// X-mod values: the PlayerOptions screen lists exactly these eight entries
+// X-mod values: OpenITG's PlayerOptions screen lists these eight entries
 //   assets/patch-data/Themes/default/metrics.ini:3694-3701
 //     Speed,1..8 = mod,1x / 1.5x / 2x / 2.5x / 3x / 4x / 5x / 6x
-// OpenITG's in-game scroll-speed code gesture walks a finer sequence
-//   src/CodeDetector.cpp:220-221 (0.5,0.75,1.0,1.5,2.0,3.0,4.0,5.0,8.0);
-// the option-menu values above are used here because this menu is the
-// PlayerOptions menu, not the in-game code gesture.
+// The grid here is those menu values EXTENDED with 7x and 8x at the product
+// owner's request (#61) -- a documented deviation from the OpenITG menu grid.
+//   - 8x also appears in OpenITG's in-game scroll-speed code gesture
+//     src/CodeDetector.cpp:220-221 (0.5,0.75,1.0,1.5,2.0,3.0,4.0,5.0,8.0),
+//     which is a code sequence, not the PlayerOptions menu.
+//   - 7x has no OpenITG source; it is owner-requested only.
+// The X value row WRAPS at both ends (8x -> 1x, 1x -> 8x; #61), mirroring the
+// speed-type row's cycle. The C/M rows clamp (see below).
 //
 // M-mod default: metrics.ini:3703 -> M600.
 // C-mod default: metrics.ini:3702 -> C450.
@@ -37,7 +41,7 @@ namespace {
 //   until the player adjusts it.
 // ---------------------------------------------------------------------------
 
-constexpr double kXModValues[] = {1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 6.0};
+constexpr double kXModValues[] = {1.0, 1.5, 2.0, 2.5, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0};
 constexpr double kCmStep = 10.0;   // UI affordance (no OpenITG increment exists)
 constexpr double kCmMin = 1.0;     // parser/OpenITG valid range
 constexpr double kCmMax = 9999.0;  // parser/OpenITG valid range
@@ -193,9 +197,10 @@ void options_menu_adjust(OptionsMenu& menu, int delta) {
                         nearest = i;
                     }
                 }
+                // Wrap at both ends (#61), mirroring the speed-type row cycle.
+                const long count = static_cast<long>(values.size());
                 const long next =
-                    std::clamp(static_cast<long>(nearest) + delta, 0L,
-                               static_cast<long>(values.size()) - 1L);
+                    ((static_cast<long>(nearest) + delta) % count + count) % count;
                 menu.set_speed_value(values[static_cast<std::size_t>(next)]);
             } else {
                 // C/M: no OpenITG increment exists. Step relative to the current

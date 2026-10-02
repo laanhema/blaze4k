@@ -157,6 +157,20 @@ int main() {
         std::cout << "  - 2. config round-trip ok.\n";
     }
 
+    // 2b. A high X-mod chosen in the options menu (#61) survives save/load,
+    //     i.e. it is restored on next launch.
+    {
+        const fs::path config_path = temp_dir / "xmod8" / "config.json";
+        blaze4k::GameConfig config;
+        config.gameplay.speed_mod = "8x";
+        TEST_CHECK(blaze4k::save_config(config_path, config, &message));
+
+        blaze4k::GameConfig loaded = blaze4k::load_config(config_path, &message, &status);
+        TEST_CHECK(status == blaze4k::ConfigLoadStatus::LoadedFromFile);
+        TEST_CHECK(loaded.gameplay.speed_mod == "8x");
+        std::cout << "  - 2b. 8x speed mod round-trip ok.\n";
+    }
+
     // 3. Missing file -> defaults + warning.
     {
         blaze4k::GameConfig missing = blaze4k::load_config(temp_dir / "does_not_exist.json", &message, &status);
