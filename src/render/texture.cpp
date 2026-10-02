@@ -3,6 +3,7 @@
 #include <filesystem>
 #include <iostream>
 #include <utility>
+#include <vector>
 
 #include <glad/glad.h>
 #include <stb_image.h>
@@ -34,6 +35,20 @@ ImageHeader probe_image_header(const std::string& path) {
     header.ok = header.width > 0 && header.height > 0 && header.width <= kMaxImageDimension &&
                 header.height <= kMaxImageDimension;
     return header;
+}
+
+void premultiply_alpha(std::span<std::uint8_t> rgba) {
+    const std::size_t pixel_count = rgba.size() / 4;
+    for (std::size_t i = 0; i < pixel_count; ++i) {
+        std::uint8_t* px = rgba.data() + i * 4;
+        const unsigned a = px[3];
+        if (a == 255u) {
+            continue;
+        }
+        for (int c = 0; c < 3; ++c) {
+            px[c] = static_cast<std::uint8_t>((px[c] * a + 127u) / 255u);
+        }
+    }
 }
 
 Texture::~Texture() {
@@ -69,17 +84,11 @@ void Texture::destroy() {
     height_ = 0;
 }
 
-Texture Texture::from_rgba(int width, int height, const uint8_t* rgba, bool mipmaps) {
+// Uploads already-premultiplied RGBA8 bytes as given. Callers have validated
+// the arguments and checked gl_available().
+Texture Texture::upload_premultiplied(int width, int height, const std::uint8_t* rgba,
+                                      bool mipmaps) {
     Texture texture;
-
-    if (width <= 0 || height <= 0 || rgba == nullptr) {
-        std::cerr << "[Texture] Invalid RGBA upload request (" << width << "x" << height << ")\n";
-        return texture;
-    }
-    if (!gl_available()) {
-        std::cerr << "[Texture] No OpenGL context available; skipping texture upload\n";
-        return texture;
-    }
 
     GLuint id = 0;
     glGenTextures(1, &id);
@@ -106,6 +115,24 @@ Texture Texture::from_rgba(int width, int height, const uint8_t* rgba, bool mipm
     texture.width_ = width;
     texture.height_ = height;
     return texture;
+}
+
+Texture Texture::from_rgba(int width, int height, const uint8_t* rgba, bool mipmaps) {
+    Texture texture;
+
+    if (width <= 0 || height <= 0 || rgba == nullptr) {
+        std::cerr << "[Texture] Invalid RGBA upload request (" << width << "x" << height << ")\n";
+        return texture;
+    }
+    if (!gl_available()) {
+        std::cerr << "[Texture] No OpenGL context available; skipping texture upload\n";
+        return texture;
+    }
+
+    std::vector<std::uint8_t> premultiplied(
+        rgba, rgba + static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4u);
+    premultiply_alpha(premultiplied);
+    return upload_premultiplied(width, height, premultiplied.data(), mipmaps);
 }
 
 Texture Texture::solid(Color color) {
@@ -173,7 +200,11 @@ Texture Texture::from_file(const std::string& path, bool mipmaps) {
         return texture;
     }
 
-    texture = from_rgba(width, height, pixels, mipmaps);
+    // Premultiply in place rather than via from_rgba, so a large image is not
+    // copied a second time.
+    premultiply_alpha(
+        {pixels, static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4u});
+    texture = upload_premultiplied(width, height, pixels, mipmaps);
     stbi_image_free(pixels);
     return texture;
 }

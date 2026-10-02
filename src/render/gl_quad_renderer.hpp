@@ -11,6 +11,11 @@ namespace blaze4k {
 // Coordinates are pixels with a top-left origin and y growing downward, matching
 // the gameplay layout math in `src/gameplay/`. Every call is guarded so that a
 // headless (uninitialized) renderer is a safe no-op.
+//
+// Colours passed in are straight alpha; internally textures and vertex colours
+// are premultiplied (see `premultiply`, `premultiply_alpha`) and the blend
+// functions are the premultiplied equivalents, so filtered edges never pick up
+// the hidden RGB of transparent texels (#59).
 class GlQuadRenderer {
 public:
     GlQuadRenderer() = default;

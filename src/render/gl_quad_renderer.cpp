@@ -174,7 +174,7 @@ void GlQuadRenderer::begin(int framebuffer_width, int framebuffer_height) {
 
     glDisable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     blend_mode_ = BlendMode::Alpha;
 
     glUseProgram(program_);
@@ -192,9 +192,9 @@ void GlQuadRenderer::set_blend_mode(BlendMode mode) {
     flush();
     blend_mode_ = mode;
     if (mode == BlendMode::Add) {
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE);
+        glBlendFunc(GL_ONE, GL_ONE);
     } else {
-        glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+        glBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
     }
 }
 
@@ -212,10 +212,14 @@ void GlQuadRenderer::append_quad(const Rect& rect, const UVRect& uv, Color color
     const float x1 = rect.x + rect.w;
     const float y1 = rect.y + rect.h;
 
-    Vertex top_left{x0, y0, uv.u0, uv.v0, color.r, color.g, color.b, color.a};
-    Vertex top_right{x1, y0, uv.u1, uv.v0, color.r, color.g, color.b, color.a};
-    Vertex bottom_right{x1, y1, uv.u1, uv.v1, color.r, color.g, color.b, color.a};
-    Vertex bottom_left{x0, y1, uv.u0, uv.v1, color.r, color.g, color.b, color.a};
+    // Callers pass straight alpha; the pipeline (textures + blend funcs) is
+    // premultiplied, so convert the tint once per quad (#59).
+    const Color pm = premultiply(color);
+
+    Vertex top_left{x0, y0, uv.u0, uv.v0, pm.r, pm.g, pm.b, pm.a};
+    Vertex top_right{x1, y0, uv.u1, uv.v0, pm.r, pm.g, pm.b, pm.a};
+    Vertex bottom_right{x1, y1, uv.u1, uv.v1, pm.r, pm.g, pm.b, pm.a};
+    Vertex bottom_left{x0, y1, uv.u0, uv.v1, pm.r, pm.g, pm.b, pm.a};
 
     if (radians != 0.0f) {
         const float cx = rect.x + rect.w * 0.5f;
