@@ -120,7 +120,9 @@ target OS and device. miniaudio picks a backend at runtime:
   Pulse/PipeWire path is the safer default.
 
 After switching OS, audio device, or backend, re-run the offset calibration
-wizard — the saved `global_offset_seconds` is device/OS-specific.
+wizard — the saved `global_offset_seconds` is device/OS-specific. See
+`docs/AUDIO_LATENCY.md` for why (Bluetooth adds latency the game clock cannot
+see) and for the OBS recording sync workaround.
 
 ## Sign-off
 
