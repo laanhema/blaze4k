@@ -9,32 +9,81 @@
 
 namespace blaze4k {
 
-// True only for a case-insensitive "beginner" label. Mirrors OpenITG
-// `StringToDifficulty` (src/Difficulty.cpp:22-26: `MakeLower`, `== "beginner"`),
-// which `Player::IsPlayingBeginner` keys on. "novice" is NOT Beginner in OpenITG
-// (it maps to DIFFICULTY_INVALID). Labels arrive already trimmed by the MSD reader.
-[[nodiscard]] inline bool is_beginner_difficulty(std::string_view label) {
-    constexpr std::string_view kBeginner = "beginner";
-    if (label.size() != kBeginner.size()) {
-        return false;
-    }
-    for (std::size_t i = 0; i < label.size(); ++i) {
-        if (std::tolower(static_cast<unsigned char>(label[i])) != kBeginner[i]) {
-            return false;
+// OpenITG `Difficulty` (src/Difficulty.h). Resolved only to detect Beginner
+// for MercifulBeginner; the UI keeps showing the passthrough label.
+enum class StepsDifficulty { Beginner, Easy, Medium, Hard, Challenge, Edit, Invalid };
+
+// Mirrors OpenITG `StringToDifficulty` (src/Difficulty.cpp:22-44): `MakeLower`,
+// then the full alias table; anything else (e.g. "Novice", "") is Invalid.
+// Labels arrive already trimmed by the MSD reader.
+[[nodiscard]] inline StepsDifficulty string_to_difficulty(std::string_view label) {
+    struct Alias {
+        std::string_view name;
+        StepsDifficulty difficulty;
+    };
+    static constexpr Alias kAliases[] = {
+        {"beginner", StepsDifficulty::Beginner},   {"easy", StepsDifficulty::Easy},
+        {"basic", StepsDifficulty::Easy},          {"light", StepsDifficulty::Easy},
+        {"medium", StepsDifficulty::Medium},       {"another", StepsDifficulty::Medium},
+        {"trick", StepsDifficulty::Medium},        {"standard", StepsDifficulty::Medium},
+        {"difficult", StepsDifficulty::Medium},    {"hard", StepsDifficulty::Hard},
+        {"ssr", StepsDifficulty::Hard},            {"maniac", StepsDifficulty::Hard},
+        {"heavy", StepsDifficulty::Hard},          {"smaniac", StepsDifficulty::Challenge},
+        {"challenge", StepsDifficulty::Challenge}, {"expert", StepsDifficulty::Challenge},
+        {"oni", StepsDifficulty::Challenge},       {"edit", StepsDifficulty::Edit},
+    };
+    for (const Alias& alias : kAliases) {
+        if (alias.name.size() != label.size()) {
+            continue;
+        }
+        bool match = true;
+        for (std::size_t i = 0; i < label.size() && match; ++i) {
+            match = std::tolower(static_cast<unsigned char>(label[i])) == alias.name[i];
+        }
+        if (match) {
+            return alias.difficulty;
         }
     }
-    return true;
+    return StepsDifficulty::Invalid;
+}
+
+// Mirrors the load-time resolution chain: `StringToDifficulty(label)`
+// (NotesLoaderSM.cpp:33), then `Steps::TidyUpData` (Steps.cpp:130-141, called
+// at NotesLoaderSM.cpp:63): an Invalid label falls back to the description,
+// then to the meter (1 = Beginner, <=3 Easy, <=6 Medium, else Hard). The SM
+// loader's smaniac/challenge description override (NotesLoaderSM.cpp:35-42) is
+// deliberately not mirrored.
+[[nodiscard]] inline StepsDifficulty resolve_difficulty(std::string_view label,
+                                                        std::string_view description,
+                                                        int meter) {
+    StepsDifficulty difficulty = string_to_difficulty(label);
+    if (difficulty == StepsDifficulty::Invalid) {
+        difficulty = string_to_difficulty(description);
+    }
+    if (difficulty == StepsDifficulty::Invalid) {
+        if (meter == 1) {
+            difficulty = StepsDifficulty::Beginner;
+        } else if (meter <= 3) {
+            difficulty = StepsDifficulty::Easy;
+        } else if (meter <= 6) {
+            difficulty = StepsDifficulty::Medium;
+        } else {
+            difficulty = StepsDifficulty::Hard;
+        }
+    }
+    return difficulty;
 }
 
 struct Chart {
     std::string steps_type = "dance-single";
     std::string description;
     // Beginner, Easy, Medium, Hard, Challenge, Edit (passthrough label). The
-    // parser always sets it; the empty default mirrors OpenITG `Steps` starting
-    // at DIFFICULTY_INVALID, which is not Beginner (so hand-built charts are
-    // never MercifulBeginner charts by accident).
+    // parser always sets it and the meter. The empty label and meter 0 defaults
+    // mirror OpenITG `Steps::Steps` (Steps.cpp:29-30: DIFFICULTY_INVALID,
+    // m_iMeter = 0), which resolve to Easy, so hand-built charts are never
+    // MercifulBeginner charts by accident.
     std::string difficulty;
-    int meter = 1;                       // Foot rating
+    int meter = 0;                       // Foot rating
 
     std::vector<Note> notes;
     TimingData timing;
@@ -44,8 +93,11 @@ struct Chart {
     int roll_count = 0;
     int mine_count = 0;
 
-    // OpenITG `Player::IsPlayingBeginner` (src/Player.cpp:1724-1737).
-    [[nodiscard]] bool is_beginner() const { return is_beginner_difficulty(difficulty); }
+    // OpenITG `Player::IsPlayingBeginner` (src/Player.cpp:1724-1737) on the
+    // load-time resolved difficulty (see resolve_difficulty).
+    [[nodiscard]] bool is_beginner() const {
+        return resolve_difficulty(difficulty, description, meter) == StepsDifficulty::Beginner;
+    }
 
     [[nodiscard]] int total_stream_notes() const {
         return tap_count + hold_count + roll_count;

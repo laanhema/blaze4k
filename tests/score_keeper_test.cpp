@@ -868,6 +868,8 @@ int main() {
         view.update(1.0 / 60.0, held_none());
         TEST_CHECK(view.judgment_events().empty());
         TEST_CHECK(view.dance_points() == 0);
+        // ...but it is shown (OpenITG Player.cpp:1089-1093 m_Judgment.SetJudgment).
+        TEST_CHECK(view.judgment_popup_label() == "WAY OFF");
 
         for (int i = 0; i < 150; ++i) {
             view.update(1.0 / 60.0, held_none());
@@ -879,6 +881,41 @@ int main() {
         TEST_CHECK(view.dance_points() == 0);
         view.shutdown();
         std::cout << "  - GameplayView carries Beginner into engine + keeper; early Way Off is display-only.\n";
+    }
+    // 18c. Same tick: a recorded judgment and a display-only early Way Off arrive
+    //      together; the recorded one wins the popup though the Way Off is pressed last.
+    {
+        blaze4k::Chart chart;
+        chart.difficulty = "Beginner";
+        chart.notes.push_back(make_note(0, 1.0, blaze4k::NoteType::Tap));
+        chart.notes.push_back(make_note(1, 1.4, blaze4k::NoteType::Tap));
+        chart.tap_count = 2;
+
+        blaze4k::GameplayView view;
+        blaze4k::GameplayOptions options;
+        TEST_CHECK(view.init(chart, k, "", options));
+        for (int i = 0; i < 600 && view.music_time_seconds() < 1.0; ++i) {
+            view.update(1.0 / 60.0, held_none());
+        }
+        const double press_time = view.music_time_seconds();
+        TEST_CHECK(std::abs(press_time - 1.0) < k.effective_windows().decent);
+        TEST_CHECK(1.4 - press_time > k.effective_windows().way_off);
+        TEST_CHECK(1.4 - press_time < k.effective_windows(true).way_off);
+        blaze4k::InputEvent hit;
+        hit.action = blaze4k::GameAction::Left;
+        hit.pressed = true;
+        hit.timestamp_ns = 0;
+        blaze4k::InputEvent early = hit;
+        early.action = blaze4k::GameAction::Down;
+        view.handle_input_events({hit, early}, 1);
+        view.update(1.0 / 60.0, held_none());
+        TEST_CHECK(view.judgment_events().size() == 1);
+        TEST_CHECK(view.judgment_events().front().column == 0);
+        TEST_CHECK(view.judgment_popup_label() ==
+                   blaze4k::JudgmentAnimator::judgment_label(view.judgment_events().front()));
+        TEST_CHECK(view.judgment_popup_label() != "WAY OFF");
+        view.shutdown();
+        std::cout << "  - Same-tick recorded judgment wins the popup over a display-only Way Off.\n";
     }
 
     std::cout << "[score_keeper_test] All scoring tests passed successfully!\n";

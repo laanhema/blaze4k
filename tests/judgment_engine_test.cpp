@@ -1091,25 +1091,34 @@ int main() {
             TEST_CHECK(late.events().size() == 1);
             TEST_CHECK(late.events().front().kind == blaze4k::JudgmentKind::Miss);
         }
-        // 19.9 Label matching mirrors StringToDifficulty (case-insensitive "beginner").
+        // 19.9 Detection mirrors StringToDifficulty + Steps::TidyUpData:
+        //      label, then description, then meter 1 => Beginner.
         {
-            const char* beginner_labels[] = {"beginner", "BEGINNER", "Beginner"};
-            for (const char* label : beginner_labels) {
-                blaze4k::Chart chart = make_chart(label, blaze4k::NoteType::Tap);
+            struct Case {
+                const char* label;
+                const char* description;
+                int meter;
+                bool beginner;
+            };
+            const Case cases[] = {
+                {"beginner", "", 5, true},
+                {"BEGINNER", "", 5, true},
+                {"Beginner", "", 5, true},
+                {"Novice", "", 1, true},         // invalid label + meter 1
+                {"Mystery", "Beginner", 4, true}, // invalid label -> description
+                {"Novice", "", 2, false},        // invalid label + meter 2 -> Easy
+                {"Easy", "Beginner", 1, false},  // valid label wins
+                {"", "", 0, false},              // hand-built default -> Easy
+            };
+            for (const Case& c : cases) {
+                blaze4k::Chart chart = make_chart(c.label, blaze4k::NoteType::Tap);
+                chart.description = c.description;
+                chart.meter = c.meter;
                 blaze4k::JudgmentEngine engine;
                 engine.reset(&chart, &k);
-                TEST_CHECK(engine.is_beginner());
+                TEST_CHECK(engine.is_beginner() == c.beginner);
                 engine.handle_step(1, 2.4);
-                TEST_CHECK(engine.events().size() == 1);
-            }
-            const char* other_labels[] = {"Novice", "Easy", ""};
-            for (const char* label : other_labels) {
-                blaze4k::Chart chart = make_chart(label, blaze4k::NoteType::Tap);
-                blaze4k::JudgmentEngine engine;
-                engine.reset(&chart, &k);
-                TEST_CHECK(!engine.is_beginner());
-                engine.handle_step(1, 2.4);
-                TEST_CHECK(engine.events().empty());
+                TEST_CHECK(engine.events().size() == (c.beginner ? 1u : 0u));
             }
         }
         // 19.10 reset() clears the display-only queue.
