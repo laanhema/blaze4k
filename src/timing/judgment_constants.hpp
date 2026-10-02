@@ -31,6 +31,12 @@ struct TimingWindows {
     double hit_mine  = 0.0700;
     double hold_ok   = 0.3200;
     double hold_roll = 0.3500;
+    // OpenITG `PadStickSeconds` (arcade metrics.ini:103; compiled default 0 at
+    // src/PrefsManager.cpp:250). The held-over-mine crossing check lags the
+    // music by this much, and a held panel only counts once it has been held at
+    // least this long (src/Player.cpp:632-646, 1461-1488). Not a judge window:
+    // `judge_window_scale/add` must never apply to it. 0 is legal (IsButtonDown).
+    double pad_stick = 0.05;
     double judge_window_scale = 1.0;
     double judge_window_add   = 0.0;
 };

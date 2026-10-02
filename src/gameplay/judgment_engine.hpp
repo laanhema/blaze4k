@@ -24,12 +24,15 @@ public:
     // index lists and resets all note/judgment state.
     void reset(const Chart* chart, const JudgmentConstants* constants);
 
-    // Button-down in `column` at `music_time_seconds`. Mirrors Player::HandleStep:
-    // closest-note tap/mine grading + roll re-hit refresh.
+    // Button-down in `column` at `music_time_seconds`. Mirrors Player::Step /
+    // HandleStep: closest-note tap/mine grading + roll re-hit refresh. Also
+    // records the press instant (for pad-stick, OpenITG `GetSecsHeld`).
     void handle_step(int column, double music_time_seconds);
 
-    // Per-frame: miss/avoided-mine expiry, hold/roll life, held-over-mine crossing.
-    // Mirrors Player::Update. Uses only `music_time_seconds` (never frame delta).
+    // Per-frame: miss/avoided-mine expiry, hold/roll life, and held-over-mine
+    // crossing (Player::CrossedMineRow) for mines crossed since the previous
+    // update, evaluated `pad_stick` behind the music. Mirrors Player::Update.
+    // Uses only `music_time_seconds` (never frame delta).
     void update(double music_time_seconds, const std::array<bool, 4>& held_columns);
 
     [[nodiscard]] const std::vector<JudgmentEvent>& events() const { return events_; }
@@ -61,6 +64,9 @@ private:
     };
 
     void emit(const JudgmentEvent& event);
+    // Shared step routine (OpenITG Player::Step): used by both deliberate
+    // presses and held-over-mine crossings.
+    void step(int column, double music_time_seconds);
     void handle_step_tap(int note_index, double delta_seconds, double hit_time);
     void handle_step_mine(int note_index, double delta_seconds, double hit_time);
     void refresh_active_rolls(int column, double music_time);
@@ -78,6 +84,11 @@ private:
     std::size_t new_event_begin_ = 0;
     bool has_last_update_ = false;
     double last_update_time_ = 0.0;
+    // Forward-only mine-crossing cursor (music time - pad_stick); mines at or
+    // before it have crossed. Not rewound by a backward clock resync.
+    double mine_cursor_ = 0.0;
+    // Music time of the latest button-down per column (-inf = none recorded).
+    std::array<double, 4> last_press_time_{};
 };
 
 } // namespace blaze4k

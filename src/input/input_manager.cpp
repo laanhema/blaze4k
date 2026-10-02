@@ -145,6 +145,9 @@ InputManager& InputManager::operator=(InputManager&& other) noexcept {
 }
 
 void InputManager::apply_bindings(const InputSettings& settings) {
+    // A key held across a rebind would have its release looked up in the new
+    // map, miss, and leave the action stuck "down" (#56 stuck-held audit).
+    clear_action_states();
     key_map_.clear();
     gamepad_button_map_.clear();
 

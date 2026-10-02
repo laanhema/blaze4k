@@ -360,9 +360,10 @@ int main() {
         engine.reset(&chart, &k);
         engine.handle_step(1, 2.0); // no note in range: nothing
         TEST_CHECK(engine.events().empty());
-        engine.update(3.05, held_col(1)); // crossing while held
+        engine.update(3.06, held_col(1)); // crossing (pad_stick behind) while held
         TEST_CHECK(engine.events().size() == 1);
         TEST_CHECK(engine.events().front().kind == blaze4k::JudgmentKind::HitMine);
+        TEST_CHECK(approx(engine.events().front().hit_time_seconds, 3.06 - k.windows.pad_stick));
     }
     {
         blaze4k::Chart chart;
@@ -535,6 +536,247 @@ int main() {
         engine.update(2.0, held_none());
         TEST_CHECK(engine.events().empty());
         std::cout << "  - Null/empty chart is handled safely.\n";
+    }
+
+    // 16. Mine semantics (#56, OpenITG Player::Step / CrossedMineRow).
+    {
+        using blaze4k::JudgmentKind;
+        using blaze4k::NoteType;
+        const double P = k.windows.pad_stick;
+        auto count_kind = [](const blaze4k::JudgmentEngine& engine, JudgmentKind kind) {
+            return std::count_if(engine.events().begin(), engine.events().end(),
+                                 [kind](const blaze4k::JudgmentEvent& e) { return e.kind == kind; });
+        };
+        const double expire_after = 2.0 + k.windows.way_off + 1e-3;
+
+        // 16.1 Step on a mine inside the window explodes it; outside it is consumed.
+        {
+            blaze4k::Chart chart;
+            chart.notes.push_back(make_note(0, 2.0, NoteType::Mine));
+            blaze4k::JudgmentEngine engine;
+            engine.reset(&chart, &k);
+            engine.handle_step(0, 2.0 - 0.06);
+            TEST_CHECK(engine.events().size() == 1);
+            TEST_CHECK(engine.events().front().kind == JudgmentKind::HitMine);
+            TEST_CHECK(approx(engine.events().front().delta_ms, -60.0, 1e-6));
+
+            blaze4k::JudgmentEngine fresh;
+            fresh.reset(&chart, &k);
+            fresh.handle_step(0, 2.0 + 0.071);
+            TEST_CHECK(fresh.events().empty());
+        }
+
+        // 16.2 The regression: a mine crossed unheld must not explode when the
+        // player then steps on the next arrow in the same column.
+        {
+            blaze4k::Chart chart;
+            chart.notes.push_back(make_note(0, 2.0, NoteType::Mine));
+            chart.notes.push_back(make_note(0, 2.125, NoteType::Tap));
+            blaze4k::JudgmentEngine engine;
+            engine.reset(&chart, &k);
+            engine.update(1.9, held_none());
+            engine.update(2.06, held_none()); // mine crossed while unheld
+            engine.handle_step(0, 2.10);
+            TEST_CHECK(engine.events().size() == 1);
+            TEST_CHECK(engine.events().back().kind == JudgmentKind::Tap);
+            TEST_CHECK(engine.events().back().note_index == 1);
+            TEST_CHECK(engine.events().back().window == blaze4k::TapJudgment::Excellent);
+            engine.update(2.11, held_col(0));
+            engine.update(2.2, held_col(0));
+            engine.update(expire_after + 0.1, held_none());
+            TEST_CHECK(count_kind(engine, JudgmentKind::HitMine) == 0);
+            TEST_CHECK(count_kind(engine, JudgmentKind::AvoidedMine) == 1);
+        }
+
+        // 16.3 Tap next to a mine (mine after the tap): stepping the tap is safe.
+        {
+            blaze4k::Chart chart;
+            chart.notes.push_back(make_note(0, 2.0, NoteType::Tap));
+            chart.notes.push_back(make_note(0, 2.125, NoteType::Mine));
+            blaze4k::JudgmentEngine engine;
+            engine.reset(&chart, &k);
+            engine.handle_step(0, 2.03);
+            TEST_CHECK(engine.events().size() == 1);
+            TEST_CHECK(engine.events().back().kind == JudgmentKind::Tap);
+            TEST_CHECK(engine.events().back().note_index == 0);
+            engine.update(2.2, held_none());
+            TEST_CHECK(count_kind(engine, JudgmentKind::HitMine) == 0);
+        }
+
+        // 16.4 A mine closer than the tap wins the step (OpenITG GetClosestNote,
+        // mines included). Documents the rule; the tap later expires as Miss.
+        {
+            blaze4k::Chart chart;
+            chart.notes.push_back(make_note(0, 2.0, NoteType::Tap));
+            chart.notes.push_back(make_note(0, 2.125, NoteType::Mine));
+            blaze4k::JudgmentEngine engine;
+            engine.reset(&chart, &k);
+            engine.handle_step(0, 2.08);
+            TEST_CHECK(engine.events().size() == 1);
+            TEST_CHECK(engine.events().back().kind == JudgmentKind::HitMine);
+            TEST_CHECK(engine.events().back().note_index == 1);
+            TEST_CHECK(!engine.is_note_judged(0));
+            engine.update(expire_after, held_none());
+            TEST_CHECK(count_kind(engine, JudgmentKind::Miss) == 1);
+            TEST_CHECK(engine.events().back().note_index == 0);
+        }
+
+        // 16.5 Pad-stick: a press after the crossing instant does not count as held.
+        {
+            blaze4k::Chart chart;
+            chart.notes.push_back(make_note(0, 2.0, NoteType::Mine));
+            chart.notes.push_back(make_note(0, 2.1, NoteType::Tap));
+            blaze4k::JudgmentEngine engine;
+            engine.reset(&chart, &k);
+            engine.update(1.9, held_none());
+            engine.handle_step(0, 2.08);
+            TEST_CHECK(engine.events().size() == 1);
+            TEST_CHECK(engine.events().back().kind == JudgmentKind::Tap);
+            TEST_CHECK(engine.events().back().window == blaze4k::TapJudgment::Fantastic);
+            engine.update(2.09, held_col(0)); // cursor 2.04 crosses; press 2.08 > 2.04
+            engine.update(2.3, held_col(0));
+            TEST_CHECK(count_kind(engine, JudgmentKind::HitMine) == 0);
+            TEST_CHECK(count_kind(engine, JudgmentKind::AvoidedMine) == 1);
+        }
+
+        // 16.6 Pad-stick: released within pad_stick after the mine's time.
+        {
+            blaze4k::Chart chart;
+            chart.notes.push_back(make_note(0, 2.0, NoteType::Mine));
+            blaze4k::JudgmentEngine engine;
+            engine.reset(&chart, &k);
+            engine.handle_step(0, 1.8); // mine 0.2 s away: nothing
+            TEST_CHECK(engine.events().empty());
+            engine.update(2.02, held_col(0)); // cursor 1.97: not crossed yet
+            engine.update(2.06, held_none()); // crossed, but no longer held
+            engine.update(expire_after, held_none());
+            TEST_CHECK(count_kind(engine, JudgmentKind::HitMine) == 0);
+            TEST_CHECK(count_kind(engine, JudgmentKind::AvoidedMine) == 1);
+        }
+
+        // 16.7 / 16.10 Holding through a mine explodes it exactly once, at any
+        // update rate.
+        auto hold_through_mine = [&](double grid) {
+            blaze4k::Chart chart;
+            chart.notes.push_back(make_note(0, 1.0, NoteType::HoldHead, 1.5));
+            chart.notes.push_back(make_note(0, 2.0, NoteType::Mine));
+            blaze4k::JudgmentEngine engine;
+            engine.reset(&chart, &k);
+            engine.handle_step(0, 1.0);
+            const int steps = static_cast<int>(std::lround(1.2 / grid));
+            for (int i = 0; i <= steps; ++i) {
+                engine.update(1.0 + i * grid, held_col(0));
+            }
+            TEST_CHECK(count_kind(engine, JudgmentKind::HitMine) == 1);
+            TEST_CHECK(count_kind(engine, JudgmentKind::HoldOk) == 1);
+            TEST_CHECK(count_kind(engine, JudgmentKind::AvoidedMine) == 0);
+            for (const blaze4k::JudgmentEvent& e : engine.events()) {
+                if (e.kind == JudgmentKind::HitMine) {
+                    TEST_CHECK(e.note_index == 1);
+                    TEST_CHECK(e.hit_time_seconds >= 2.0 - 1e-9);
+                    TEST_CHECK(e.hit_time_seconds <= 2.0 + grid + 1e-9);
+                }
+            }
+        };
+        hold_through_mine(0.01);
+        hold_through_mine(0.1);
+        hold_through_mine(0.001);
+
+        // 16.8 A mine crossed unheld is never re-checked by a later hold.
+        {
+            blaze4k::Chart chart;
+            chart.notes.push_back(make_note(1, 2.0, NoteType::Mine));
+            blaze4k::JudgmentEngine engine;
+            engine.reset(&chart, &k);
+            engine.update(2.1, held_none());
+            engine.update(2.12, held_col(1)); // no press recorded: counts as held long enough
+            engine.update(2.15, held_col(1));
+            TEST_CHECK(count_kind(engine, JudgmentKind::HitMine) == 0);
+        }
+
+        // 16.9 Frame hitch: the crossing step measures the real distance.
+        {
+            blaze4k::Chart chart;
+            chart.notes.push_back(make_note(2, 2.0, NoteType::Mine));
+            blaze4k::JudgmentEngine engine;
+            engine.reset(&chart, &k);
+            engine.handle_step(2, 1.5);
+            engine.update(1.9, held_col(2));
+            engine.update(2.15, held_col(2)); // cursor 2.10: 0.10 s > mine window
+            TEST_CHECK(count_kind(engine, JudgmentKind::HitMine) == 0);
+            engine.update(expire_after, held_col(2));
+            TEST_CHECK(count_kind(engine, JudgmentKind::HitMine) == 0);
+            TEST_CHECK(count_kind(engine, JudgmentKind::AvoidedMine) == 1);
+
+            blaze4k::JudgmentEngine fresh;
+            fresh.reset(&chart, &k);
+            fresh.handle_step(2, 1.5);
+            fresh.update(1.9, held_col(2));
+            fresh.update(2.11, held_col(2)); // cursor 2.06: inside the window
+            TEST_CHECK(count_kind(fresh, JudgmentKind::HitMine) == 1);
+            TEST_CHECK(approx(fresh.events().back().delta_ms, 60.0, 1e-6));
+            TEST_CHECK(approx(fresh.events().back().hit_time_seconds, 2.11 - P));
+        }
+
+        // 16.11 OpenITG quirk (CrossedMineRow has no graded check): a held
+        // crossing of an already-hit mine runs the full step, which can judge
+        // the next same-column tap.
+        {
+            blaze4k::Chart chart;
+            chart.notes.push_back(make_note(0, 2.0, NoteType::Mine));
+            chart.notes.push_back(make_note(0, 2.125, NoteType::Tap));
+            blaze4k::JudgmentEngine engine;
+            engine.reset(&chart, &k);
+            engine.handle_step(0, 1.96);
+            TEST_CHECK(engine.events().size() == 1);
+            TEST_CHECK(engine.events().back().kind == JudgmentKind::HitMine);
+            engine.update(1.97, held_col(0));
+            engine.update(2.06, held_col(0)); // cursor 2.01: mine graded, tap 0.115 away
+            TEST_CHECK(count_kind(engine, JudgmentKind::HitMine) == 1);
+            TEST_CHECK(engine.events().back().kind == JudgmentKind::Tap);
+            TEST_CHECK(engine.events().back().note_index == 1);
+            TEST_CHECK(engine.events().back().window == blaze4k::TapJudgment::Decent);
+        }
+
+        // 16.12 A backward clock resync must not rewind the crossing cursor: a
+        // mine crossed unheld is not crossed again after the clock jumps back.
+        {
+            blaze4k::Chart chart;
+            chart.notes.push_back(make_note(0, 2.0, NoteType::Mine));
+            blaze4k::JudgmentEngine engine;
+            engine.reset(&chart, &k);
+            engine.update(1.9, held_none());
+            engine.update(2.06, held_none()); // cursor 2.01: crossed while unheld
+            engine.update(1.95, held_none()); // backward resync
+            engine.update(2.07, held_col(0)); // cursor 2.02: mine 0.02 s away
+            engine.update(2.09, held_col(0));
+            TEST_CHECK(count_kind(engine, JudgmentKind::HitMine) == 0);
+            engine.update(expire_after, held_none());
+            TEST_CHECK(count_kind(engine, JudgmentKind::AvoidedMine) == 1);
+        }
+
+        // 16.13 pad_stick == 0 (OpenITG IsButtonDown branch): the crossing runs at
+        // the music time itself, and a press before it counts as held at once.
+        {
+            blaze4k::JudgmentConstants k0 = k;
+            k0.windows.pad_stick = 0.0;
+            blaze4k::Chart chart;
+            chart.notes.push_back(make_note(0, 1.95, NoteType::Tap));
+            chart.notes.push_back(make_note(0, 2.0, NoteType::Mine));
+            blaze4k::JudgmentEngine engine;
+            engine.reset(&chart, &k0);
+            engine.update(1.9, held_none());
+            engine.handle_step(0, 1.97); // the tap is closer than the mine
+            TEST_CHECK(engine.events().size() == 1);
+            TEST_CHECK(engine.events().back().kind == JudgmentKind::Tap);
+            engine.update(2.01, held_col(0)); // with P = 0.05 the press would be too recent
+            TEST_CHECK(count_kind(engine, JudgmentKind::HitMine) == 1);
+            TEST_CHECK(engine.events().back().note_index == 1);
+            TEST_CHECK(approx(engine.events().back().hit_time_seconds, 2.01));
+            TEST_CHECK(approx(engine.events().back().delta_ms, 10.0, 1e-6));
+        }
+
+        std::cout << "  - Mine semantics match OpenITG Step/CrossedMineRow (pad-stick, once-only crossing).\n";
     }
 
     std::cout << "[judgment_engine_test] All judgment engine tests passed successfully!\n";
