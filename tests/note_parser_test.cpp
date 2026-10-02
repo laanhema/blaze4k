@@ -105,6 +105,9 @@ int main() {
     TEST_CHECK(multi_parser.charts()[0].meter == 2);
     TEST_CHECK(multi_parser.charts()[1].difficulty == "Expert");
     TEST_CHECK(multi_parser.charts()[1].meter == 9);
+    // MercifulBeginner detection (#67) on parsed labels.
+    TEST_CHECK(multi_parser.charts()[0].is_beginner());
+    TEST_CHECK(!multi_parser.charts()[1].is_beginner());
     std::cout << "  - Multiple difficulties in one file extracted correctly.\n";
 
     // 3. Test Graceful Rejection of non-4-panel (dance-double) charts
@@ -196,6 +199,60 @@ int main() {
     TEST_CHECK(quant_chart.notes[2].quantization == blaze4k::NoteQuantization::Fourth);
     TEST_CHECK(quant_chart.notes[3].quantization == blaze4k::NoteQuantization::Eighth);
     std::cout << "  - Notes carry the quantization of their measure row.\n";
+
+    // 8. Beginner detection mirrors OpenITG StringToDifficulty
+    //    (Difficulty.cpp:22-44) plus Steps::TidyUpData (Steps.cpp:130-141):
+    //    label, then description, then meter 1 => Beginner.
+    using blaze4k::StepsDifficulty;
+    TEST_CHECK(blaze4k::string_to_difficulty("beginner") == StepsDifficulty::Beginner);
+    TEST_CHECK(blaze4k::string_to_difficulty("Beginner") == StepsDifficulty::Beginner);
+    TEST_CHECK(blaze4k::string_to_difficulty("BEGINNER") == StepsDifficulty::Beginner);
+    TEST_CHECK(blaze4k::string_to_difficulty("Basic") == StepsDifficulty::Easy);
+    TEST_CHECK(blaze4k::string_to_difficulty("Trick") == StepsDifficulty::Medium);
+    TEST_CHECK(blaze4k::string_to_difficulty("Maniac") == StepsDifficulty::Hard);
+    TEST_CHECK(blaze4k::string_to_difficulty("Expert") == StepsDifficulty::Challenge);
+    TEST_CHECK(blaze4k::string_to_difficulty("Edit") == StepsDifficulty::Edit);
+    TEST_CHECK(blaze4k::string_to_difficulty("Novice") == StepsDifficulty::Invalid);
+    TEST_CHECK(blaze4k::string_to_difficulty("") == StepsDifficulty::Invalid);
+    TEST_CHECK(blaze4k::string_to_difficulty("beginners") == StepsDifficulty::Invalid);
+    // A recognized label wins regardless of description or meter.
+    TEST_CHECK(blaze4k::resolve_difficulty("Easy", "Beginner", 1) == StepsDifficulty::Easy);
+    TEST_CHECK(blaze4k::resolve_difficulty("Expert", "", 1) == StepsDifficulty::Challenge);
+    TEST_CHECK(blaze4k::resolve_difficulty("Beginner", "", 9) == StepsDifficulty::Beginner);
+    // Unrecognized label -> description.
+    TEST_CHECK(blaze4k::resolve_difficulty("Novice", "Beginner", 5) == StepsDifficulty::Beginner);
+    TEST_CHECK(blaze4k::resolve_difficulty("Novice", "Hard", 1) == StepsDifficulty::Hard);
+    // Both unrecognized -> meter.
+    TEST_CHECK(blaze4k::resolve_difficulty("Novice", "", 1) == StepsDifficulty::Beginner);
+    TEST_CHECK(blaze4k::resolve_difficulty("Novice", "", 2) == StepsDifficulty::Easy);
+    TEST_CHECK(blaze4k::resolve_difficulty("", "", 0) == StepsDifficulty::Easy);
+    TEST_CHECK(blaze4k::resolve_difficulty("", "", 3) == StepsDifficulty::Easy);
+    TEST_CHECK(blaze4k::resolve_difficulty("", "", 6) == StepsDifficulty::Medium);
+    TEST_CHECK(blaze4k::resolve_difficulty("", "", 7) == StepsDifficulty::Hard);
+    TEST_CHECK(blaze4k::Chart{}.difficulty.empty());
+    TEST_CHECK(blaze4k::Chart{}.meter == 0);
+    TEST_CHECK(!blaze4k::Chart{}.is_beginner());
+    {
+        const std::string fallback_sm =
+            "#TITLE:Fallback;\n"
+            "#BPMS:0.0=120.0;\n"
+            "#NOTES:\n     dance-single:\n     :\n     Novice:\n     1:\n     ::::\n"
+            "1000\n0000\n0000\n0000\n;\n"
+            "#NOTES:\n     dance-single:\n     :\n     Novice:\n     2:\n     ::::\n"
+            "1000\n0000\n0000\n0000\n;\n"
+            "#NOTES:\n     dance-single:\n     Beginner:\n     Mystery:\n     8:\n     ::::\n"
+            "1000\n0000\n0000\n0000\n;\n";
+        blaze4k::SimfileParser fallback_parser;
+        TEST_CHECK(fallback_parser.parse_string(fallback_sm, ".sm"));
+        TEST_CHECK(fallback_parser.charts().size() == 3);
+        TEST_CHECK(fallback_parser.charts()[0].is_beginner());
+        TEST_CHECK(!fallback_parser.charts()[1].is_beginner());
+        TEST_CHECK(fallback_parser.charts()[2].is_beginner());
+        // Displayed label stays passthrough.
+        TEST_CHECK(fallback_parser.charts()[0].difficulty == "Novice");
+        TEST_CHECK(fallback_parser.charts()[2].difficulty == "Mystery");
+    }
+    std::cout << "  - Beginner label detection matches OpenITG.\n";
 
     std::cout << "[note_parser_test] All note parser tests passed successfully!\n";
     return 0;

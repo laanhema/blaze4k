@@ -109,7 +109,24 @@ struct JudgmentConstants {
     std::array<GradeTier, 17> grade_tiers{}; // index 0 = highest (quad star)
     LifeDeltas life;
 
+    // OpenITG `MercifulBeginner`: the ITG theme turns it on in `[Preferences]`
+    // (assets/patch-data/Themes/default/metrics.ini:157; compiled default false
+    // at src/PrefsManager.cpp:128). On a Beginner chart it widens the Way Off
+    // window (see effective_windows(bool)), makes an early Way Off display-only
+    // (JudgmentEngine), and clamps negative DP/grade weights to 0 (ScoreKeeper).
+    // Life is unaffected (LifeMeterBar.cpp has no Beginner branch).
+    bool merciful_beginner = true;
+
+    // `if( bIsPlayingBeginner && PREFSMAN->m_bMercifulBeginner && tw==TW_Boo )
+    //  fSecs += 0.5f;` (src/Player.cpp:55-56). Way Off (Boo) only.
+    static constexpr double kMercifulBeginnerWayOffBonusSeconds = 0.5;
+
     static const JudgmentConstants& compiled_defaults();
+
+    // True when the MercifulBeginner rules apply to a chart.
+    [[nodiscard]] bool merciful_beginner_applies(bool is_beginner) const {
+        return is_beginner && merciful_beginner;
+    }
 
     [[nodiscard]] bool validate(std::string* error = nullptr) const;
 
@@ -122,8 +139,18 @@ struct JudgmentConstants {
     // second time is a no-op.
     [[nodiscard]] TimingWindows effective_windows() const;
 
+    // effective_windows(), plus the MercifulBeginner bonus on `way_off` only when
+    // merciful_beginner_applies(is_beginner). The bonus is added after
+    // `base * scale + add` (src/Player.cpp:49-56); mine, hold and roll windows are
+    // never widened. Unlike the scale/add normalization, the bonus is NOT
+    // idempotent: never feed the result back in as base windows (it would be
+    // added twice). effective_windows(false) == effective_windows().
+    [[nodiscard]] TimingWindows effective_windows(bool is_beginner) const;
+
     // Pure lookups (units: seconds, percent as fraction 0.0-1.0)
-    [[nodiscard]] TapJudgment classify_tap(double delta_seconds) const;
+    // classify_tap is symmetric (|delta|) and uses effective_windows(is_beginner).
+    // Suppressing an *early* Beginner Way Off is the engine's job, not this one's.
+    [[nodiscard]] TapJudgment classify_tap(double delta_seconds, bool is_beginner = false) const;
     [[nodiscard]] bool continues_combo(TapJudgment j) const;
     [[nodiscard]] const GradeTier& grade_for_percent(double percent) const;
 };

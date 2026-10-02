@@ -48,6 +48,9 @@ bool same_constants(const blaze4k::JudgmentConstants& a, const blaze4k::Judgment
         !nearly(a.windows.judge_window_add, b.windows.judge_window_add)) {
         return false;
     }
+    if (a.merciful_beginner != b.merciful_beginner) {
+        return false;
+    }
     if (!same_weights(a.dp_weights, b.dp_weights) ||
         !same_weights(a.grade_weights, b.grade_weights)) {
         return false;
@@ -144,6 +147,9 @@ int main() {
     for (std::size_t i = 0; i < defaults.grade_tiers.size(); ++i) {
         TEST_CHECK(nearly(defaults.grade_tiers[i].min_percent, expected_tiers[i]));
     }
+    // MercifulBeginner=1 (metrics.ini:157) and its +0.5 s Boo bonus (Player.cpp:55-56).
+    TEST_CHECK(defaults.merciful_beginner);
+    TEST_CHECK(nearly(blaze4k::JudgmentConstants::kMercifulBeginnerWayOffBonusSeconds, 0.5));
     std::string validation_error;
     TEST_CHECK(defaults.validate(&validation_error));
     std::cout << "  - 1. compiled defaults match pinned OpenITG values.\n";
@@ -415,6 +421,95 @@ int main() {
     TEST_CHECK(none_status == blaze4k::ConstantsLoadStatus::UsedDefaults);
     TEST_CHECK(!none_message.empty());
     std::cout << "  - 11. candidate loading precedence and no-candidate fallback correct.\n";
+
+    // 13. MercifulBeginner windows (#67; OpenITG Player.cpp:49-56): +0.5 s on the
+    //     effective Way Off only, after scale/add; classification stays symmetric.
+    {
+        const blaze4k::TimingWindows base = defaults.effective_windows();
+        const blaze4k::TimingWindows off = defaults.effective_windows(false);
+        TEST_CHECK(off.fantastic == base.fantastic && off.excellent == base.excellent &&
+                   off.great == base.great && off.decent == base.decent &&
+                   off.way_off == base.way_off && off.hit_mine == base.hit_mine &&
+                   off.hold_ok == base.hold_ok && off.hold_roll == base.hold_roll &&
+                   off.pad_stick == base.pad_stick &&
+                   off.judge_window_scale == base.judge_window_scale &&
+                   off.judge_window_add == base.judge_window_add);
+
+        const blaze4k::TimingWindows bw = defaults.effective_windows(true);
+        TEST_CHECK(nearly(bw.way_off, 0.6815));
+        TEST_CHECK(bw.fantastic == base.fantastic && bw.excellent == base.excellent &&
+                   bw.great == base.great && bw.decent == base.decent &&
+                   bw.hit_mine == base.hit_mine && bw.hold_ok == base.hold_ok &&
+                   bw.hold_roll == base.hold_roll && bw.pad_stick == base.pad_stick);
+
+        // Bonus after scale/add: 0.18 * 2 + 0.01 + 0.5.
+        blaze4k::JudgmentConstants scaled = defaults;
+        scaled.windows.judge_window_scale = 2.0;
+        scaled.windows.judge_window_add = 0.01;
+        TEST_CHECK(nearly(scaled.effective_windows(true).way_off, 0.18 * 2.0 + 0.01 + 0.5));
+        TEST_CHECK(nearly(scaled.effective_windows(true).hit_mine, 0.07 * 2.0 + 0.01));
+
+        // Flag off: Beginner windows equal the normal ones.
+        blaze4k::JudgmentConstants flag_off = defaults;
+        flag_off.merciful_beginner = false;
+        TEST_CHECK(!flag_off.merciful_beginner_applies(true));
+        TEST_CHECK(flag_off.effective_windows(true).way_off == flag_off.effective_windows().way_off);
+        TEST_CHECK(flag_off.classify_tap(0.5, true) == blaze4k::TapJudgment::Miss);
+        TEST_CHECK(defaults.merciful_beginner_applies(true));
+        TEST_CHECK(!defaults.merciful_beginner_applies(false));
+
+        TEST_CHECK(defaults.classify_tap(bw.way_off, true) == blaze4k::TapJudgment::WayOff);
+        TEST_CHECK(defaults.classify_tap(-bw.way_off, true) == blaze4k::TapJudgment::WayOff);
+        TEST_CHECK(defaults.classify_tap(bw.way_off + 1e-6, true) == blaze4k::TapJudgment::Miss);
+        TEST_CHECK(defaults.classify_tap(0.5) == blaze4k::TapJudgment::Miss);
+        TEST_CHECK(defaults.classify_tap(0.5, true) == blaze4k::TapJudgment::WayOff);
+        TEST_CHECK(defaults.classify_tap(-0.5, true) == blaze4k::TapJudgment::WayOff);
+        TEST_CHECK(defaults.classify_tap(0.01, true) == blaze4k::TapJudgment::Fantastic);
+        TEST_CHECK(defaults.classify_tap(base.decent, true) == blaze4k::TapJudgment::Decent);
+        TEST_CHECK(defaults.classify_tap(std::nan(""), true) == blaze4k::TapJudgment::Miss);
+    }
+    std::cout << "  - 13. MercifulBeginner widens only the effective Way Off by 0.5 s.\n";
+
+    // 14. merciful_beginner JSON flag: absent/null keep the default, non-boolean
+    //     values fall back to the compiled defaults with a warning.
+    {
+        fs::path flag_path = temp_dir / "merciful_off.json";
+        write_file(flag_path, "{\"merciful_beginner\": false}");
+        std::string flag_message;
+        blaze4k::ConstantsLoadStatus flag_status = blaze4k::ConstantsLoadStatus::UsedDefaults;
+        blaze4k::JudgmentConstants flag_off =
+            blaze4k::load_judgment_constants(flag_path, &flag_message, &flag_status);
+        TEST_CHECK(flag_status == blaze4k::ConstantsLoadStatus::LoadedFromFile);
+        TEST_CHECK(!flag_off.merciful_beginner);
+        blaze4k::JudgmentConstants expected = defaults;
+        expected.merciful_beginner = false;
+        TEST_CHECK(same_constants(flag_off, expected));
+        TEST_CHECK(!same_constants(flag_off, defaults));
+
+        fs::path null_path = temp_dir / "merciful_null.json";
+        write_file(null_path, "{\"merciful_beginner\": null}");
+        std::string null_message;
+        blaze4k::ConstantsLoadStatus null_status = blaze4k::ConstantsLoadStatus::UsedDefaults;
+        blaze4k::JudgmentConstants null_loaded =
+            blaze4k::load_judgment_constants(null_path, &null_message, &null_status);
+        TEST_CHECK(null_status == blaze4k::ConstantsLoadStatus::LoadedFromFile);
+        TEST_CHECK(null_loaded.merciful_beginner);
+
+        const char* bad_values[] = {"1", "\"yes\""};
+        for (const char* bad : bad_values) {
+            fs::path bad_path = temp_dir / "merciful_bad.json";
+            write_file(bad_path, std::string("{\"merciful_beginner\": ") + bad +
+                                     ", \"dp_weights\": {\"fantastic\": 9}}");
+            std::string bad_message;
+            blaze4k::ConstantsLoadStatus bad_status = blaze4k::ConstantsLoadStatus::LoadedFromFile;
+            blaze4k::JudgmentConstants bad_loaded =
+                blaze4k::load_judgment_constants(bad_path, &bad_message, &bad_status);
+            TEST_CHECK(bad_status == blaze4k::ConstantsLoadStatus::UsedDefaults);
+            TEST_CHECK(same_constants(bad_loaded, defaults));
+            TEST_CHECK(bad_message.find("merciful_beginner") != std::string::npos);
+        }
+    }
+    std::cout << "  - 14. merciful_beginner JSON flag loads; non-boolean falls back.\n";
 
     fs::remove_all(temp_dir);
 

@@ -8,6 +8,8 @@ namespace blaze4k {
 void ScoreKeeper::reset(const Chart* chart, const JudgmentConstants* constants) {
     chart_ = chart;
     constants_ = constants;
+    merciful_ = chart_ != nullptr && constants_ != nullptr &&
+                constants_->merciful_beginner_applies(chart_->is_beginner());
     state_ = ScoreState{};
     note_row_.clear();
     rows_.clear();
@@ -77,7 +79,7 @@ void ScoreKeeper::consume(const JudgmentEvent& event) {
             break;
         case JudgmentKind::HitMine:
             // Hit mine scores but never changes combo (ScoreKeeperMAX2.cpp:333-341).
-            state_.actual_dp += constants_->dp_weights.hit_mine;
+            state_.actual_dp += dp_weight(constants_->dp_weights.hit_mine);
             state_.tap_counts[static_cast<std::size_t>(TapJudgment::HitMine)]++;
             break;
         case JudgmentKind::AvoidedMine:
@@ -139,7 +141,7 @@ void ScoreKeeper::resolve_row(int row) {
         return; // defensive: a completed row always has a graded tap
     }
 
-    state_.actual_dp += tap_weight(score);
+    state_.actual_dp += dp_weight(tap_weight(score));
     state_.tap_counts[static_cast<std::size_t>(score)]++;
 
     // Combo uses the constant's monotonic predicate, never the (non-monotonic) enum.
@@ -170,11 +172,11 @@ void ScoreKeeper::apply_hold(const JudgmentEvent& event) {
 
     switch (event.hold) {
         case HoldJudgment::Ok:
-            state_.actual_dp += constants_->dp_weights.hold_ok;
+            state_.actual_dp += dp_weight(constants_->dp_weights.hold_ok);
             state_.hold_counts[static_cast<std::size_t>(HoldJudgment::Ok)]++;
             break;
         case HoldJudgment::Ng:
-            state_.actual_dp += constants_->dp_weights.hold_ng;
+            state_.actual_dp += dp_weight(constants_->dp_weights.hold_ng);
             state_.hold_counts[static_cast<std::size_t>(HoldJudgment::Ng)]++;
             break;
         case HoldJudgment::Num:

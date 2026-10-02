@@ -905,6 +905,238 @@ int main() {
         std::cout << "  - Engine window edges are inclusive.\n";
     }
 
+    // 19. MercifulBeginner (#67; OpenITG Player.cpp:55-56,1089-1093,1710-1713).
+    //     On a Beginner chart the effective Way Off gains +0.5 s (classification
+    //     and miss expiry); an early Way Off is display-only and leaves the note
+    //     live. Mine and hold windows are untouched.
+    {
+        const double note_time = 2.0;
+        const double bw = k.effective_windows(true).way_off; // 0.6815
+        TEST_CHECK(approx(bw, w.way_off + 0.5));
+        auto make_chart = [](const char* difficulty, blaze4k::NoteType type, double end = 0.0) {
+            blaze4k::Chart chart;
+            chart.difficulty = difficulty;
+            chart.notes.push_back(make_note(1, 2.0, type, end));
+            return chart;
+        };
+
+        // 19.1 Late Way Off widened (Medium control: beyond Way Off -> no event).
+        {
+            blaze4k::Chart chart = make_chart("Beginner", blaze4k::NoteType::Tap);
+            blaze4k::JudgmentEngine engine;
+            engine.reset(&chart, &k);
+            TEST_CHECK(engine.is_beginner());
+            engine.handle_step(1, 2.4);
+            TEST_CHECK(engine.events().size() == 1);
+            const blaze4k::JudgmentEvent& e = engine.events().front();
+            TEST_CHECK(e.kind == blaze4k::JudgmentKind::Tap);
+            TEST_CHECK(e.window == blaze4k::TapJudgment::WayOff);
+            TEST_CHECK(approx(e.delta_ms, 400.0, 1e-6));
+            TEST_CHECK(engine.is_note_judged(0));
+
+            blaze4k::Chart medium = make_chart("Medium", blaze4k::NoteType::Tap);
+            blaze4k::JudgmentEngine control;
+            control.reset(&medium, &k);
+            TEST_CHECK(!control.is_beginner());
+            control.handle_step(1, 2.4);
+            TEST_CHECK(control.events().empty());
+        }
+        // 19.2 Miss expiry waits for the widened Way Off.
+        {
+            blaze4k::Chart chart = make_chart("Beginner", blaze4k::NoteType::Tap);
+            blaze4k::JudgmentEngine engine;
+            engine.reset(&chart, &k);
+            engine.update(note_time + w.way_off + 0.01, held_none());
+            TEST_CHECK(engine.events().empty());
+            engine.update(note_time + bw + 1e-6, held_none());
+            TEST_CHECK(engine.events().size() == 1);
+            const blaze4k::JudgmentEvent& e = engine.events().front();
+            TEST_CHECK(e.kind == blaze4k::JudgmentKind::Miss);
+            TEST_CHECK(approx(e.hit_time_seconds, note_time + bw));
+            TEST_CHECK(approx(e.delta_ms, bw * 1000.0, 1e-6));
+
+            blaze4k::Chart medium = make_chart("Medium", blaze4k::NoteType::Tap);
+            blaze4k::JudgmentEngine control;
+            control.reset(&medium, &k);
+            control.update(note_time + w.way_off + 0.01, held_none());
+            TEST_CHECK(control.events().size() == 1);
+            TEST_CHECK(control.events().front().kind == blaze4k::JudgmentKind::Miss);
+        }
+        // 19.3 Early Way Off is display-only; the note stays live and steppable.
+        {
+            blaze4k::Chart chart = make_chart("Beginner", blaze4k::NoteType::Tap);
+            blaze4k::JudgmentEngine engine;
+            engine.reset(&chart, &k);
+            engine.handle_step(1, 1.6);
+            TEST_CHECK(engine.events().empty());
+            TEST_CHECK(engine.latest_event() == nullptr);
+            TEST_CHECK(!engine.is_note_judged(0));
+            TEST_CHECK(!engine.is_note_hidden(0));
+
+            std::vector<blaze4k::JudgmentEvent> shown;
+            engine.drain_display_only_events(shown);
+            TEST_CHECK(shown.size() == 1);
+            TEST_CHECK(shown.front().kind == blaze4k::JudgmentKind::Tap);
+            TEST_CHECK(shown.front().window == blaze4k::TapJudgment::WayOff);
+            TEST_CHECK(approx(shown.front().delta_ms, -400.0, 1e-6));
+            TEST_CHECK(shown.front().note_index == 0);
+            TEST_CHECK(shown.front().column == 1);
+            TEST_CHECK(shown.front().note_type == blaze4k::NoteType::Tap);
+            std::vector<blaze4k::JudgmentEvent> again;
+            engine.drain_display_only_events(again);
+            TEST_CHECK(again.empty());
+            std::vector<blaze4k::JudgmentEvent> recorded;
+            engine.drain_new_events(recorded);
+            TEST_CHECK(recorded.empty());
+
+            engine.handle_step(1, note_time);
+            TEST_CHECK(engine.events().size() == 1);
+            TEST_CHECK(engine.events().front().window == blaze4k::TapJudgment::Fantastic);
+            engine.drain_display_only_events(again);
+            TEST_CHECK(again.empty());
+        }
+        // 19.4 Early Way Off, then untouched: exactly one Miss at the widened expiry.
+        {
+            blaze4k::Chart chart = make_chart("Beginner", blaze4k::NoteType::Tap);
+            blaze4k::JudgmentEngine engine;
+            engine.reset(&chart, &k);
+            engine.handle_step(1, 1.7);
+            TEST_CHECK(engine.events().empty());
+            engine.update(note_time + bw - 0.01, held_none());
+            TEST_CHECK(engine.events().empty());
+            engine.update(note_time + bw + 1e-6, held_none());
+            engine.update(note_time + bw + 0.5, held_none());
+            TEST_CHECK(engine.events().size() == 1);
+            TEST_CHECK(engine.events().front().kind == blaze4k::JudgmentKind::Miss);
+        }
+        // 19.5 Only an early Way Off is suppressed: early inside the base Way Off
+        //      band too, but not an early Decent or any late Way Off.
+        {
+            blaze4k::Chart chart = make_chart("Beginner", blaze4k::NoteType::Tap);
+            blaze4k::JudgmentEngine engine;
+            engine.reset(&chart, &k);
+            engine.handle_step(1, 1.85);
+            TEST_CHECK(engine.events().empty());
+            std::vector<blaze4k::JudgmentEvent> shown;
+            engine.drain_display_only_events(shown);
+            TEST_CHECK(shown.size() == 1);
+
+            blaze4k::Chart decent_chart = make_chart("Beginner", blaze4k::NoteType::Tap);
+            blaze4k::JudgmentEngine decent;
+            decent.reset(&decent_chart, &k);
+            decent.handle_step(1, note_time - (w.great + w.decent) / 2.0);
+            TEST_CHECK(decent.events().size() == 1);
+            TEST_CHECK(decent.events().front().window == blaze4k::TapJudgment::Decent);
+
+            blaze4k::Chart late_chart = make_chart("Beginner", blaze4k::NoteType::Tap);
+            blaze4k::JudgmentEngine late;
+            late.reset(&late_chart, &k);
+            late.handle_step(1, 2.15);
+            TEST_CHECK(late.events().size() == 1);
+            TEST_CHECK(late.events().front().window == blaze4k::TapJudgment::WayOff);
+            late.drain_display_only_events(shown);
+            TEST_CHECK(shown.size() == 1);
+        }
+        // 19.6 Hold head early Way Off: no hold life starts; a later hit works normally.
+        {
+            blaze4k::Chart chart = make_chart("Beginner", blaze4k::NoteType::HoldHead, 4.0);
+            blaze4k::JudgmentEngine engine;
+            engine.reset(&chart, &k);
+            engine.handle_step(1, 1.7);
+            TEST_CHECK(engine.events().empty());
+            TEST_CHECK(!engine.is_hold_head_hit(0));
+            TEST_CHECK(!engine.is_hold_in_progress(0));
+            engine.handle_step(1, note_time);
+            TEST_CHECK(engine.events().size() == 1);
+            TEST_CHECK(engine.events().front().window == blaze4k::TapJudgment::Fantastic);
+            engine.update(4.0, held_col(1));
+            TEST_CHECK(engine.events().size() == 2);
+            TEST_CHECK(engine.events().back().kind == blaze4k::JudgmentKind::HoldOk);
+        }
+        // 19.7 Mine window is not widened; avoided-mine expiry follows the widened Boo
+        //      (Player.cpp:1397-1413).
+        {
+            blaze4k::Chart chart = make_chart("Beginner", blaze4k::NoteType::Mine);
+            blaze4k::JudgmentEngine engine;
+            engine.reset(&chart, &k);
+            engine.handle_step(1, note_time + w.hit_mine + 0.01);
+            TEST_CHECK(engine.events().empty());
+            engine.update(note_time + w.way_off + 0.01, held_none());
+            TEST_CHECK(engine.events().empty());
+            engine.update(note_time + bw + 1e-6, held_none());
+            TEST_CHECK(engine.events().size() == 1);
+            TEST_CHECK(engine.events().front().kind == blaze4k::JudgmentKind::AvoidedMine);
+        }
+        // 19.8 Flag off: a Beginner chart behaves exactly like the control.
+        {
+            blaze4k::JudgmentConstants off = blaze4k::JudgmentConstants::compiled_defaults();
+            off.merciful_beginner = false;
+
+            blaze4k::Chart chart = make_chart("Beginner", blaze4k::NoteType::Tap);
+            blaze4k::JudgmentEngine engine;
+            engine.reset(&chart, &off);
+            engine.handle_step(1, 1.85);
+            TEST_CHECK(engine.events().size() == 1);
+            TEST_CHECK(engine.events().front().window == blaze4k::TapJudgment::WayOff);
+            std::vector<blaze4k::JudgmentEvent> shown;
+            engine.drain_display_only_events(shown);
+            TEST_CHECK(shown.empty());
+
+            blaze4k::Chart late_chart = make_chart("Beginner", blaze4k::NoteType::Tap);
+            blaze4k::JudgmentEngine late;
+            late.reset(&late_chart, &off);
+            late.handle_step(1, 2.4);
+            TEST_CHECK(late.events().empty());
+            late.update(note_time + w.way_off + 0.01, held_none());
+            TEST_CHECK(late.events().size() == 1);
+            TEST_CHECK(late.events().front().kind == blaze4k::JudgmentKind::Miss);
+        }
+        // 19.9 Detection mirrors StringToDifficulty + Steps::TidyUpData:
+        //      label, then description, then meter 1 => Beginner.
+        {
+            struct Case {
+                const char* label;
+                const char* description;
+                int meter;
+                bool beginner;
+            };
+            const Case cases[] = {
+                {"beginner", "", 5, true},
+                {"BEGINNER", "", 5, true},
+                {"Beginner", "", 5, true},
+                {"Novice", "", 1, true},         // invalid label + meter 1
+                {"Mystery", "Beginner", 4, true}, // invalid label -> description
+                {"Novice", "", 2, false},        // invalid label + meter 2 -> Easy
+                {"Easy", "Beginner", 1, false},  // valid label wins
+                {"", "", 0, false},              // hand-built default -> Easy
+            };
+            for (const Case& c : cases) {
+                blaze4k::Chart chart = make_chart(c.label, blaze4k::NoteType::Tap);
+                chart.description = c.description;
+                chart.meter = c.meter;
+                blaze4k::JudgmentEngine engine;
+                engine.reset(&chart, &k);
+                TEST_CHECK(engine.is_beginner() == c.beginner);
+                engine.handle_step(1, 2.4);
+                TEST_CHECK(engine.events().size() == (c.beginner ? 1u : 0u));
+            }
+        }
+        // 19.10 reset() clears the display-only queue.
+        {
+            blaze4k::Chart chart = make_chart("Beginner", blaze4k::NoteType::Tap);
+            blaze4k::JudgmentEngine engine;
+            engine.reset(&chart, &k);
+            engine.handle_step(1, 1.6);
+            engine.reset(&chart, &k);
+            std::vector<blaze4k::JudgmentEvent> shown;
+            engine.drain_display_only_events(shown);
+            TEST_CHECK(shown.empty());
+            engine.reset(nullptr, &k);
+            TEST_CHECK(!engine.is_beginner());
+        }
+        std::cout << "  - MercifulBeginner: widened Way Off, display-only early Way Off, controls.\n";
+    }
+
     std::cout << "[judgment_engine_test] All judgment engine tests passed successfully!\n";
     return 0;
 }

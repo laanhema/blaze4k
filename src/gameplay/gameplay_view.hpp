@@ -64,6 +64,11 @@ public:
     }
     [[nodiscard]] const JudgmentEvent* latest_judgment() const { return judge_.latest_event(); }
     [[nodiscard]] bool is_note_hidden(int note_index) const { return judge_.is_note_hidden(note_index); }
+    // Last judgment popup text (presentation only), including display-only
+    // MercifulBeginner early Way Offs that never reach judgment_events().
+    [[nodiscard]] const std::string& judgment_popup_label() const {
+        return judge_anim_.popup_label();
+    }
 
     [[nodiscard]] const ScoreState& score_state() const { return score_.state(); }
     [[nodiscard]] int dance_points() const { return score_.actual_dance_points(); }
@@ -106,6 +111,9 @@ private:
     std::filesystem::path assist_tick_path_;
     std::vector<double> due_ticks_;
     std::vector<JudgmentEvent> new_events_;
+    // MercifulBeginner early Way Off (display-only): feeds the popup only, never
+    // score/life/explosions (OpenITG Player.cpp:1089-1093 skips DidTapNote).
+    std::vector<JudgmentEvent> display_events_;
     std::vector<NoteRenderItem> items_;
     std::vector<NoteRenderItem> visible_items_;
     // Receptor press feedback (presentation only): last press per column in music time.

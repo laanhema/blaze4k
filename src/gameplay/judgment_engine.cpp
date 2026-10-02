@@ -23,6 +23,8 @@ void JudgmentEngine::reset(const Chart* chart, const JudgmentConstants* constant
 
     events_.clear();
     new_event_begin_ = 0;
+    display_only_events_.clear();
+    is_beginner_ = chart_ != nullptr && chart_->is_beginner();
     active_holds_.clear();
     column_notes_.assign(4, {});
     column_mines_.assign(4, {});
@@ -107,13 +109,38 @@ void JudgmentEngine::step(int column, double music_time_seconds) {
 }
 
 void JudgmentEngine::handle_step_tap(int note_index, double delta_seconds, double hit_time) {
-    const TapJudgment judgment = constants_->classify_tap(delta_seconds);
+    // On a MercifulBeginner chart the Way Off window is widened by 0.5 s
+    // (Player.cpp:55-56).
+    const TapJudgment judgment = constants_->classify_tap(delta_seconds, is_beginner_);
     if (judgment == TapJudgment::Miss) {
         return; // A step beyond Way Off yields TNS_NONE, not a Miss (Player.cpp:938-947).
     }
 
-    NoteState& state = states_[static_cast<std::size_t>(note_index)];
     const Note& note = chart_->notes[static_cast<std::size_t>(note_index)];
+
+    JudgmentEvent event;
+    event.kind = JudgmentKind::Tap;
+    event.column = note.column;
+    event.note_time_seconds = note.time_seconds;
+    event.hit_time_seconds = hit_time;
+    event.delta_ms = (hit_time - note.time_seconds) * 1000.0;
+    event.window = judgment;
+    event.note_type = note.type;
+    event.note_index = note_index;
+
+    // MercifulBeginner: an early Way Off is display-only. OpenITG only calls
+    // m_Judgment.SetJudgment(score, bSteppedEarly) and never sets `tns`, so no
+    // score, life or row handling happens and the note stays live
+    // (Player.cpp:1089-1093). Early means fNoteOffset > 0, i.e. hit < note
+    // (Player.cpp:929); an exactly on-time step is never early. This keys on the
+    // Way Off result, so an early press inside the base Way Off band counts too.
+    if (judgment == TapJudgment::WayOff && constants_->merciful_beginner_applies(is_beginner_) &&
+        hit_time < note.time_seconds) {
+        display_only_events_.push_back(event);
+        return;
+    }
+
+    NoteState& state = states_[static_cast<std::size_t>(note_index)];
     state.tap = judgment;
 
     if (note.is_hold_or_roll()) {
@@ -125,21 +152,13 @@ void JudgmentEngine::handle_step_tap(int note_index, double delta_seconds, doubl
         state.complete = true;
     }
 
-    JudgmentEvent event;
-    event.kind = JudgmentKind::Tap;
-    event.column = note.column;
-    event.note_time_seconds = note.time_seconds;
-    event.hit_time_seconds = hit_time;
-    event.delta_ms = (hit_time - note.time_seconds) * 1000.0;
-    event.window = judgment;
-    event.note_type = note.type;
-    event.note_index = note_index;
     emit(event);
 }
 
 void JudgmentEngine::handle_step_mine(int note_index, double delta_seconds, double hit_time) {
     // OpenITG ADJUSTED_WINDOW_TAP(TW_Mine): base * scale + add (Player.cpp:34-58, 948).
-    const TimingWindows w = constants_->effective_windows();
+    // The MercifulBeginner bonus is Boo-only, so hit_mine is never widened.
+    const TimingWindows w = constants_->effective_windows(is_beginner_);
     if (delta_seconds > w.hit_mine) {
         return; // Outside the mine window: no event (Player.cpp:946-949).
     }
@@ -210,8 +229,10 @@ void JudgmentEngine::update(double music_time_seconds, const std::array<bool, 4>
 
 void JudgmentEngine::expire_notes(double music_time) {
     // Miss expiry uses the adjusted Boo window, like OpenITG
-    // GetMaxStepDistanceSeconds = ADJUSTED_WINDOW_TAP(TW_Boo) (Player.cpp:1710-1713).
-    const TimingWindows w = constants_->effective_windows();
+    // GetMaxStepDistanceSeconds = ADJUSTED_WINDOW_TAP(TW_Boo) (Player.cpp:1710-1713),
+    // which includes the MercifulBeginner +0.5 s on a Beginner chart, so misses
+    // (and avoided mines) expire later there (Player.cpp:440, 1397-1413).
+    const TimingWindows w = constants_->effective_windows(is_beginner_);
     const double threshold = music_time - w.way_off;
     for (int column = 0; column < 4; ++column) {
         for (int i : column_notes_[static_cast<std::size_t>(column)]) {
@@ -264,8 +285,9 @@ void JudgmentEngine::update_holds(double music_time, const std::array<bool, 4>& 
     std::vector<int> still_active;
     still_active.reserve(active_holds_.size());
     // OpenITG ADJUSTED_WINDOW_HOLD(HW_OK / HW_Roll): base * scale + add
-    // (Player.cpp:60-74, 563, 574).
-    const TimingWindows w = constants_->effective_windows();
+    // (Player.cpp:60-74, 563, 574). AdjustedWindowHold ignores Beginner, and the
+    // Beginner overload only changes way_off, so hold/roll windows are unchanged.
+    const TimingWindows w = constants_->effective_windows(is_beginner_);
 
     for (int i : active_holds_) {
         NoteState& state = states_[static_cast<std::size_t>(i)];
@@ -453,6 +475,11 @@ void JudgmentEngine::drain_new_events(std::vector<JudgmentEvent>& out) {
                    events_.end());
     }
     new_event_begin_ = events_.size();
+}
+
+void JudgmentEngine::drain_display_only_events(std::vector<JudgmentEvent>& out) {
+    out.insert(out.end(), display_only_events_.begin(), display_only_events_.end());
+    display_only_events_.clear();
 }
 
 void JudgmentEngine::emit(const JudgmentEvent& event) {

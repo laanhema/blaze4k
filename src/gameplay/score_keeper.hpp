@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include <array>
 #include <cstddef>
 #include <vector>
@@ -16,7 +17,7 @@ namespace blaze4k {
 // the append-only `JudgmentEvent` stream, exactly like OpenITG's `ScoreKeeperMAX2`
 // derives its counters from judged note data (never from frame timing).
 struct ScoreState {
-    int actual_dp = 0;   // OpenITG iActualDancePoints (may go negative)
+    int actual_dp = 0;   // OpenITG iActualDancePoints (may go negative, except on MercifulBeginner)
     int possible_dp = 0; // chart-derived maximum, computed once in reset()
     int combo = 0;
     int max_combo = 0;
@@ -69,9 +70,18 @@ private:
     void resolve_row(int row);
     void recompute_derived();
     [[nodiscard]] int tap_weight(TapJudgment j) const;
+    // OpenITG MercifulBeginner: on a Beginner chart negative DP weights count as
+    // 0 (ScoreKeeperMAX2.cpp:529-530 tap/mine, :544-545 hold). Upstream excludes
+    // course mode (:187-189), which Blaze does not have. possible_dp is never
+    // clamped (:449-451 pass false). Blaze derives grade from DP percent, so this
+    // also covers the grade-weight clamp (:570-571, :585-586;
+    // PlayerStageStats.cpp:164-179); if grade weights ever get their own
+    // accumulation, apply the same clamp there.
+    [[nodiscard]] int dp_weight(int weight) const { return merciful_ ? std::max(0, weight) : weight; }
 
     const Chart* chart_ = nullptr;
     const JudgmentConstants* constants_ = nullptr;
+    bool merciful_ = false; // MercifulBeginner rules apply to this chart
     std::vector<int> note_row_;     // note_index -> row id (-1 = mine/unscored)
     std::vector<RowAggregate> rows_;
     std::vector<bool> note_scored_; // per-note idempotence guard for tap-like events

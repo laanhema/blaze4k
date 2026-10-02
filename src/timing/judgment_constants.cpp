@@ -31,6 +31,10 @@ const JudgmentConstants& JudgmentConstants::compiled_defaults() {
         // [Preferences-cabinet]; selected by assets/arcade-patch/start-3.sh:17).
         c.windows.judge_window_add = 0.0015;
 
+        // MercifulBeginner=1 (metrics.ini:157, [Preferences]; compiled default
+        // false at src/PrefsManager.cpp:128).
+        c.merciful_beginner = true;
+
         // DP / grade weights (arcade PercentScoreWeight* / GradeWeight*)
         c.dp_weights = Weights{5, 4, 2, 0, -6, -12, -6, 5, 0};
         c.grade_weights = Weights{5, 4, 2, 0, -6, -12, -6, 5, 0};
@@ -162,14 +166,23 @@ TimingWindows JudgmentConstants::effective_windows() const {
     return w;
 }
 
-TapJudgment JudgmentConstants::classify_tap(double delta_seconds) const {
+TimingWindows JudgmentConstants::effective_windows(bool is_beginner) const {
+    TimingWindows w = effective_windows();
+    if (merciful_beginner_applies(is_beginner)) {
+        // src/Player.cpp:55-56: Boo only, after scale/add.
+        w.way_off += kMercifulBeginnerWayOffBonusSeconds;
+    }
+    return w;
+}
+
+TapJudgment JudgmentConstants::classify_tap(double delta_seconds, bool is_beginner) const {
     // NaN cannot be classified; treat it as a Miss (documented behavior).
     if (std::isnan(delta_seconds)) {
         return TapJudgment::Miss;
     }
     // OpenITG compares against ADJUSTED_WINDOW_TAP(...) with `<=` on each tier
     // (src/Player.cpp:957-961), so every edge is inclusive.
-    const TimingWindows w = effective_windows();
+    const TimingWindows w = effective_windows(is_beginner);
     const double delta = std::fabs(delta_seconds);
     if (delta <= w.fantastic) return TapJudgment::Fantastic;
     if (delta <= w.excellent) return TapJudgment::Excellent;
