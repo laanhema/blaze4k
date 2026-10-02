@@ -108,14 +108,16 @@ Sign convention: `src/timing/music_clock.hpp:19-21` (positive offset = clock rea
    graph quantum, upstream of Bluetooth) and captures video at render time. In the file, the arrow
    reaches the receptor about `L + L_in − ε` **after** its sound.
    - Bluetooth: about 150–300 ms (estimate). Very visible.
-   - Wired: about `L_wired + L_in`. The saved −22 ms offset suggests around 20 ms, which is hard to
-     notice.
+   - Wired: about `L_wired + L_in − ε`. The saved −22 ms offset gives `L + L_in ≈ 22 ms`, and
+     `ε ≈ 24 ms` on this machine, so the lag is around 0 ms and not noticeable.
 
 **Workaround (no code change).** In OBS, open *Edit → Advanced Audio Properties* and set *Sync
-Offset* on the Desktop Audio (or application audio capture) source to `+|offset_ms|`, where
-`offset_ms` is the active `global_offset_seconds × 1000` (for example `-0.180` → `180 ms`). This
-delays the recorded audio to match the video. Alternatively, record while using wired output and its
-calibration.
+Offset* on the Desktop Audio (or application audio capture) source to about `−offset_ms − ε`, where
+`offset_ms` is the active `global_offset_seconds × 1000` and ε is roughly one client buffer plus the
+graph quantum (about 24 ms here; see [Measurements](#measurements)). For example `-0.180` → about
+`180 − 24 ≈ 156 ms`. This delays the recorded audio to match the video. Treat it as a starting point
+and trim by eye with a clap test. If the result is zero or negative, no Sync Offset is needed.
+Alternatively, record while using wired output and its calibration.
 
 ## Clock granularity
 
@@ -200,7 +202,8 @@ real numbers, with the headset connected **as the default sink** (`pactl get-def
    `timeout 4 pw-top -b -n 3`, and
    `pw-dump | python3 -c 'import json,sys; [print(o["info"]["props"].get("node.name"), o["info"]["props"].get("node.latency"), o["info"].get("params",{}).get("Latency"), o["info"].get("params",{}).get("ProcessLatency")) for o in json.load(sys.stdin) if o.get("type")=="PipeWire:Interface:Node" and str(o.get("info",{}).get("props",{}).get("node.name","")).startswith("bluez_output.")]'`.
 3. Run the calibration wizard on Bluetooth and on wired 3.5 mm, and note `global_offset_seconds` in
-   `data/config.json` after each. The difference is the measured `L_bt − L_wired`.
+   `build/data/config.json` (dev build; otherwise `<executable dir>/data/`, the XDG data dir or
+   `--data-dir`, see `src/data/data_paths.cpp:10-29`) after each. The difference is the measured `L_bt − L_wired`.
 
 ### Reproducing the probes (silent, scratch only)
 
