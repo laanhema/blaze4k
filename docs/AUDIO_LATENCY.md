@@ -16,9 +16,9 @@ Numbers marked **estimate** were not measured here and must not be treated as ve
   has written into the audio callback buffer, not frames the player has heard. Everything after that
   point (client buffer, PipeWire graph, ALSA or Bluetooth sink, codec, radio, headset jitter buffer)
   is invisible to the clock. The calibration wizard folds all of it into the single
-  `offset.global_offset_seconds`. Wired output adds roughly 25–40 ms end to end (**estimate**,
-  built from measured parts); A2DP Bluetooth typically adds 150–300 ms (**estimate**, not measured
-  here). One number cannot cover both, so switching devices moves the optimum.
+  `offset.global_offset_seconds`. The owner's wizard calibrations (**measured**) are −0.023 s on
+  wired/speaker and about −0.222 s on WH-1000XM4 Bluetooth, so Bluetooth adds about 200 ms over
+  wired. One number cannot cover both, so switching devices moves the optimum.
 - **OBS.** OBS "Desktop Audio" taps the PipeWire sink monitor, which sits *before* the Bluetooth
   stages. With a Bluetooth-calibrated offset, the recorded video lags the recorded audio by about the
   Bluetooth latency. In game, the player hears the audio equally late, so it feels in sync.
@@ -27,6 +27,9 @@ Numbers marked **estimate** were not measured here and must not be treated as ve
   the global offset (option A). Querying OS latency at runtime is rejected for v1 (option B).
 - **Secondary finding (measured).** The cursor advances once per audio callback, about 18.75 ms at a
   time here. That adds up to about ±9 ms of judgment jitter and a small per-device bias.
+- **Wizard headroom (code finding).** The Bluetooth calibration is within 28 ms of the wizard's
+  250 ms tap limit. A slower Bluetooth path saves a wrong, positive offset (see
+  [Wizard headroom](#wizard-headroom)).
 - **Correction to the #58 technical notes.** `src/audio/audio_engine.cpp` has **no** device
   enumeration or selection. `AudioEngine::init` calls `ma_engine_init` with
   `ma_engine_config_init()` defaults, so it always opens the OS default playback device. Follow-up
@@ -69,14 +72,15 @@ decoded PCM ──cursor──▶ ma_engine mix ──▶ PA client buffer (tlen
    ──▶ PipeWire graph (quantum 256 = 5.3 ms, measured)  ──▶ sink
         ├─ wired / speaker: ALSA period/buffer (a few ms) ──▶ DAC ──▶ ear        ≈ 25–40 ms total (estimate)
         └─ Bluetooth: bluez5 sink ──▶ codec encode (SBC/AAC/LDAC) ──▶ radio
-                       ──▶ headset jitter buffer + decode ──▶ ear            ≈ 150–300 ms typical (estimate)
+                       ──▶ headset jitter buffer + decode ──▶ ear            ≈ 200 ms more than wired (measured)
 OBS "Desktop Audio" taps the sink monitor here ─┘ (before the bluez5/headset stages)
 ```
 
 - The wired total is an **estimate** built from the measured client buffer and graph quantum plus a
   typical ALSA buffer.
-- The Bluetooth range is the commonly reported A2DP figure. It is an **estimate, not measured on the
-  dev machine** (see [Measurements](#measurements) for the owner procedure).
+- The Bluetooth figure comes from the owner's wizard calibrations on the WH-1000XM4: about −0.222 s
+  vs −0.023 s wired, so `L_bt − L_wired ≈ 200 ms` (**measured**, see [Measurements](#measurements)).
+  That is inside the commonly reported 150–300 ms A2DP range. The codec in use was not recorded.
 - The headset-side buffer is invisible to every OS API. Even a perfect OS latency query leaves a
   headset-specific error.
 - Codec and profile changes alter the latency of the *same* device: A2DP vs HFP (when a mic is
@@ -86,12 +90,22 @@ OBS "Desktop Audio" taps the sink monitor here ─┘ (before the bluez5/headset
 
 Let `L` be the output latency from cursor to ear and `L_in` the input latency plus player bias.
 Calibration stores `offset ≈ -(L + L_in)` (derivation below). `L_in` stays about the same when the
-player switches headphones, but `L` jumps from about 25–40 ms to about 150–300 ms (both estimates).
-So the optimal offset moves by roughly `L_bt − L_wired`, which is on the order of 100–250 ms. That
-is far wider than the ±21.5 ms Fantastic window, so a stale offset is obvious immediately.
+player switches headphones, but `L` grows by `L_bt − L_wired` on Bluetooth. So the optimal offset
+moves by that amount: about 200 ms on the owner's WH-1000XM4 (measured: −0.023 s wired vs about
+−0.222 s Bluetooth). That is far wider than the ±21.5 ms Fantastic window, so a stale offset is obvious immediately.
 
 A smaller second contributor is the callback size (see [Clock granularity](#clock-granularity)):
 Bluetooth sinks often run larger buffers, which shifts the mean bias by a few ms.
+
+### Wizard headroom
+
+The wizard assigns each tap to the nearest beat (`src/screens/calibration_screen.cpp:111-112`). Beats
+are 0.5 s apart, and taps more than 0.25 s from their beat are rejected
+(`src/timing/offset_calibration.hpp:25`). So it can only measure a total delay `L + L_in` below
+250 ms. The WH-1000XM4 calibration (about 222 ms) is within 28 ms of that limit. A slower path, for
+example another codec or the HFP profile, makes taps land nearer the *next* beat. Those taps are
+accepted with a negative delta, and the wizard saves a **positive** offset of about `0.5 − (L + L_in)`
+seconds, which is wrong. Not fixed in this spike.
 
 ## Why OBS recordings are out of sync
 
@@ -107,16 +121,17 @@ Sign convention: `src/timing/music_clock.hpp:19-21` (positive offset = clock rea
 3. **Recording.** OBS captures audio from the sink monitor at about `cursor + ε` (client buffer and
    graph quantum, upstream of Bluetooth) and captures video at render time. In the file, the arrow
    reaches the receptor about `L + L_in − ε` **after** its sound.
-   - Bluetooth: about 150–300 ms (estimate). Very visible.
+   - Bluetooth: about `222 − 24 ≈ 198 ms` with the owner's WH-1000XM4 calibration (−0.222 s). Very
+     visible.
    - Wired: about `L_wired + L_in − ε`. The saved −22 ms offset gives `L + L_in ≈ 22 ms`, and
      `ε ≈ 24 ms` on this machine, so the lag is around 0 ms and not noticeable.
 
 **Workaround (no code change).** In OBS, open *Edit → Advanced Audio Properties* and set *Sync
 Offset* on the Desktop Audio (or application audio capture) source to about `−offset_ms − ε`, where
 `offset_ms` is the active `global_offset_seconds × 1000` and ε is roughly one client buffer plus the
-graph quantum (about 24 ms here; see [Measurements](#measurements)). For example `-0.180` → about
-`180 − 24 ≈ 156 ms`. This delays the recorded audio to match the video. Treat it as a starting point
-and trim by eye with a clap test. If the result is zero or negative, no Sync Offset is needed.
+graph quantum (about 24 ms here; see [Measurements](#measurements)). For example, the WH-1000XM4
+calibration `-0.222` → about `222 − 24 ≈ 198 ms`. This delays the recorded audio to match the video.
+Treat it as a starting point and trim by eye with a clap test. If the result is zero or negative, no Sync Offset is needed.
 Alternatively, record while using wired output and its calibration.
 
 ## Clock granularity
@@ -186,15 +201,16 @@ backend.
 | PipeWire graph | driver quantum 256 @ 48 kHz (5.33 ms); the probe stream requests `node.latency = 300/48000` | `pw-top -b` (measured) |
 | Cursor step | min 388, mean 876.5–892.5, max 900 frames (≈ 18.3–18.75 ms) | silent probe, two runs (measured) |
 | `pactl` latency fields | `Latency: 0 usec` | pipewire-pulse does not fill these; use `pw-top`/`pw-dump` |
-| Saved offset | `global_offset_seconds = -0.02204` (−22 ms) in `build/data/config.json` | The device it was calibrated on is **unknown** (owner to confirm: speaker or wired) |
+| Saved offset | `global_offset_seconds = -0.02204` (−22 ms) in `build/data/config.json` | Wired/speaker calibration; the owner reports −0.023 s on both (measured) |
 | Wired end-to-end latency | ≈ 25–40 ms | **Estimate** from client buffer + quantum + typical ALSA buffer |
-| Bluetooth (WH-1000XM4) | **Not measured on the dev machine.** The owner reports a noticeably larger optimal offset (`TODO.md:33`). Typical A2DP: 150–300 ms | **Estimate** |
+| Bluetooth (WH-1000XM4) calibration | about −0.222 s (wizard), so `L_bt − L_wired ≈ 200 ms` | Owner (measured); codec not recorded |
 
 ### Owner procedure: measuring Bluetooth
 
-The headset was paired but not connected during this spike, and no audio was routed to it. To fill in
-real numbers, with the headset connected **as the default sink** (`pactl get-default-sink` shows a
-`bluez_output.` prefix):
+The headset was paired but not connected during this spike, and no audio was routed to it. The owner
+has since done step 3 (see the table above). Steps 1–2 would add the Bluetooth client buffer and
+PipeWire-reported latency. To run them, with the headset connected **as the default sink**
+(`pactl get-default-sink` shows a `bluez_output.` prefix):
 
 1. Run `ctest --test-dir build -R audio_test -V | grep "Output device"` to get the Bluetooth client
    buffer. (`audio_test` plays a short test tone.)
