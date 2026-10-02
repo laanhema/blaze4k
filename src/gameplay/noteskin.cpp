@@ -330,7 +330,8 @@ HoldSprites NoteSkin::hold(NoteType type, bool active, NoteQuantization quantiza
         const bool roll = type == NoteType::RollHead;
         return HoldSprites{roll ? &cel_roll_body_[index] : &cel_hold_body_[index],
                            roll ? &cel_roll_cap_[index] : &cel_hold_cap_[index],
-                           1.0f, 4.0f, kWhite}; // 64x256 body, 64x64 cap per 64-unit arrow
+                           1.0f, 4.0f, kWhite, // 64x256 body, 64x64 cap per 64-unit arrow
+                           kCelHoldBodyStopFromTail};
     }
     return HoldSprites{&body_, nullptr, 0.6f, 0.0f,
                        multiply(with_alpha(kWhite, 0.65f), quantization_color(quantization))};

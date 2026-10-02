@@ -319,6 +319,16 @@ target_link_libraries(noteskin_test PRIVATE
 
 add_test(NAME noteskin_test COMMAND noteskin_test)
 
+add_executable(note_field_renderer_test
+    note_field_renderer_test.cpp
+)
+
+target_link_libraries(note_field_renderer_test PRIVATE
+    blaze4k_core
+)
+
+add_test(NAME note_field_renderer_test COMMAND note_field_renderer_test)
+
 add_executable(judgment_animator_test
     judgment_animator_test.cpp
 )

@@ -124,7 +124,9 @@ void test_headless_fallback() {
     TEST_CHECK(head.texture != nullptr);
     TEST_CHECK(head.tint.b > head.tint.r); // 8th = blue
     const blaze4k::HoldSprites hold = skin.hold(blaze4k::NoteType::HoldHead, false, NoteQuantization::Fourth);
-    TEST_CHECK(hold.cap == nullptr && hold.tile_scale == 0.0f);
+    TEST_CHECK(hold.cap == nullptr && hold.tile_scale == 0.0f && hold.tail_inset_scale == 0.0f);
+    // Cel metrics.ini:144 StopDrawingHoldBodyOffsetFromTail=-32 of a 64-unit arrow.
+    TEST_CHECK(near(blaze4k::kCelHoldBodyStopFromTail, 0.5));
     TEST_CHECK(skin.mine(0.0)[1].texture == nullptr);
     // Explosions are Cel-only art.
     TEST_CHECK(skin.tap_explosion(0, blaze4k::TapJudgment::Fantastic, 0.0, 0.15).texture == nullptr);

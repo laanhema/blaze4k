@@ -21,17 +21,27 @@ struct SkinSprite {
     BlendMode blend = BlendMode::Alpha;
 };
 
-// Hold/roll art: a body strip from the head to the tail plus an optional end cap
-// just past the tail. Both are authored head-on-top (upscroll) and are flipped
-// vertically for reverse (metrics.ini FlipHoldBodyWhenReverse).
+// Cel metrics.ini StopDrawingHoldBodyOffsetFromTail=-32 (of a 64-unit arrow): the hold/roll
+// body stops half a note before the tail and the 64x64 end cap starts there, so the cap is
+// centred on the tail (OpenITG NoteDisplay.cpp DrawHoldBody/DrawHoldBottomCap; SM5 mirrors
+// it in reverse). Fraction of the note size.
+inline constexpr float kCelHoldBodyStopFromTail = 0.5f;
+
+// Hold/roll art: a body strip from the head to `tail_inset_scale` note sizes
+// before the tail, plus an optional end cap that starts there. Both are
+// authored head-on-top (upscroll) and are flipped vertically for reverse
+// (metrics.ini FlipHoldBodyWhenReverse).
 struct HoldSprites {
     const Texture* body = nullptr;
     const Texture* cap = nullptr; // nullptr = no end cap
     float width_scale = 1.0f;     // strip/cap width relative to the note size
-    // Body texture repeat length relative to the note size, anchored at the tail
-    // so the pattern travels with the note. 0 stretches one copy over the body.
+    // Body texture repeat length relative to the note size, anchored at the
+    // body/cap junction so the pattern travels with the note. 0 stretches one copy over the body.
     float tile_scale = 0.0f;
     Color tint{};
+    // How far before the tail (toward the head) the body stops and the cap starts, relative
+    // to the note size: StopDrawingHoldBodyOffsetFromTail / -64. Ignored without a cap.
+    float tail_inset_scale = 0.0f;
 };
 
 // Cel sheet math, pure (no GL) so it is testable headless.
