@@ -154,6 +154,25 @@ void test_fallback_without_cap() {
     std::cout << "  - cap-less fallback body runs to the tail ok.\n";
 }
 
+void test_cap_uv_orientation() {
+    // The quad's UVs run top to bottom on screen; the cap art is head-on-top.
+    const HoldLayout up = layout_hold(100.0, 500.0, false, S, I, true);
+    TEST_CHECK(up.cap_uv.u0 == 0.0f && up.cap_uv.u1 == 1.0f);
+    TEST_CHECK(up.cap_uv.v0 == 0.0f && up.cap_uv.v1 == 1.0f);
+    // Reverse: flipped vertically (v1 at the top edge, which is the tail side).
+    const HoldLayout down = layout_hold(500.0, 100.0, true, S, I, true);
+    TEST_CHECK(down.cap_uv.u0 == 0.0f && down.cap_uv.u1 == 1.0f);
+    TEST_CHECK(down.cap_uv.v0 == 1.0f && down.cap_uv.v1 == 0.0f);
+    // Clipped at the head: the head-side edge starts cap_v_near into the art.
+    const HoldLayout up_clip = layout_hold(400.0, 420.0, false, S, I, true);
+    TEST_CHECK(up_clip.cap_uv.v0 == up_clip.cap_v_near && up_clip.cap_uv.v1 == 1.0f);
+    TEST_CHECK(up_clip.cap_v_near > 0.0f);
+    const HoldLayout down_clip = layout_hold(400.0, 380.0, true, S, I, true);
+    TEST_CHECK(down_clip.cap_uv.v0 == 1.0f && down_clip.cap_uv.v1 == down_clip.cap_v_near);
+    TEST_CHECK(down_clip.cap_v_near > 0.0f);
+    std::cout << "  - cap UV orientation in both directions ok.\n";
+}
+
 } // namespace
 
 int main() {
@@ -167,6 +186,7 @@ int main() {
     test_head_past_cap();
     test_short_hold();
     test_fallback_without_cap();
+    test_cap_uv_orientation();
     std::cout << "note_field_renderer_test passed\n";
     return 0;
 }

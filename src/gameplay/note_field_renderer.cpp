@@ -90,15 +90,13 @@ int draw_hold(GlQuadRenderer& renderer, const HoldSprites& hold, double x, doubl
         const double top = std::min(layout.cap_near_y, layout.cap_far_y);
         const double bottom = std::max(layout.cap_near_y, layout.cap_far_y);
         if (bottom >= 0.0 && top <= screen_h) {
-            const bool clipped = layout.cap_v_near > 0.0f;
-            const float f_near = clipped ? static_cast<float>(layout.cap_near_y) : junction_y;
+            // Unclipped, cap_near_y == body_end_y exactly, so this is junction_y.
+            const float f_near = static_cast<float>(layout.cap_near_y);
             const float f_far = static_cast<float>(layout.cap_far_y);
             const float f_top = std::min(f_near, f_far);
             const float f_bottom = std::max(f_near, f_far);
-            const UVRect uv = reverse ? UVRect{0.0f, 1.0f, 1.0f, layout.cap_v_near}
-                                      : UVRect{0.0f, layout.cap_v_near, 1.0f, 1.0f};
             const Rect quad{left, f_top, static_cast<float>(width), f_bottom - f_top};
-            renderer.draw_textured_quad(quad, *hold.cap, uv, hold.tint);
+            renderer.draw_textured_quad(quad, *hold.cap, layout.cap_uv, hold.tint);
             ++drawn;
         }
     }
@@ -116,13 +114,16 @@ HoldLayout layout_hold(double head_y, double tail_y, bool reverse, double cap_si
     out.has_body = d * (out.body_end_y - head_y) > 0.0;
     if (cap) {
         out.cap_far_y = out.body_end_y + d * cap_size;
-        // OpenITG DrawHoldBottomCap / SM5 DrawHoldPart: never draw the cap on the
-        // head side of the head centre; offset the texture by the clipped length.
+        // OpenITG DrawHoldBottomCap (up-scroll), mirrored for reverse: never draw the
+        // cap on the head side of the head centre; offset the texture by the clipped length.
         const double clipped = std::max(0.0, d * (head_y - out.body_end_y));
         if (clipped < cap_size) {
             out.has_cap = true;
             out.cap_near_y = out.body_end_y + d * clipped;
             out.cap_v_near = static_cast<float>(clipped / cap_size);
+            // Quad top..bottom: the art is head-on-top, flipped vertically in reverse.
+            out.cap_uv = reverse ? UVRect{0.0f, 1.0f, 1.0f, out.cap_v_near}
+                                 : UVRect{0.0f, out.cap_v_near, 1.0f, 1.0f};
         }
     }
     return out;

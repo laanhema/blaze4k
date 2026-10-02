@@ -36,7 +36,8 @@ struct HoldSprites {
     const Texture* cap = nullptr; // nullptr = no end cap
     float width_scale = 1.0f;     // strip/cap width relative to the note size
     // Body texture repeat length relative to the note size, anchored at the
-    // body/cap junction so the pattern travels with the note. 0 stretches one copy over the body.
+    // body/cap junction so the pattern travels with the note. 0 stretches one
+    // copy over the body.
     float tile_scale = 0.0f;
     Color tint{};
     // How far before the tail (toward the head) the body stops and the cap starts, relative
