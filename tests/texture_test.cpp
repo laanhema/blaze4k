@@ -141,12 +141,13 @@ void test_premultiply_alpha_partial_and_empty() {
     std::cout << "  - premultiply_alpha empty / trailing partial pixel ok.\n";
 }
 
-bool near(float a, float b) {
+bool approx_equal(float a, float b) {
     return std::fabs(a - b) <= 1e-6f;
 }
 
 bool color_near(blaze4k::Color a, blaze4k::Color b) {
-    return near(a.r, b.r) && near(a.g, b.g) && near(a.b, b.b) && near(a.a, b.a);
+    return approx_equal(a.r, b.r) && approx_equal(a.g, b.g) && approx_equal(a.b, b.b) &&
+           approx_equal(a.a, b.a);
 }
 
 void test_premultiply_color() {

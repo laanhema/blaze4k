@@ -71,7 +71,8 @@ public:
 private:
     // Uploads already-premultiplied RGBA8 bytes as given (arguments validated
     // and GL availability checked by the public factories).
-    static Texture upload_premultiplied(int width, int height, const uint8_t* rgba, bool mipmaps);
+    static Texture upload_premultiplied(int width, int height, const std::uint8_t* rgba,
+                                        bool mipmaps);
 
     unsigned int id_ = 0;
     int width_ = 0;

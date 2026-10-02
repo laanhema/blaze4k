@@ -84,8 +84,6 @@ void Texture::destroy() {
     height_ = 0;
 }
 
-// Uploads already-premultiplied RGBA8 bytes as given. Callers have validated
-// the arguments and checked gl_available().
 Texture Texture::upload_premultiplied(int width, int height, const std::uint8_t* rgba,
                                       bool mipmaps) {
     Texture texture;
