@@ -212,14 +212,17 @@ enum class DigitAlign { Left, Centre, Right };
 [[nodiscard]] float digits_start_x(float x, float width, DigitAlign align);
 // Glyph quad: {pen_x - origin_x*k, y, g.w*k, g.h*k}.
 [[nodiscard]] Rect digit_glyph_rect(const DigitGlyph& glyph, float pen_x, float y, float k);
+// Flat-fallback quad (no atlas): the advance cell {pen_x, y, advance*k, g.h*k},
+// so neighbouring boxes do not overlap. Space draws nothing in the fallback.
+[[nodiscard]] Rect digit_fallback_rect(const DigitGlyph& glyph, float pen_x, float y, float k);
 // Glyph rect / atlas dims (full UV for non-positive atlas dims).
 [[nodiscard]] UVRect digit_glyph_uv(const DigitGlyph& glyph, int atlas_w, int atlas_h);
 
 // Bitmap digit string drawer for one atlas (digits_chrome / digits_white):
 // draws `0-9 . % /` and space using each glyph's rect, origin_x and advance.
 // Unsupported bytes take zero width and are logged once per font. Without a
-// texture each glyph draws as a flat quad; without a font (unknown name or no
-// manifest) nothing is drawn and that is logged once.
+// texture each non-space glyph draws as a flat advance-cell quad; without a
+// font (unknown name or no manifest) nothing is drawn and that is logged once.
 class BitmapDigits {
 public:
     BitmapDigits() = default;
@@ -270,8 +273,9 @@ public:
     [[nodiscard]] static std::filesystem::path default_directory();
 
     // Parses dir/manifest.json and loads every PNG once. Returns true when the
-    // manifest parsed (even if some PNGs are missing, or headless, where nothing
-    // is uploaded and one line is logged). Idempotent: calls shutdown() first.
+    // manifest parsed and lists at least one texture or digit font (even if some
+    // PNGs are missing, or headless, where nothing is uploaded and one line is
+    // logged). Idempotent: calls shutdown() first.
     bool load(const std::filesystem::path& directory);
     // Releases every texture and forgets the manifest. Safe to repeat.
     void shutdown();

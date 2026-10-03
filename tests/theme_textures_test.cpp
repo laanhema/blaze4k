@@ -388,6 +388,8 @@ void test_digit_layout_widths() {
     const blaze4k::DigitGlyph& one =
         white.glyphs[static_cast<std::size_t>(blaze4k::digit_glyph_index('1'))];
     TEST_CHECK(rect_eq(blaze4k::digit_glyph_rect(one, 10, 20, 0.5f), -4, 20, 46, 82));
+    // Flat fallback: the advance cell at the pen, not the padded glyph rect.
+    TEST_CHECK(rect_eq(blaze4k::digit_fallback_rect(one, 10, 20, 0.5f), 10, 20, 17.015f, 82));
     TEST_CHECK(uv_eq(blaze4k::digit_glyph_uv(one, 1722, 164), 148.0f / 1722.0f, 0,
                      240.0f / 1722.0f, 1));
     TEST_CHECK(uv_eq(blaze4k::digit_glyph_uv(one, 0, 164), 0, 0, 1, 1));

@@ -643,6 +643,10 @@ Rect digit_glyph_rect(const DigitGlyph& glyph, float pen_x, float y, float k) {
                 static_cast<float>(glyph.src.h) * k};
 }
 
+Rect digit_fallback_rect(const DigitGlyph& glyph, float pen_x, float y, float k) {
+    return Rect{pen_x, y, glyph.advance * k, static_cast<float>(glyph.src.h) * k};
+}
+
 UVRect digit_glyph_uv(const DigitGlyph& glyph, int atlas_w, int atlas_h) {
     if (atlas_w <= 0 || atlas_h <= 0) {
         return UVRect{};
@@ -714,12 +718,11 @@ void BitmapDigits::draw(GlQuadRenderer& renderer, std::string_view text, float x
             continue;
         }
         const DigitGlyph& glyph = font_.glyphs[static_cast<std::size_t>(index)];
-        const Rect rect = digit_glyph_rect(glyph, pen, y, k);
         if (texture_.valid()) {
-            draw_textured(renderer, rect, texture_, digit_glyph_uv(glyph, atlas_w_, atlas_h_),
-                          tint);
-        } else {
-            draw_flat(renderer, rect, fallback);
+            draw_textured(renderer, digit_glyph_rect(glyph, pen, y, k), texture_,
+                          digit_glyph_uv(glyph, atlas_w_, atlas_h_), tint);
+        } else if (c != ' ') {
+            draw_flat(renderer, digit_fallback_rect(glyph, pen, y, k), fallback);
         }
         pen += glyph.advance * k;
     }
