@@ -10,7 +10,7 @@ This file provides guidance to agents when working with code in this repository.
 
 **Core principles (non-negotiable):**
 
-1. **Timing is sacred** — gameplay is driven by the music clock (audio stream position), never wall-clock or frame delta. Input events are timestamped at nanosecond precision.
+1. **Timing is sacred** — gameplay is driven by the music clock (audio stream position), never wall-clock or frame delta. The music clock may be interpolated between audio updates using a monotonic clock, re-anchored at every audio update, never decreasing, and bounded to one device period ahead of the latest anchor (the device-callback interval, not the engine update size; engine updates that burst within one device callback collapse to the last one) — never a free-running wall clock or frame delta (#71). Input events are timestamped at nanosecond precision.
 2. **Faithful, not novel** — mechanics mirror ITG/OpenITG reference behavior. Check OpenITG/StepMania source before guessing semantics.
 3. **Lean scope** — 4-panel single-song play done perfectly. The PRD's out-of-scope list is a contract.
 4. **Offline forever** — no network, no accounts. All state is local JSON files.
@@ -84,7 +84,7 @@ Screen flow: **Title → Attract → Select → Gameplay → Results** (state ma
 
 ### Key design patterns (from PRD §6 — follow these)
 
-1. **Music-driven clock.** Gameplay time = audio stream sample position ÷ sample rate + calibrated global offset. Never wall-clock, never frame delta. No frame-timing logic in the judgment path.
+1. **Music-driven clock.** Gameplay time = audio stream sample position ÷ sample rate + calibrated global offset. Between audio updates the position may be interpolated only as principle 1 allows (anchored, bounded to one device period; #71). Never wall-clock, never frame delta. No frame-timing logic in the judgment path.
 2. **Event-sourced judgments.** Every hit produces an immutable judgment event `{column, note_time, hit_time, delta_ms, window}`. Scoring, combo, life, and results all derive from the event log.
 3. **Data-driven constants.** Timing windows, DP weights, grade boundaries, and life deltas live in a config table (JSON-loaded), seeded with values verified against OpenITG source.
 4. **Screen state machine.** Screens are objects with `enter/update/render/exit`; transitions are explicit.

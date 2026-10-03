@@ -6,7 +6,7 @@ A modern 4-panel arrow rhythm game for desktop (Windows, macOS, Linux) — a fai
 
 ## Highlights
 
-- **Timing is sacred** — gameplay is driven by the music clock (audio stream position), never wall-clock or frame delta. Input events are timestamped at nanosecond precision.
+- **Timing is sacred** — gameplay is driven by the music clock (audio stream position), never wall-clock or frame delta. The music clock may be interpolated between audio updates using a monotonic clock, re-anchored at every audio update, never decreasing, and bounded to one device period ahead of the latest anchor (the device-callback interval, not the engine update size; engine updates that burst within one device callback collapse to the last one) — never a free-running wall clock or frame delta (#71). Input events are timestamped at nanosecond precision.
 - **ITG-faithful mechanics** — Judge-4-tight windows, OpenITG Dance Points, percentage, ★ grades, combo, and life bar with fail.
 - **SM/SSC compatible** — reads the de-facto standard simfile formats; drop in your existing song packs and play. No conversion, no lock-in.
 - **Full arcade loop** — Title → Attract → Song Select → Gameplay → Results, with per-chart local high scores.
