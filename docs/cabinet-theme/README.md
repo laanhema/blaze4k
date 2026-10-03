@@ -7,7 +7,7 @@ imported into the repository (#87):
 assets/fonts/                     Audiowide + Saira Condensed (Medium, Bold, ExtraBold) .ttf, with OFL licences
 assets/theme/cabinet/             63 baked textures (@2x) + manifest.json + 2 bitmap digit fonts
 src/render/theme.hpp              colours, text styles, layout metrics and skews as constexpr
-docs/cabinet-theme/reference/     the four target screens rendered at 1280x720
+docs/cabinet-theme/reference/     the four target screens (1280x720) + textures-overview.jpg
 docs/cabinet-theme/IMPLEMENTATION_PLAN.md   how to wire it into the engine, step by step
 ```
 
@@ -24,8 +24,8 @@ frames, wheel and difficulty rows, the life bar frame and fill, and the three ba
 Anything that changes per song or per run is **runtime text or quads**: song titles, artists, BPM,
 meters, best scores, combo, counts, key hints, the meter ticks and the score-screen bars.
 Big numbers on the score screen (the chrome percentage, MAX COMBO, DP, holds) use the two
-**bitmap digit fonts** in `theme/cabinet/` (`0-9 . % /` and space), so they keep the chrome look
-without a gradient text shader.
+**bitmap digit fonts** in `assets/theme/cabinet/` (`0-9 . % /` and space), so they keep the chrome
+look without a gradient text shader.
 
 The note field is untouched: Cel noteskin, receptors, holds, rolls, mines and explosions stay as
 they are in the game today.

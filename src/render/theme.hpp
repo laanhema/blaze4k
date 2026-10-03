@@ -6,6 +6,7 @@
 // and are described in assets/theme/cabinet/manifest.json.
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
 
 #include "render/geometry.hpp"
@@ -85,14 +86,17 @@ constexpr DifficultyColors kEdit{hex(0xA9B6CF), hex(0x0A1030)};
 // ---------------------------------------------------------------------------------------------
 // Type
 // ---------------------------------------------------------------------------------------------
-enum class Font { Audiowide, SairaMedium, SairaBold, SairaExtraBold };
+enum class Font { Audiowide, SairaMedium, SairaBold, SairaExtraBold, Count };
+constexpr std::size_t kFontCount = static_cast<std::size_t>(Font::Count);
 
-constexpr std::array<const char*, 4> kFontFiles = {
+// Indexed by Font; the size is deduced so a missing or extra file fails the static_assert.
+constexpr std::array kFontFiles = {
     "assets/fonts/Audiowide-Regular.ttf",
     "assets/fonts/SairaCondensed-Medium.ttf",
     "assets/fonts/SairaCondensed-Bold.ttf",
     "assets/fonts/SairaCondensed-ExtraBold.ttf",
 };
+static_assert(kFontFiles.size() == kFontCount, "kFontFiles must list one file per Font");
 
 // Neither font has a real italic. The mock-ups use the browser's synthetic oblique:
 // shear glyph quads by x += kItalicShear * (baseline_y - y).
