@@ -47,8 +47,8 @@ Considered and not needed now:
     skipped, malformed bytes → U+FFFD), and draws the existing placeholder box for glyphs a font
     lacks;
   - truncates with `...` using measured widths instead of cell counts.
-- Atlases are baked at `size_px * (window_height / 720)` and **re-baked only when the window
-  height changes**, so text stays pixel-crisp at every size. Expect around 15 (font, size) pairs.
+- Atlases are baked at `size_px * s` (`s` from §2.4) and **re-baked only when `s` changes**,
+  so text stays pixel-crisp at every size. Expect around 15 (font, size) pairs.
   At 1440p each fits in a 512² or 1024² 8-bit atlas, a few MB in total.
 - Keep `bitmap_font` for debug overlays, or delete it once no screen uses it. Port the
   `truncate_to_cells` tests to the new measure-based truncation.
