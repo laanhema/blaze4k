@@ -47,8 +47,8 @@ Considered and not needed now:
     skipped, malformed bytes → U+FFFD), and draws the existing placeholder box for glyphs a font
     lacks;
   - truncates with `...` using measured widths instead of cell counts.
-- Atlases are baked at `size_px * (window_height / 720)` and **re-baked only when the window
-  height changes**, so text stays pixel-crisp at every size. Expect around 15 (font, size) pairs.
+- Atlases are baked at `size_px * s` (`s` from §2.4) and **re-baked only when `s` changes**,
+  so text stays pixel-crisp at every size. Expect around 15 (font, size) pairs.
   At 1440p each fits in a 512² or 1024² 8-bit atlas, a few MB in total.
 - Keep `bitmap_font` for debug overlays, or delete it once no screen uses it. Port the
   `truncate_to_cells` tests to the new measure-based truncation.
@@ -73,9 +73,11 @@ Considered and not needed now:
 
 ### 2.4 Layout scale
 
-Add one helper used by every screen: `s = window_height / 720`, and a 1280·s-wide content column
-centred horizontally (wider windows show more background, as the game already does for the note
-field). Every `theme::layout` value is multiplied by `s`.
+Add one helper used by every screen (`render/theme_layout.hpp`, #91): `s = min(window_height / 720,
+window_width / 1280)`, so the whole layout always fits, and a 1280·s x 720·s content column centred
+on both axes. Wider windows (21:9) show more background at the sides, as the game already does for
+the note field; narrower ones (16:10, 4:3) show bands above and below, and nothing is cropped.
+Every `theme::layout` value is multiplied by `s`, and text atlases bake at the same `s`.
 
 ## 3. Screen by screen
 

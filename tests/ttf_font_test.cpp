@@ -484,10 +484,10 @@ void test_measure() {
     TEST_CHECK(renderer.load(kSourceDir));
     {
         CerrCapture capture; // swallow the one headless line
-        renderer.set_window_height(720);
+        renderer.set_window_size(1280, 720);
     }
     const float at_720 = renderer.measure("Caf\xC3\xA9 V/A", theme::text::kBpm);
-    renderer.set_window_height(1440);
+    renderer.set_window_size(2560, 1440);
     TEST_CHECK(renderer.scale() == 2.0f);
     const float at_1440 = renderer.measure("Caf\xC3\xA9 V/A", theme::text::kBpm);
     TEST_CHECK(std::fabs(at_1440 - 2.0f * at_720) <= 1e-3f * at_1440);
@@ -726,13 +726,19 @@ void test_fuzz() {
 // --- 8. Headless TextRenderer ---------------------------------------------------------------
 
 void test_headless_renderer() {
-    TEST_CHECK(blaze4k::text_layout_scale(0) == 1.0f);
-    TEST_CHECK(blaze4k::text_layout_scale(-5) == 1.0f);
-    TEST_CHECK(blaze4k::text_layout_scale(720) == 1.0f);
-    TEST_CHECK(blaze4k::text_layout_scale(1440) == 2.0f);
-    TEST_CHECK(approx(blaze4k::text_layout_scale(1080), 1.5f));
+    TEST_CHECK(blaze4k::text_layout_scale(0, 0) == 1.0f);
+    TEST_CHECK(blaze4k::text_layout_scale(1280, -5) == 1.0f);
+    TEST_CHECK(blaze4k::text_layout_scale(-5, 720) == 1.0f);
+    TEST_CHECK(blaze4k::text_layout_scale(1280, 720) == 1.0f);
+    TEST_CHECK(blaze4k::text_layout_scale(2560, 1440) == 2.0f);
+    TEST_CHECK(approx(blaze4k::text_layout_scale(1920, 1080), 1.5f));
+    // Fit (#91): 16:10 is width-limited, 21:9 height-limited.
+    TEST_CHECK(blaze4k::text_layout_scale(1920, 1200) == 1.5f);
+    TEST_CHECK(blaze4k::text_layout_scale(1280, 800) == 1.0f);
+    TEST_CHECK(blaze4k::text_layout_scale(3440, 1440) == 2.0f);
 
     TextRenderer renderer;
+    TEST_CHECK(renderer.baked_width() == -1);
     TEST_CHECK(renderer.baked_height() == -1);
     TEST_CHECK(renderer.scale() == 1.0f);
     {
@@ -745,21 +751,29 @@ void test_headless_renderer() {
     }
     {
         CerrCapture capture;
-        renderer.set_window_height(1440);
+        renderer.set_window_size(2560, 1440);
         const std::string log = capture.text();
         TEST_CHECK(count_of(log, "\n") == 1);
         TEST_CHECK(count_of(log, "No GL") == 1);
     }
     TEST_CHECK(renderer.atlas_count() == 0);
+    TEST_CHECK(renderer.baked_width() == 2560);
     TEST_CHECK(renderer.baked_height() == 1440);
     TEST_CHECK(renderer.scale() == 2.0f);
     {
         CerrCapture capture;
-        renderer.set_window_height(1440);
-        renderer.set_window_height(720); // headless line is logged once only
+        renderer.set_window_size(2560, 1440);
+        renderer.set_window_size(3440, 1440); // 21:9: same scale, size recorded
+        TEST_CHECK(renderer.baked_width() == 3440);
+        TEST_CHECK(renderer.scale() == 2.0f);
+        renderer.set_window_size(1920, 1200); // 16:10: width-limited fit
+        TEST_CHECK(renderer.scale() == 1.5f);
+        renderer.set_window_size(1280, 720); // headless line is logged once only
         TEST_CHECK(capture.text().empty());
     }
     TEST_CHECK(renderer.scale() == 1.0f);
+    TEST_CHECK(renderer.baked_width() == 1280);
+    TEST_CHECK(renderer.baked_height() == 720);
 
     blaze4k::GlQuadRenderer quads; // uninitialized
     {

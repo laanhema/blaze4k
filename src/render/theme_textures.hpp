@@ -13,7 +13,8 @@
 //     init and feed the pure math into GlQuadRenderer.
 //
 // Conventions:
-//  - `s` is the layout scale, window_height / 720 (#91). The art is baked at
+//  - `s` is the layout scale, theme::layout_scale_factor(w, h) (#91,
+//    render/theme_layout.hpp: min(h / 720, w / 1280)). The art is baked at
 //    `texture_scale` (2x), so one image pixel is k = s / texture_scale screen px.
 //  - Screen rects have a top-left origin; `tint` is a straight-alpha vertex
 //    colour (multiplied with the texture), white by default.

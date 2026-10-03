@@ -6,7 +6,7 @@
   720
  ],
  "texture_scale": 2,
- "about": "All textures are rendered at 2x (designed for 1280x720, sharp up to 2560x1440). Draw a texture at size_px / 2 * (window_height / 720). content_px is the design box inside the padding that holds glows and shadows: position that box at layout_720p, the padding hangs outside it. slice3_px: left/right caps, stretch the middle horizontally. slice9_px: border insets. tint: 'multiply' = draw with a vertex colour.",
+ "about": "All textures are rendered at 2x (designed for 1280x720, sharp up to 2560x1440). Draw a texture at size_px / 2 * s, where s is the layout scale from src/render/theme_layout.hpp (min(window_height / 720, window_width / 1280)). content_px is the design box inside the padding that holds glows and shadows: position that box at layout_720p, the padding hangs outside it. slice3_px: left/right caps, stretch the middle horizontally. slice9_px: border insets. tint: 'multiply' = draw with a vertex colour.",
  "textures": {
   "bg_title": {
    "file": "bg_title.png",
@@ -1242,7 +1242,7 @@
    "font": "Audiowide",
    "size_px": 156,
    "line_height_px": 171.6,
-   "note": "Pre-rendered glyphs. Draw each glyph at (pen_x - origin_x, y), then pen_x += advance. Pixel values are @2x: scale by (window_height / 1440).",
+   "note": "Pre-rendered glyphs. Draw each glyph at (pen_x - origin_x, y), then pen_x += advance. Pixel values are @2x: scale by s / 2, where s is the layout scale from src/render/theme_layout.hpp.",
    "glyphs": {
     "0": {
      "x": 0,
@@ -1363,7 +1363,7 @@
    "font": "Audiowide",
    "size_px": 96,
    "line_height_px": 105.6,
-   "note": "Pre-rendered glyphs. Draw each glyph at (pen_x - origin_x, y), then pen_x += advance. Pixel values are @2x: scale by (window_height / 1440).",
+   "note": "Pre-rendered glyphs. Draw each glyph at (pen_x - origin_x, y), then pen_x += advance. Pixel values are @2x: scale by s / 2, where s is the layout scale from src/render/theme_layout.hpp.",
    "glyphs": {
     "0": {
      "x": 0,

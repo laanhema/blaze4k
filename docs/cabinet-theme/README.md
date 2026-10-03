@@ -33,7 +33,8 @@ they are in the game today.
 ## Using the textures
 
 - All textures are rendered at **2x** for a 1280x720 design, so they stay sharp up to 2560x1440.
-  Draw at `size_px / 2 * (window_height / 720)`.
+  Draw at `size_px / 2 * s`, where `s` is the layout scale from `src/render/theme_layout.hpp`
+  (`theme::layout_scale_factor(w, h)` = `min(h / 720, w / 1280)`).
 - Each entry in `manifest.json` has `content_px`, the design box inside the image. The rest is
   padding that holds glows and drop shadows. Position the **content box** at `layout_720p`; the
   padding hangs outside it.

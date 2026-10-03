@@ -458,6 +458,17 @@ target_compile_definitions(theme_test PRIVATE
 
 add_test(NAME theme_test COMMAND theme_test)
 
+# #91: the shared 1280x720 -> window layout-scale helper (render/theme_layout.hpp).
+add_executable(theme_layout_test
+    theme_layout_test.cpp
+)
+
+target_link_libraries(theme_layout_test PRIVATE
+    blaze4k_core
+)
+
+add_test(NAME theme_layout_test COMMAND theme_layout_test)
+
 add_executable(theme_textures_test
     theme_textures_test.cpp
 )

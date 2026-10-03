@@ -17,8 +17,9 @@
 //     draws a theme::TextStyle through GlQuadRenderer::draw_quad_points.
 //
 // Conventions:
-//  - `s` is the layout scale, window_height / 720 (#91). Every TextStyle value
-//    (size, tracking, the 2/3px shadow offset) is at 720p and is multiplied by s.
+//  - `s` is the layout scale, theme::layout_scale_factor(w, h) (#91): the fit
+//    scale min(h / 720, w / 1280). Every TextStyle value (size, tracking, the
+//    2/3px shadow offset) is at 720p and is multiplied by s.
 //    Atlases bake at size_px * s, so text stays crisp from 720p to 4K.
 //  - `size_px` is the em size (CSS font-size), not the ascender-to-descender
 //    height: bakes use STBTT_POINT_SIZE / stbtt_ScaleForMappingEmToPixels.
@@ -189,8 +190,9 @@ void for_each_text_quad(const FontFace& face, const FontAtlas& atlas, std::strin
                         float x, float y, const TextLayout& layout,
                         const std::function<void(const GlyphQuad&)>& emit);
 
-// window_height / 720, or 1 when window_height <= 0. Pure.
-[[nodiscard]] float text_layout_scale(int window_height);
+// Same as theme::layout_scale_factor(window_width, window_height) (#91):
+// min(h / 720, w / 1280), or 1 when either dimension is <= 0. Pure.
+[[nodiscard]] float text_layout_scale(int window_width, int window_height);
 
 // Maps a theme style to a layout at scale `s`: size and tracking times s,
 // shear = (italic ? kItalicShear : 0) + extra_shear, shadow Hard2/Hard3 ->
@@ -205,7 +207,7 @@ void for_each_text_quad(const FontFace& face, const FontAtlas& atlas, std::strin
 [[nodiscard]] float bitmap_fallback_baseline(const FontFace* face, float pixel_size);
 
 // Owner of the theme fonts and their atlases. App owns one: load() at init,
-// set_window_height() before each render, shutdown() while GL is alive.
+// set_window_size() before each render, shutdown() while GL is alive.
 class TextRenderer {
 public:
     TextRenderer();
@@ -222,11 +224,12 @@ public:
     // Releases every atlas texture and face. Safe to repeat.
     void shutdown();
 
-    // Sets the layout scale from the window height in pixels. O(1) when the
-    // height is unchanged; otherwise re-bakes every (font, size) pair used by
-    // theme::text::kAllStyles. Headless: records the height (measure uses the
-    // new scale), bakes nothing and logs one line once.
-    void set_window_height(int window_height);
+    // Sets the layout scale from the window size in pixels (text_layout_scale).
+    // O(1) when the size is unchanged, or when it changed but the scale did not
+    // (e.g. a wider 21:9 window); otherwise re-bakes every (font, size) pair
+    // used by theme::text::kAllStyles. Headless: records the size (measure uses
+    // the new scale), bakes nothing and logs one line once.
+    void set_window_size(int window_width, int window_height);
     [[nodiscard]] float scale() const { return scale_; }
 
     // Width of `text` in `style` at the current scale (screen px).
@@ -250,7 +253,9 @@ public:
 
     [[nodiscard]] bool font_available(theme::Font font) const;
     [[nodiscard]] std::size_t atlas_count() const;
-    // The window height the atlases were last baked (or, headless, recorded) for; -1 before any.
+    // The window size last passed to set_window_size (the atlases are baked, or
+    // headless recorded, for its scale()); -1 before any.
+    [[nodiscard]] int baked_width() const { return baked_width_; }
     [[nodiscard]] int baked_height() const { return baked_height_; }
 
 private:
@@ -274,7 +279,9 @@ private:
 
     std::array<std::optional<FontFace>, theme::kFontCount> faces_{};
     std::vector<AtlasSlot> atlases_;
+    int baked_width_ = -1;
     int baked_height_ = -1;
+    bool sized_ = false; // set_window_size called since construction / shutdown()
     float scale_ = 1.0f;
     int max_texture_size_ = 0; // 0 until queried (GL only)
     bool warned_headless_ = false;
