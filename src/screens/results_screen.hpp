@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include <vector>
 
 #include "screens/results.hpp"
@@ -7,6 +8,14 @@
 #include "screens/screen.hpp"
 
 namespace blaze4k {
+
+// Pure results-screen difficulty line: "UNKNOWN" for a null chart, else the
+// display label (chart_display_label: an Edit chart's name, else the passthrough
+// label) + " " + meter. The name is shortened so the line fits
+// `max_line_width` pixels at `pixel` scale, but never below 9 cells (the width
+// of "Challenge").
+[[nodiscard]] std::string results_difficulty_line(const Chart* chart, float max_line_width,
+                                                  float pixel);
 
 // C7/D3 results screen (PRD section 7.3 / section 5 story 6, section 12 Phase D).
 // Reads the finished run's ResultsSummary published by GameplayScreen through

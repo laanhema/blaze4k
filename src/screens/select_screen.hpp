@@ -28,6 +28,20 @@ struct ScoreRecord;
 // neutral text color.
 [[nodiscard]] Color difficulty_color(const std::string& difficulty);
 
+// Narrowest name budget for a difficulty row, in cells: the width of
+// "Challenge", the longest standard label, so an edit name is never shortened
+// below what a standard label already takes.
+inline constexpr std::size_t kMinDifficultyLabelCells = 9;
+
+// Pure select-screen difficulty row: cursor ("> " or "  "), the display label
+// (chart_display_label: an Edit chart's name, else the passthrough label), then
+// "  [meter]   " and `best`. The name is shortened so the whole row fits
+// `max_row_width` pixels at `pixel` scale, but never below
+// kMinDifficultyLabelCells cells.
+[[nodiscard]] std::string difficulty_row_text(const Chart& chart, bool selected,
+                                              const std::string& best, float max_row_width,
+                                              float pixel);
+
 // Best stored score for a chart, or nullptr when scores are unavailable/empty.
 [[nodiscard]] const ScoreRecord* best_score_for(const ScreenContext& ctx, const Song& song,
                                                 const Chart& chart);
