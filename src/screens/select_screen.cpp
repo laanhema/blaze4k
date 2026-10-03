@@ -17,6 +17,7 @@
 #include "render/gl_quad_renderer.hpp"
 #include "screens/play_request.hpp"
 #include "screens/screen_manager.hpp"
+#include "screens/song_display_text.hpp"
 
 namespace blaze4k {
 
@@ -609,9 +610,10 @@ void SelectScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, i
     if (song != nullptr) {
         const float info_x = width * 0.04f;
         float info_y = banner_rect.y + banner_rect.h + height * 0.03f;
-        draw_text(renderer, song->metadata.title, info_x, info_y, 3.0f, kSelectedColor);
+        draw_text(renderer, song_display_title(song->metadata), info_x, info_y, 3.0f,
+                  kSelectedColor);
         info_y += height * 0.045f;
-        draw_text(renderer, song->metadata.artist, info_x, info_y, 2.5f, kTextColor);
+        draw_text(renderer, song_display_artist(song->metadata), info_x, info_y, 2.5f, kTextColor);
         info_y += height * 0.04f;
         draw_text(renderer, "BPM " + format_bpm_range(song->timing), info_x, info_y, 2.5f,
                   kDimColor);
@@ -641,8 +643,10 @@ void SelectScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, i
             renderer.draw_quad(Rect{list_x - 6.0f, row_y - 4.0f, width * 0.44f, row_h},
                                kPlaceholderColor);
         }
-        draw_text(renderer, item.song != nullptr ? item.song->metadata.title : std::string{}, list_x,
-                  row_y, 2.5f, selected ? kSelectedColor : kTextColor);
+        if (item.song != nullptr) {
+            draw_text(renderer, song_display_title(item.song->metadata), list_x, row_y, 2.5f,
+                      selected ? kSelectedColor : kTextColor);
+        }
         row_y += row_h;
     }
 

@@ -11,6 +11,7 @@
 #include "render/bitmap_font.hpp"
 #include "render/gl_quad_renderer.hpp"
 #include "screens/screen_manager.hpp"
+#include "screens/song_display_text.hpp"
 
 namespace blaze4k {
 
@@ -138,8 +139,10 @@ void ResultsScreen::render(ScreenContext& /*ctx*/, GlQuadRenderer& renderer, int
         }
     }
 
-    const std::string title = summary_.song != nullptr ? summary_.song->metadata.title : "UNKNOWN";
-    const std::string artist = summary_.song != nullptr ? summary_.song->metadata.artist : "";
+    const std::string title =
+        summary_.song != nullptr ? song_display_title(summary_.song->metadata) : "UNKNOWN";
+    const std::string artist =
+        summary_.song != nullptr ? song_display_artist(summary_.song->metadata) : "";
     draw_text_centered(renderer, title, width * 0.5f, height * 0.12f,
                        std::max(2.5f, width * 0.004f), with_alpha(kTitleColor, title_alpha));
     if (!artist.empty()) {

@@ -194,6 +194,26 @@ target_link_libraries(select_screen_test PRIVATE
 
 add_test(NAME select_screen_test COMMAND select_screen_test)
 
+add_executable(unicode_text_test
+    unicode_text_test.cpp
+)
+
+target_link_libraries(unicode_text_test PRIVATE
+    blaze4k_core
+)
+
+add_test(NAME unicode_text_test COMMAND unicode_text_test)
+
+add_executable(bitmap_font_test
+    bitmap_font_test.cpp
+)
+
+target_link_libraries(bitmap_font_test PRIVATE
+    blaze4k_core
+)
+
+add_test(NAME bitmap_font_test COMMAND bitmap_font_test)
+
 add_executable(options_menu_test
     options_menu_test.cpp
 )
