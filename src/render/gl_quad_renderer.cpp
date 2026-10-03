@@ -59,6 +59,22 @@ unsigned int compile_shader(GLenum type, const char* source) {
 
 } // namespace
 
+std::array<QuadVertex, 6> quad_vertices(const std::array<Vec2, 4>& corners, const UVRect& uv,
+                                        const std::array<Color, 4>& colours) {
+    // Same UV corner mapping and per-vertex premultiply as append_quad (#59).
+    const Color tl_c = premultiply(colours[0]);
+    const Color tr_c = premultiply(colours[1]);
+    const Color br_c = premultiply(colours[2]);
+    const Color bl_c = premultiply(colours[3]);
+
+    const QuadVertex top_left{corners[0].x, corners[0].y, uv.u0, uv.v0, tl_c.r, tl_c.g, tl_c.b, tl_c.a};
+    const QuadVertex top_right{corners[1].x, corners[1].y, uv.u1, uv.v0, tr_c.r, tr_c.g, tr_c.b, tr_c.a};
+    const QuadVertex bottom_right{corners[2].x, corners[2].y, uv.u1, uv.v1, br_c.r, br_c.g, br_c.b, br_c.a};
+    const QuadVertex bottom_left{corners[3].x, corners[3].y, uv.u0, uv.v1, bl_c.r, bl_c.g, bl_c.b, bl_c.a};
+
+    return {top_left, top_right, bottom_right, top_left, bottom_right, bottom_left};
+}
+
 GlQuadRenderer::~GlQuadRenderer() {
     shutdown();
 }
@@ -262,6 +278,17 @@ void GlQuadRenderer::draw_textured_quad(const Rect& rect, const Texture& texture
     const unsigned int id = texture.valid() ? texture.id() : white_.id();
     bind_texture(id);
     append_quad(rect, uv, color, radians);
+}
+
+void GlQuadRenderer::draw_quad_points(const std::array<Vec2, 4>& corners, const Texture& texture,
+                                      const UVRect& uv, const std::array<Color, 4>& colours) {
+    if (!initialized_) {
+        return;
+    }
+    const unsigned int id = texture.valid() ? texture.id() : white_.id();
+    bind_texture(id);
+    const auto quad = quad_vertices(corners, uv, colours);
+    vertices_.insert(vertices_.end(), quad.begin(), quad.end());
 }
 
 void GlQuadRenderer::flush() {

@@ -262,7 +262,22 @@ target_link_libraries(texture_test PRIVATE
     blaze4k_core
 )
 
+# Locate the committed theme textures (scanlines.png) from out-of-tree runs.
+target_compile_definitions(texture_test PRIVATE
+    BLAZE4K_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets"
+)
+
 add_test(NAME texture_test COMMAND texture_test)
+
+add_executable(gl_quad_renderer_test
+    gl_quad_renderer_test.cpp
+)
+
+target_link_libraries(gl_quad_renderer_test PRIVATE
+    blaze4k_core
+)
+
+add_test(NAME gl_quad_renderer_test COMMAND gl_quad_renderer_test)
 
 add_executable(background_test
     background_test.cpp

@@ -51,6 +51,29 @@ void premultiply_alpha(std::span<std::uint8_t> rgba) {
     }
 }
 
+SamplerParams texture_sampler_params(bool mipmaps, Texture::Wrap wrap, Texture::Filter filter) {
+    SamplerParams params{GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE};
+    switch (filter) {
+    case Texture::Filter::Linear:
+        params.min_filter = mipmaps ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR;
+        params.mag_filter = GL_LINEAR;
+        break;
+    case Texture::Filter::Nearest:
+        params.min_filter = mipmaps ? GL_NEAREST_MIPMAP_NEAREST : GL_NEAREST;
+        params.mag_filter = GL_NEAREST;
+        break;
+    }
+    switch (wrap) {
+    case Texture::Wrap::Clamp:
+        params.wrap = GL_CLAMP_TO_EDGE;
+        break;
+    case Texture::Wrap::Repeat:
+        params.wrap = GL_REPEAT;
+        break;
+    }
+    return params;
+}
+
 Texture::~Texture() {
     destroy();
 }
@@ -85,7 +108,7 @@ void Texture::destroy() {
 }
 
 Texture Texture::upload_premultiplied(int width, int height, const std::uint8_t* rgba,
-                                      bool mipmaps) {
+                                      bool mipmaps, Wrap wrap, Filter filter) {
     Texture texture;
 
     GLuint id = 0;
@@ -102,11 +125,11 @@ Texture Texture::upload_premultiplied(int width, int height, const std::uint8_t*
     if (mipmaps) {
         glGenerateMipmap(GL_TEXTURE_2D);
     }
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER,
-                    mipmaps ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    const SamplerParams params = texture_sampler_params(mipmaps, wrap, filter);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, static_cast<GLint>(params.min_filter));
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, static_cast<GLint>(params.mag_filter));
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, static_cast<GLint>(params.wrap));
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, static_cast<GLint>(params.wrap));
     glBindTexture(GL_TEXTURE_2D, 0);
 
     texture.id_ = id;
@@ -115,7 +138,8 @@ Texture Texture::upload_premultiplied(int width, int height, const std::uint8_t*
     return texture;
 }
 
-Texture Texture::from_rgba(int width, int height, const uint8_t* rgba, bool mipmaps) {
+Texture Texture::from_rgba(int width, int height, const uint8_t* rgba, bool mipmaps, Wrap wrap,
+                           Filter filter) {
     Texture texture;
 
     if (width <= 0 || height <= 0 || rgba == nullptr) {
@@ -130,7 +154,7 @@ Texture Texture::from_rgba(int width, int height, const uint8_t* rgba, bool mipm
     std::vector<std::uint8_t> premultiplied(
         rgba, rgba + static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4u);
     premultiply_alpha(premultiplied);
-    return upload_premultiplied(width, height, premultiplied.data(), mipmaps);
+    return upload_premultiplied(width, height, premultiplied.data(), mipmaps, wrap, filter);
 }
 
 Texture Texture::solid(Color color) {
@@ -153,7 +177,7 @@ Texture Texture::solid(Color color) {
     return from_rgba(1, 1, rgba);
 }
 
-Texture Texture::from_file(const std::string& path, bool mipmaps) {
+Texture Texture::from_file(const std::string& path, bool mipmaps, Wrap wrap, Filter filter) {
     Texture texture;
 
     if (path.empty()) {
@@ -202,7 +226,7 @@ Texture Texture::from_file(const std::string& path, bool mipmaps) {
     // copied a second time.
     premultiply_alpha(
         {pixels, static_cast<std::size_t>(width) * static_cast<std::size_t>(height) * 4u});
-    texture = upload_premultiplied(width, height, pixels, mipmaps);
+    texture = upload_premultiplied(width, height, pixels, mipmaps, wrap, filter);
     stbi_image_free(pixels);
     return texture;
 }

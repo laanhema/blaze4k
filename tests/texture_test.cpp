@@ -7,6 +7,8 @@
 #include <string>
 #include <vector>
 
+#include <glad/glad.h> // GL_* enum macros only; no GL calls (headless)
+
 #include "render/geometry.hpp"
 #include "render/texture.hpp"
 
@@ -164,6 +166,62 @@ void test_premultiply_color() {
     std::cout << "  - premultiply(Color) ok.\n";
 }
 
+bool same_params(const blaze4k::SamplerParams& a, int min_filter, int mag_filter, int wrap) {
+    return a.min_filter == min_filter && a.mag_filter == mag_filter && a.wrap == wrap;
+}
+
+void test_sampler_params_defaults_unchanged() {
+    using blaze4k::Texture;
+    // The defaults must reproduce the pre-#88 hard-coded sampler state exactly.
+    TEST_CHECK(same_params(
+        blaze4k::texture_sampler_params(false, Texture::Wrap::Clamp, Texture::Filter::Linear),
+        GL_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE));
+    TEST_CHECK(same_params(
+        blaze4k::texture_sampler_params(true, Texture::Wrap::Clamp, Texture::Filter::Linear),
+        GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, GL_CLAMP_TO_EDGE));
+    std::cout << "  - default sampler params equal the old constants ok.\n";
+}
+
+void test_sampler_params_repeat_nearest() {
+    using blaze4k::Texture;
+    // scanlines.png: crisp tiled rows.
+    TEST_CHECK(same_params(
+        blaze4k::texture_sampler_params(false, Texture::Wrap::Repeat, Texture::Filter::Nearest),
+        GL_NEAREST, GL_NEAREST, GL_REPEAT));
+    // life_stripes.png: smooth tiled stripes.
+    TEST_CHECK(same_params(
+        blaze4k::texture_sampler_params(false, Texture::Wrap::Repeat, Texture::Filter::Linear),
+        GL_LINEAR, GL_LINEAR, GL_REPEAT));
+    // Nearest + mipmaps stays nearest across and within mip levels.
+    TEST_CHECK(same_params(
+        blaze4k::texture_sampler_params(true, Texture::Wrap::Clamp, Texture::Filter::Nearest),
+        GL_NEAREST_MIPMAP_NEAREST, GL_NEAREST, GL_CLAMP_TO_EDGE));
+    TEST_CHECK(same_params(
+        blaze4k::texture_sampler_params(true, Texture::Wrap::Repeat, Texture::Filter::Linear),
+        GL_LINEAR_MIPMAP_LINEAR, GL_LINEAR, GL_REPEAT));
+    std::cout << "  - Repeat / Nearest sampler params ok.\n";
+}
+
+void test_wrap_overloads_headless() {
+    using blaze4k::Texture;
+    TEST_CHECK(!Texture::from_file("", false, Texture::Wrap::Repeat, Texture::Filter::Nearest).valid());
+    TEST_CHECK(!Texture::from_file("does-not-exist-987654.png", false, Texture::Wrap::Repeat,
+                                   Texture::Filter::Nearest)
+                    .valid());
+    // A real committed theme texture passes the hardening but cannot upload headless.
+    const std::filesystem::path scanlines =
+        std::filesystem::path(BLAZE4K_ASSETS_DIR) / "theme" / "cabinet" / "scanlines.png";
+    TEST_CHECK(std::filesystem::exists(scanlines));
+    TEST_CHECK(blaze4k::probe_image_header(scanlines.string()).ok);
+    TEST_CHECK(!Texture::from_file(scanlines.string(), false, Texture::Wrap::Repeat,
+                                   Texture::Filter::Nearest)
+                    .valid());
+    const std::uint8_t px[4] = {255, 255, 255, 128};
+    TEST_CHECK(!Texture::from_rgba(1, 1, px, false, Texture::Wrap::Repeat, Texture::Filter::Nearest)
+                    .valid());
+    std::cout << "  - wrap/filter overloads stay invalid headless ok.\n";
+}
+
 } // namespace
 
 int main() {
@@ -174,6 +232,9 @@ int main() {
     test_premultiply_alpha_bytes();
     test_premultiply_alpha_partial_and_empty();
     test_premultiply_color();
+    test_sampler_params_defaults_unchanged();
+    test_sampler_params_repeat_nearest();
+    test_wrap_overloads_headless();
     std::cout << "[texture_test] All tests passed!\n";
     return 0;
 }

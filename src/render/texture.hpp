@@ -41,13 +41,22 @@ public:
     Texture(Texture&& other) noexcept;
     Texture& operator=(Texture&& other) noexcept;
 
+    // Texture-coordinate wrap. Clamp (default) is GL_CLAMP_TO_EDGE; Repeat tiles
+    // when a UV range exceeds [0,1] (scanlines.png, life_stripes.png).
+    enum class Wrap { Clamp, Repeat };
+    // Sampling filter. Linear (default) is bilinear (trilinear with mipmaps);
+    // Nearest keeps pixel-exact art crisp (scanlines.png).
+    enum class Filter { Linear, Nearest };
+
     // Uploads tightly-packed RGBA8 pixels. Returns an invalid texture on bad input.
     // `rgba` is straight (non-premultiplied) alpha; the texture stores
     // premultiplied alpha so linear/mipmap filtering cannot bleed the RGB of
     // transparent texels into edges (#59).
     // `mipmaps` builds a mip chain with trilinear minification, for art drawn
     // well below its native size (e.g. 128px noteskin frames drawn at 56px).
-    static Texture from_rgba(int width, int height, const uint8_t* rgba, bool mipmaps = false);
+    // `wrap` / `filter` select the sampler state (see texture_sampler_params).
+    static Texture from_rgba(int width, int height, const uint8_t* rgba, bool mipmaps = false,
+                             Wrap wrap = Wrap::Clamp, Filter filter = Filter::Linear);
 
     // Builds a 1x1 texture filled with `color` (useful for tinted solid quads).
     static Texture solid(Color color);
@@ -59,7 +68,10 @@ public:
     // decode failure, or when no GL context is available (headless).
     // The decoded pixels are straight alpha; like from_rgba, the texture stores
     // premultiplied alpha so filtering cannot bleed transparent RGB into edges (#59).
-    static Texture from_file(const std::string& path, bool mipmaps = false);
+    // `wrap` / `filter` select the sampler state (Repeat tiles, Nearest stays
+    // pixel-exact); the defaults keep clamp + linear (see texture_sampler_params).
+    static Texture from_file(const std::string& path, bool mipmaps = false,
+                             Wrap wrap = Wrap::Clamp, Filter filter = Filter::Linear);
 
     void destroy();
 
@@ -72,11 +84,22 @@ private:
     // Uploads already-premultiplied RGBA8 bytes as given (arguments validated
     // and GL availability checked by the public factories).
     static Texture upload_premultiplied(int width, int height, const std::uint8_t* rgba,
-                                        bool mipmaps);
+                                        bool mipmaps, Wrap wrap, Filter filter);
 
     unsigned int id_ = 0;
     int width_ = 0;
     int height_ = 0;
 };
+
+// GL sampler enum values for a texture's options. Pure (no GL calls); the
+// defaults reproduce the pre-#88 state (LINEAR[_MIPMAP_LINEAR] + CLAMP_TO_EDGE).
+// Nearest with mipmaps is GL_NEAREST_MIPMAP_NEAREST. `wrap` applies to S and T.
+struct SamplerParams {
+    int min_filter;
+    int mag_filter;
+    int wrap;
+};
+[[nodiscard]] SamplerParams texture_sampler_params(bool mipmaps, Texture::Wrap wrap,
+                                                   Texture::Filter filter);
 
 } // namespace blaze4k
