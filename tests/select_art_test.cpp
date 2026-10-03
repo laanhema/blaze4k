@@ -1,10 +1,12 @@
 // #94: Cabinet Song Select art. Pins the select_art layout table (720p, 1440p,
-// 21:9, 16:10), the list window and visible-row rules, the wheel display rows
-// and slide easing, the difficulty row style/label/tick rules, the chip texts and
+// 21:9, 16:10), the list window and visible-row rules, the wheel display rows,
+// slide easing and slide culling (no row leaves reference y 0..720), the
+// TrueType-coverage display-text overloads, the difficulty row style/label/tick rules, the chip texts and
 // boxes, the hint line and arrow geometry, that every texture name the screen
 // uses is in the real manifest, and renders SelectScreen with the real headless
 // theme and text services (populated, empty, options overlay, null services).
 
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <filesystem>
@@ -30,6 +32,7 @@
 #include "screens/screen_manager.hpp"
 #include "screens/select_art.hpp"
 #include "screens/select_screen.hpp"
+#include "screens/song_display_text.hpp"
 
 #define TEST_CHECK(expr) \
     do { \
@@ -278,6 +281,125 @@ void test_scroll_easing() {
     TEST_CHECK(art::wheel_scroll_start(-100.0f, -1) == -152.0f);
     TEST_CHECK(art::kWheelScrollMax == 152.0f);
     std::cout << "  - wheel slide easing + start rule ok.\n";
+}
+
+// Review of #94 (Medium 1): while the wheel slides, no drawn row may leave the
+// reference column's height (y 0..720), or it paints into the letterbox bands
+// of a 16:10 / 4:3 window. Every offset the slide can reach is swept: [-152,
+// 152] in 0.25px steps, plus the eased offsets of every start the rule gives.
+void test_wheel_slide_stays_in_column() {
+    TEST_CHECK(art::kWheelMaxSlideRows == 2);
+    std::vector<float> offsets;
+    for (int q = -608; q <= 608; ++q) {
+        offsets.push_back(static_cast<float>(q) * 0.25f);
+    }
+    for (const float start : {-152.0f, -76.0f, 76.0f, 152.0f}) {
+        for (int ms = 0; ms <= 80; ++ms) {
+            offsets.push_back(art::wheel_scroll_offset(start, ms * 0.001));
+        }
+    }
+
+    constexpr int kCount = 40; // a long list: windows at the top, middle and end
+    for (int selected = 0; selected < kCount; ++selected) {
+        const art::ListWindow window = art::list_window(selected, kCount, art::kWheelVisibleRows);
+        const int selected_slot = selected - window.first;
+        for (const float offset : offsets) {
+            const art::ListWindow range = art::wheel_slide_range(window, kCount, offset);
+            TEST_CHECK(range.first >= 0 && range.last <= kCount - 1);
+            TEST_CHECK(range.last - range.first + 1 <= art::kWheelVisibleRows + art::kWheelMaxSlideRows);
+            float top = 1e9f;
+            float bottom = -1e9f;
+            int drawn = 0;
+            for (int r = range.first; r <= range.last; ++r) {
+                const Rect rect = art::wheel_slide_rect(r - window.first, selected_slot, offset);
+                if (!art::wheel_row_in_column(rect)) {
+                    continue;
+                }
+                ++drawn;
+                TEST_CHECK(rect.y >= 0.0f && rect.y + rect.h <= theme::layout::kRefHeight);
+                top = std::min(top, rect.y);
+                bottom = std::max(bottom, rect.y + rect.h);
+            }
+            TEST_CHECK(drawn >= art::kWheelVisibleRows - 2);
+            // Culling never opens a hole where rows sit at rest: in mid-list the
+            // drawn rows still reach the rest top (92) and rest bottom (640).
+            if (window.first >= art::kWheelMaxSlideRows &&
+                window.last + art::kWheelMaxSlideRows <= kCount - 1) {
+                TEST_CHECK(top <= theme::layout::kWheelTop);
+                TEST_CHECK(bottom >= art::wheel_row_rect(art::kWheelVisibleRows - 1, selected_slot).y +
+                                         theme::layout::kWheelRowHeight);
+            }
+        }
+    }
+
+    // The leaks the review measured at 1920x1200 are now culled...
+    TEST_CHECK(!art::wheel_row_in_column(art::wheel_slide_rect(-2, 3, 10.0f)));   // Down press
+    TEST_CHECK(!art::wheel_row_in_column(art::wheel_slide_rect(8, 3, -40.0f)));   // Up press
+    TEST_CHECK(!art::wheel_row_in_column(art::wheel_slide_rect(8, 3, -10.0f)));
+    TEST_CHECK(!art::wheel_row_in_column(art::wheel_slide_rect(6, 3, 152.0f)));   // header, Down
+    TEST_CHECK(!art::wheel_row_in_column(art::wheel_slide_rect(0, 3, -152.0f)));  // header, Up
+    // ...while the rows that fill the exposed side are still drawn.
+    TEST_CHECK(art::wheel_row_in_column(art::wheel_slide_rect(-2, 3, 152.0f)));
+    TEST_CHECK(art::wheel_row_in_column(art::wheel_slide_rect(-1, 3, 76.0f)));
+    TEST_CHECK(art::wheel_row_in_column(art::wheel_slide_rect(8, 3, -152.0f)));
+    TEST_CHECK(art::wheel_row_in_column(art::wheel_slide_rect(7, 3, -76.0f)));
+    // The gold selected bar does not slide.
+    TEST_CHECK(rect_eq(art::wheel_slide_rect(3, 3, 152.0f), 676, 92 + 3 * 76, 640, 92));
+    TEST_CHECK(!art::wheel_row_in_column(Rect{676, NAN, 640, 62}));
+
+    // Extra rows only on the side the rows moved away from, clamped to the list.
+    const auto is = [](art::ListWindow w, int first, int last) {
+        return w.first == first && w.last == last;
+    };
+    TEST_CHECK(is(art::wheel_slide_range({12, 18}, 30, 0.0f), 12, 18));
+    TEST_CHECK(is(art::wheel_slide_range({12, 18}, 30, 5.0f), 10, 18));
+    TEST_CHECK(is(art::wheel_slide_range({12, 18}, 30, -5.0f), 12, 20));
+    TEST_CHECK(is(art::wheel_slide_range({1, 7}, 9, 5.0f), 0, 7));
+    TEST_CHECK(is(art::wheel_slide_range({1, 7}, 9, -5.0f), 1, 8));
+    TEST_CHECK(is(art::wheel_slide_range({0, -1}, 0, -5.0f), 0, -1));
+    std::cout << "  - wheel slide stays inside reference y 0..720 ok.\n";
+}
+
+// Review of #94 (Low 1): the TrueType-coverage display-text overloads with the
+// real headless TextRenderer.
+void test_display_text_coverage() {
+    const blaze4k::TextRenderer& text = loaded_text();
+    const theme::Font font = theme::text::kSongTitle.font;
+    TEST_CHECK(text.font_available(font));
+
+    blaze4k::SongMetadata cafe;
+    cafe.title = "Caf\xC3\xA9";
+    cafe.title_translit = "Cafe";
+    cafe.artist = "Beyonc\xC3\xA9";
+    cafe.artist_translit = "Beyonce";
+    // Latin-1 native: the TTF covers it (the bitmap rule picked the translit).
+    TEST_CHECK(&blaze4k::song_display_title(cafe, &text, font) == &cafe.title);
+    TEST_CHECK(&blaze4k::song_display_artist(cafe, &text, font) == &cafe.artist);
+    TEST_CHECK(&blaze4k::song_display_title(cafe) == &cafe.title_translit);
+
+    blaze4k::SongMetadata cjk;
+    cjk.title = "\xE6\x84\x9B\xE3\x81\x97\xE3\x81\xA6"; // 愛して
+    cjk.title_translit = "Aishite";
+    cjk.artist = "\xE5\x88\x83";                                // 刃
+    cjk.artist_translit = "Yaiba";
+    // CJK native with a translit: the translit is chosen.
+    TEST_CHECK(!text.covers_text(cjk.title, font));
+    TEST_CHECK(&blaze4k::song_display_title(cjk, &text, font) == &cjk.title_translit);
+    TEST_CHECK(&blaze4k::song_display_artist(cjk, &text, font) == &cjk.artist_translit);
+
+    // CJK native without a translit: the native text is kept (placeholder glyphs).
+    blaze4k::SongMetadata bare;
+    bare.title = cjk.title;
+    bare.artist = cjk.artist;
+    TEST_CHECK(&blaze4k::song_display_title(bare, &text, font) == &bare.title);
+    TEST_CHECK(&blaze4k::song_display_artist(bare, &text, font) == &bare.artist);
+
+    // A null renderer falls back to the bitmap rule.
+    TEST_CHECK(&blaze4k::song_display_title(cafe, nullptr, font) == &cafe.title_translit);
+    TEST_CHECK(&blaze4k::song_display_artist(cafe, nullptr, font) == &cafe.artist_translit);
+    TEST_CHECK(&blaze4k::song_display_title(cjk, nullptr, font) == &cjk.title_translit);
+    TEST_CHECK(&blaze4k::song_display_title(bare, nullptr, font) == &bare.title);
+    std::cout << "  - TrueType-coverage display text ok.\n";
 }
 
 void test_row_style() {
@@ -638,6 +760,8 @@ int main() {
     test_wheel_row_rects();
     test_build_wheel_rows();
     test_scroll_easing();
+    test_wheel_slide_stays_in_column();
+    test_display_text_coverage();
     test_row_style();
     test_labels();
     test_ticks();

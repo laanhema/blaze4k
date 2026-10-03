@@ -170,6 +170,20 @@ struct WheelRows {
 //  other      -> 0 (wrap or jump: snap)
 [[nodiscard]] float wheel_scroll_start(float current_offset, int delta_first);
 
+// Display rows drawn for `window` while the wheel slides by `offset`: up to
+// kWheelMaxSlideRows extra rows on the side the rows moved away from (above
+// for offset > 0, below for offset < 0), clamped to [0, count - 1].
+[[nodiscard]] ListWindow wheel_slide_range(ListWindow window, int count, float offset);
+// Wheel row `slot` drawn with the slide: `offset` px lower, except the gold
+// selected bar (slot == selected_slot), which does not slide.
+[[nodiscard]] Rect wheel_slide_rect(int slot, int selected_slot, float offset);
+// True when a wheel row rect stays inside the reference column's height
+// (y 0..720). Rows that leave it are not drawn, so a slide never paints into
+// the letterbox bands of a non-16:9 window. At the top a culled row is wholly
+// under the 66px top bar; at the bottom at most an 8px strip above the hint
+// bar is dropped, for a few ms of the 80 ms slide.
+[[nodiscard]] bool wheel_row_in_column(const Rect& row);
+
 // Row art and colours for a chart, classified the OpenITG way (resolve_difficulty)
 // while the label stays the simfile's own. Edit and Invalid get the neutral,
 // code-drawn Edit row (baked = false, empty texture names).

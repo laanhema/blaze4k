@@ -611,17 +611,19 @@ void SelectScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, i
 
         // Wheel: a kWheelVisibleRows window over the display rows (pack headers
         // inline). While sliding, up to two extra rows fill the side the rows
-        // moved away from; the bars drawn next cover what pokes out.
+        // moved away from; draw_wheel skips any row that would leave reference
+        // y 0..720 (the letterbox bands), and the bars drawn next cover the rest.
         const int rows = static_cast<int>(wheel_rows_.size());
         const int selected_row = selected_wheel_row();
         const select_art::ListWindow window =
             select_art::list_window(selected_row, rows, select_art::kWheelVisibleRows);
         const float offset = wheel_scroll_offset();
-        const int from = std::max(0, window.first - (offset > 0.0f ? 2 : 0));
-        const int to = std::min(rows - 1, window.last + (offset < 0.0f ? 2 : 0));
-        std::array<select_art::WheelRowView, select_art::kWheelVisibleRows + 2> views{};
+        const select_art::ListWindow range = select_art::wheel_slide_range(window, rows, offset);
+        std::array<select_art::WheelRowView,
+                   select_art::kWheelVisibleRows + select_art::kWheelMaxSlideRows>
+            views{};
         std::size_t n = 0;
-        for (int r = from; r <= to && n < views.size(); ++r, ++n) {
+        for (int r = range.first; r <= range.last && n < views.size(); ++r, ++n) {
             const select_art::WheelRow& row = wheel_rows_[static_cast<std::size_t>(r)];
             select_art::WheelRowView& view = views[n];
             view.slot = r - window.first;

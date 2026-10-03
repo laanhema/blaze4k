@@ -170,6 +170,25 @@ float wheel_scroll_start(float current_offset, int delta_first) {
     return 0.0f;
 }
 
+ListWindow wheel_slide_range(ListWindow window, int count, float offset) {
+    const int extra_above = offset > 0.0f ? kWheelMaxSlideRows : 0;
+    const int extra_below = offset < 0.0f ? kWheelMaxSlideRows : 0;
+    return ListWindow{std::max(0, window.first - extra_above),
+                      std::min(count - 1, window.last + extra_below)};
+}
+
+Rect wheel_slide_rect(int slot, int selected_slot, float offset) {
+    Rect r = wheel_row_rect(slot, selected_slot);
+    if (slot != selected_slot) {
+        r.y += offset;
+    }
+    return r;
+}
+
+bool wheel_row_in_column(const Rect& row) {
+    return row.y >= 0.0f && row.y + row.h <= layout::kRefHeight;
+}
+
 DifficultyRowStyle difficulty_row_style(const Chart& chart) {
     const StepsDifficulty kind = resolve_difficulty(chart.difficulty, chart.description, chart.meter);
     const auto index = static_cast<std::size_t>(kind);
@@ -539,14 +558,12 @@ void draw_wheel_row_art(const ThemeTextures& theme, GlQuadRenderer& renderer,
 void draw_wheel(const ThemeTextures* theme, TextRenderer* text, GlQuadRenderer& renderer,
                 const theme::LayoutScale& L, int w, std::span<const WheelRowView> rows,
                 int selected_slot, float offset) {
-    // The gold selected bar does not slide; every other row is drawn `offset` lower.
+    // The gold selected bar does not slide; every other row is drawn `offset`
+    // lower. Rows that slide out of reference y 0..720 are skipped (art and text).
     auto row_rect = [&](const WheelRowView& view) {
-        Rect r = wheel_row_rect(view.slot, selected_slot);
-        if (view.art != WheelArt::Selected) {
-            r.y += offset;
-        }
-        return r;
+        return wheel_slide_rect(view.slot, selected_slot, offset);
     };
+    auto drawn = [&](const WheelRowView& view) { return wheel_row_in_column(row_rect(view)); };
     auto draw_text_pass = [&](WheelArt art) {
         if (text == nullptr) {
             return;
@@ -558,7 +575,7 @@ void draw_wheel(const ThemeTextures* theme, TextRenderer* text, GlQuadRenderer& 
                               : art == WheelArt::Pack   ? kWheelPackTextX
                                                         : kWheelSongTextX;
         for (const WheelRowView& view : rows) {
-            if (view.art != art) {
+            if (view.art != art || !drawn(view)) {
                 continue;
             }
             const Rect r = row_rect(view);
@@ -572,7 +589,7 @@ void draw_wheel(const ThemeTextures* theme, TextRenderer* text, GlQuadRenderer& 
     // Sliding rows (art, then text), then the selected bar on top of them.
     if (theme != nullptr) {
         for (const WheelRowView& view : rows) {
-            if (view.art != WheelArt::Selected) {
+            if (view.art != WheelArt::Selected && drawn(view)) {
                 draw_wheel_row_art(*theme, renderer, L, w, row_rect(view), view.art);
             }
         }
@@ -581,7 +598,7 @@ void draw_wheel(const ThemeTextures* theme, TextRenderer* text, GlQuadRenderer& 
     draw_text_pass(WheelArt::Pack);
     if (theme != nullptr) {
         for (const WheelRowView& view : rows) {
-            if (view.art == WheelArt::Selected) {
+            if (view.art == WheelArt::Selected && drawn(view)) {
                 draw_wheel_row_art(*theme, renderer, L, w, row_rect(view), view.art);
             }
         }
