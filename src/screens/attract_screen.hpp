@@ -4,7 +4,8 @@
 
 namespace blaze4k {
 
-// Attract (title loop) screen: an animated logo/receptor loop. Confirm is handled
+// Attract (title loop) screen: the same bg/logo as Title (#92); pulse + receptor
+// blink on Cel receptors, pulsing PRESS START plate. Confirm is handled
 // centrally by the ScreenManager (which returns to the origin screen), so this
 // screen stays dumb (PRD section 6 pattern 4). Real gameplay autoplay is deferred.
 class AttractScreen : public Screen {

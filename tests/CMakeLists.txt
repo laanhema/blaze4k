@@ -499,3 +499,21 @@ target_compile_definitions(ttf_font_test PRIVATE
 )
 
 add_test(NAME ttf_font_test COMMAND ttf_font_test)
+
+# #92: Cabinet Title + Attract screens (title_art layout, blink/pulse rules,
+# CMake version string, footer glyph coverage, render smoke with the real
+# headless theme + text services).
+add_executable(title_screen_test
+    title_screen_test.cpp
+)
+
+target_link_libraries(title_screen_test PRIVATE
+    blaze4k_core
+)
+
+target_compile_definitions(title_screen_test PRIVATE
+    BLAZE4K_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+    BLAZE4K_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets"
+)
+
+add_test(NAME title_screen_test COMMAND title_screen_test)

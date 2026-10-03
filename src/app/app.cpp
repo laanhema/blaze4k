@@ -11,8 +11,10 @@ App::App(const AppConfig& config)
 
 App::~App() {
     stop();
-    // The text atlases and theme textures must be released while the GL context
-    // is still alive: window_.shutdown() destroys it, before members are destroyed.
+    // The text atlases, theme textures and noteskin must be released while the GL
+    // context is still alive: window_.shutdown() destroys it, before members are
+    // destroyed.
+    noteskin_.shutdown();
     text_renderer_.shutdown();
     theme_textures_.shutdown();
     window_.shutdown();
@@ -54,6 +56,12 @@ bool App::init() {
     // draws with the bitmap fallback; headless logs one line and bakes nothing.
     text_renderer_.load();
     text_renderer_.set_window_size(window_.width(), window_.height());
+
+    // #92: the Cel noteskin for the title/attract art (needs GL; headless skips
+    // it, and screens null-check / validity-check every sprite).
+    if (!window_.is_headless()) {
+        noteskin_.init();
+    }
 
     std::cout << "[App] Initialized successfully (fixed_dt=" << config_.fixed_dt
               << "s, vsync=" << (config_.window.vsync ? "on" : "off") << ").\n";
