@@ -28,8 +28,31 @@ constexpr Color kLifeFrameColor{0.55f, 0.60f, 0.70f, 1.0f};
 constexpr Color kLifeFillColor{0.40f, 0.90f, 1.00f, 1.0f};
 constexpr Color kLifeDangerColor{1.00f, 0.30f, 0.30f, 1.0f};
 constexpr double kLifeDangerThreshold = 0.3;
+constexpr float kLifeBarLeft = 24.0f;          // x of the inner bar
+constexpr float kLifeBarThickness = 16.0f;     // inner bar width
+constexpr float kLifeBarBorder = 2.0f;         // frame thickness on every side
+constexpr float kLifeBarMinThickness = 6.0f;   // narrowest width in very narrow windows
+constexpr float kLifeBarInsetFraction = 0.2f;  // top/bottom inset as a fraction of height
+constexpr float kLifeBarMinInset = 40.0f;      // keeps the frame below the percent text
+
+// HUD text layout (Blaze 4k presentation, unsourced).
+constexpr float kHudEdgeMargin = 8.0f;  // inset of the HUD text from the screen edges
+constexpr float kHudTextPixel = 3.0f;   // bitmap-font pixel for percent/combo/grade
+constexpr float kGlyphRows = 7.0f;      // 5x7 font glyph height, in font pixels
 
 } // namespace
+
+Rect percent_text_rect(const std::string& text) {
+    return Rect{kHudEdgeMargin, kHudEdgeMargin, text_width(text, kHudTextPixel),
+                kGlyphRows * kHudTextPixel};
+}
+
+Rect grade_text_rect(const std::string& text, int screen_w, int screen_h) {
+    const float text_w = text_width(text, kHudTextPixel);
+    const float text_h = kGlyphRows * kHudTextPixel;
+    return Rect{(static_cast<float>(screen_w) - text_w) * 0.5f,
+                static_cast<float>(screen_h) - kHudEdgeMargin - text_h, text_w, text_h};
+}
 
 std::string format_percent(double percent) {
     // Display-clamp to [0,1] (PercentageDisplay.cpp:110-116), then the OpenITG
@@ -109,11 +132,12 @@ void HudRenderer::render(const ScoreState& state, int screen_w, int screen_h,
     }
 
     const float width = static_cast<float>(screen_w);
-    const float height = static_cast<float>(screen_h);
-    const float main_pixel = 3.0f;
+    const float main_pixel = kHudTextPixel;
 
     // Top-left: live percent.
-    draw_text(renderer, format_percent(state.percent), 8.0f, 8.0f, main_pixel, kTextColor);
+    const std::string percent_text = format_percent(state.percent);
+    const Rect percent_rect = percent_text_rect(percent_text);
+    draw_text(renderer, percent_text, percent_rect.x, percent_rect.y, main_pixel, kTextColor);
 
     // Top-centre: live combo.
     const std::string combo_text = format_combo(state.combo) + "x";
@@ -156,16 +180,15 @@ void HudRenderer::render(const ScoreState& state, int screen_w, int screen_h,
     // Bottom-centre: live grade.
     if (state.grade != nullptr) {
         const std::string grade_text = format_grade(*state.grade);
-        draw_text(renderer, grade_text,
-                  (width - text_width(grade_text, main_pixel)) * 0.5f,
-                  height - 8.0f - 7.0f * main_pixel, main_pixel, kTextColor);
+        const Rect grade_rect = grade_text_rect(grade_text, screen_w, screen_h);
+        draw_text(renderer, grade_text, grade_rect.x, grade_rect.y, main_pixel, kTextColor);
     }
 }
 
-void HudRenderer::render_life(double life, int screen_w, int screen_h,
-                              GlQuadRenderer& renderer) const {
+LifeBarLayout layout_life_bar(double life, int screen_w, int screen_h, double field_left) {
+    LifeBarLayout layout;
     if (screen_w <= 0 || screen_h <= 0) {
-        return;
+        return layout;
     }
 
     double clamped = life;
@@ -174,24 +197,49 @@ void HudRenderer::render_life(double life, int screen_w, int screen_h,
     } else if (clamped > 1.0) {
         clamped = 1.0;
     }
+    layout.danger = clamped < kLifeDangerThreshold;
 
-    const float width = static_cast<float>(screen_w);
+    // Vertical: centred, inset top and bottom by max(20% of height, 40 px).
     const float height = static_cast<float>(screen_h);
-    const float bar_w = std::min(width * 0.40f, 480.0f);
-    const float bar_h = 16.0f;
-    const float border = 2.0f;
-    const float x = (width - bar_w) * 0.5f;
-    // Sit above the bottom-centre grade text.
-    const float y = height - 8.0f - 21.0f - 12.0f - bar_h;
+    const float inset = std::max(height * kLifeBarInsetFraction, kLifeBarMinInset);
+    const float y = inset;
+    const float bar_h = std::max(0.0f, height - 2.0f * inset);
 
-    // Frame (drawn as a slightly larger backing quad), then the filled portion.
-    renderer.draw_quad(Rect{x - border, y - border, bar_w + border * 2.0f, bar_h + border * 2.0f},
-                       kLifeFrameColor);
-    renderer.draw_quad(Rect{x, y, bar_w, bar_h}, kLifeBackColor);
+    // Horizontal: fixed left margin, then slide left and shrink as needed so the
+    // frame stays at least kLifeBarFieldGap left of the note field.
+    const float max_right = static_cast<float>(field_left) - kLifeBarFieldGap - kLifeBarBorder;
+    float x = kLifeBarLeft;
+    float w = kLifeBarThickness;
+    if (x + w > max_right) {
+        x = std::max(kLifeBarBorder, max_right - w);
+        if (x + w > max_right) {
+            w = std::max(kLifeBarMinThickness, max_right - x);
+        }
+    }
 
-    const Color fill =
-        clamped < kLifeDangerThreshold ? kLifeDangerColor : kLifeFillColor;
-    renderer.draw_quad(Rect{x, y, bar_w * static_cast<float>(clamped), bar_h}, fill);
+    const float fill_h = bar_h * static_cast<float>(clamped);
+    layout.back = Rect{x, y, w, bar_h};
+    layout.frame = Rect{x - kLifeBarBorder, y - kLifeBarBorder, w + kLifeBarBorder * 2.0f,
+                        bar_h + kLifeBarBorder * 2.0f};
+    layout.fill = Rect{x, y + bar_h - fill_h, w, fill_h};
+    layout.visible = true;
+    return layout;
+}
+
+void HudRenderer::render_life(double life, int screen_w, int screen_h, double field_left,
+                              GlQuadRenderer& renderer) const {
+    const LifeBarLayout bar = layout_life_bar(life, screen_w, screen_h, field_left);
+    if (!bar.visible) {
+        return;
+    }
+
+    // Frame (drawn as a slightly larger backing quad), the empty back, then the
+    // bottom-anchored filled portion.
+    renderer.draw_quad(bar.frame, kLifeFrameColor);
+    renderer.draw_quad(bar.back, kLifeBackColor);
+    if (bar.fill.h > 0.0f) {
+        renderer.draw_quad(bar.fill, bar.danger ? kLifeDangerColor : kLifeFillColor);
+    }
 }
 
 } // namespace blaze4k

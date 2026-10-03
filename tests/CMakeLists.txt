@@ -133,6 +133,17 @@ target_link_libraries(score_keeper_test PRIVATE
 add_test(NAME score_keeper_test COMMAND score_keeper_test)
 
 
+add_executable(hud_renderer_test
+    hud_renderer_test.cpp
+)
+
+target_link_libraries(hud_renderer_test PRIVATE
+    blaze4k_core
+)
+
+add_test(NAME hud_renderer_test COMMAND hud_renderer_test)
+
+
 add_executable(life_keeper_test
     life_keeper_test.cpp
 )

@@ -403,6 +403,21 @@ int main() {
         std::cout << "  - Column layout is ordered and centered.\n";
     }
 
+    // 11. Shared field_left: the centred field's left edge (HUD + field renderer).
+    {
+        blaze4k::NoteField field;
+        blaze4k::NoteFieldConfig config;
+        config.column_width = 108.0;
+        field.set_config(config);
+
+        TEST_CHECK(approx(field.field_left(1280), 424.0));
+        TEST_CHECK(approx(field.field_left(320), -56.0));
+        for (const int w : {320, 640, 1024, 1280, 1920}) {
+            TEST_CHECK(approx(field.field_left(w) + field.field_width() * 0.5, w * 0.5));
+        }
+        std::cout << "  - field_left centres the field on the screen.\n";
+    }
+
     std::cout << "[note_field_test] All note field tests passed successfully!\n";
     return 0;
 }

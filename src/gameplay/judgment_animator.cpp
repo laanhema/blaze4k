@@ -140,7 +140,7 @@ void JudgmentAnimator::render(GlQuadRenderer& renderer, int w, int h) const {
         const float alpha = pop_alpha(pop_elapsed_, kJudgmentPopSeconds);
         draw_text_centered(renderer, pop_label_, width * 0.5f,
                            static_cast<float>(static_cast<double>(h) * 0.42),
-                           5.0f * scale, with_alpha(pop_color_, alpha));
+                           kJudgmentPopPixel * scale, with_alpha(pop_color_, alpha));
     }
 
     if (has_combo_pop_) {
