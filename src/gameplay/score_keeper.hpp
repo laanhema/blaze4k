@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <array>
 #include <cstddef>
+#include <string>
 #include <vector>
 
 #include "chart/chart.hpp"
@@ -27,6 +28,10 @@ struct ScoreState {
     double percent = 0.0;             // unclamped; may be negative
     const GradeTier* grade = nullptr; // points into constants.grade_tiers
 };
+
+// Compact display label for a grade tier: star tiers render as asterisks
+// (`quad_star` -> "****"), letter grades pass through unchanged ("S+", "A-", ...).
+[[nodiscard]] std::string format_grade(const GradeTier& grade);
 
 // Pure, event-sourced scorer.
 //

@@ -10,6 +10,7 @@
 #include "chart/chart.hpp"
 #include "chart/song.hpp"
 #include "gameplay/hud_renderer.hpp"
+#include "gameplay/score_keeper.hpp"
 #include "render/bitmap_font.hpp"
 #include "render/gl_quad_renderer.hpp"
 #include "screens/screen_manager.hpp"

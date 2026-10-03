@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <limits>
+#include <string>
 
 namespace blaze4k {
 
@@ -242,6 +243,23 @@ bool ScoreKeeper::is_complete() const {
         }
     }
     return true;
+}
+
+std::string format_grade(const GradeTier& grade) {
+    const std::string label = grade.label;
+    if (label == "quad_star") {
+        return "****";
+    }
+    if (label == "triple_star") {
+        return "***";
+    }
+    if (label == "double_star") {
+        return "**";
+    }
+    if (label == "single_star") {
+        return "*";
+    }
+    return label;
 }
 
 } // namespace blaze4k
