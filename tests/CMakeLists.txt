@@ -192,6 +192,13 @@ target_link_libraries(select_screen_test PRIVATE
     blaze4k_core
 )
 
+# #94: the Cabinet select render smoke and label truncation use the real theme
+# manifest and fonts (headless).
+target_compile_definitions(select_screen_test PRIVATE
+    BLAZE4K_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+    BLAZE4K_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets"
+)
+
 add_test(NAME select_screen_test COMMAND select_screen_test)
 
 add_executable(unicode_text_test
@@ -517,3 +524,21 @@ target_compile_definitions(title_screen_test PRIVATE
 )
 
 add_test(NAME title_screen_test COMMAND title_screen_test)
+
+# #94: Cabinet Song Select art (select_art layout table at 720p/1440p/21:9/16:10,
+# list window + slide easing, difficulty row style/labels/ticks, chips, hint line
+# and arrows, manifest names, render smoke with the real headless theme + text).
+add_executable(select_art_test
+    select_art_test.cpp
+)
+
+target_link_libraries(select_art_test PRIVATE
+    blaze4k_core
+)
+
+target_compile_definitions(select_art_test PRIVATE
+    BLAZE4K_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+    BLAZE4K_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets"
+)
+
+add_test(NAME select_art_test COMMAND select_art_test)

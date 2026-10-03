@@ -5,8 +5,11 @@
 
 #include "chart/chart.hpp"
 #include "chart/song_metadata.hpp"
+#include "render/theme.hpp"
 
 namespace blaze4k {
+
+class TextRenderer;
 
 // Display text for song metadata and chart difficulty labels. Draw-only:
 // identity (high-score keys, library lookup) and log lines keep the raw native
@@ -26,6 +29,15 @@ namespace blaze4k {
 [[nodiscard]] const std::string& song_display_title(const SongMetadata& metadata);
 [[nodiscard]] const std::string& song_display_artist(const SongMetadata& metadata);
 
+// The same choice through TrueType coverage (#94): the native text is covered
+// when `text` has a native glyph for every visible code point in `font`
+// (TextRenderer::covers_text). A null `text` falls back to the bitmap rule
+// above. The returned reference aliases `metadata`.
+[[nodiscard]] const std::string& song_display_title(const SongMetadata& metadata,
+                                                    const TextRenderer* text, theme::Font font);
+[[nodiscard]] const std::string& song_display_artist(const SongMetadata& metadata,
+                                                     const TextRenderer* text, theme::Font font);
+
 // Narrowest name budget for a difficulty label, in cells: the width of
 // "Challenge", the longest standard label, so an edit name is never shortened
 // below what a standard label already takes. Shared by select and results.
@@ -37,5 +49,9 @@ inline constexpr std::size_t kMinDifficultyLabelCells = 9;
 // otherwise the passthrough `chart.difficulty`, unchanged and untruncated.
 // Chart names have no translit, so the text is drawn natively.
 [[nodiscard]] std::string chart_display_label(const Chart& chart, std::size_t max_name_cells);
+
+// The same label, untruncated: callers that truncate by measured width (the
+// Cabinet select screen, #94) shorten it themselves.
+[[nodiscard]] std::string chart_display_label(const Chart& chart);
 
 } // namespace blaze4k

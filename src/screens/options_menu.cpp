@@ -67,6 +67,8 @@ std::string format_number(double value) {
     return out.str();
 }
 
+} // namespace
+
 std::string format_speed_mod(const SpeedMod& mod) {
     switch (mod.type) {
         case SpeedModType::XMod:
@@ -78,8 +80,6 @@ std::string format_speed_mod(const SpeedMod& mod) {
     }
     return format_number(mod.value) + "x";
 }
-
-} // namespace
 
 std::string options_speed_type_name(SpeedModType type) {
     switch (type) {

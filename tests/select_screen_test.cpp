@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cmath>
 #include <cstdlib>
 #include <fstream>
 #include <filesystem>
@@ -18,13 +19,16 @@
 #include "data/config_loader.hpp"
 #include "data/high_scores.hpp"
 #include "gameplay/gameplay_options.hpp"
-#include "render/bitmap_font.hpp"
 #include "render/gl_quad_renderer.hpp"
+#include "render/theme.hpp"
+#include "render/theme_textures.hpp"
+#include "render/ttf_font.hpp"
 #include "screens/calibration_screen.hpp"
 #include "screens/gameplay_screen.hpp"
 #include "screens/input_remap_screen.hpp"
 #include "screens/options_menu.hpp"
 #include "screens/play_request.hpp"
+#include "screens/select_art.hpp"
 #include "screens/select_screen.hpp"
 #include "screens/screen_manager.hpp"
 #include "screens/song_display_text.hpp"
@@ -47,6 +51,33 @@ using blaze4k::ScreenContext;
 using blaze4k::ScreenId;
 
 constexpr double kDt = 0.1;
+
+const std::filesystem::path kSourceDir{BLAZE4K_SOURCE_DIR};
+const std::filesystem::path kCabinet =
+    std::filesystem::path{BLAZE4K_ASSETS_DIR} / "theme" / "cabinet";
+
+// Real headless theme + text services (#94): measuring and truncation work
+// without GL; draws are no-ops.
+blaze4k::ThemeTextures& loaded_theme() {
+    static blaze4k::ThemeTextures theme;
+    static const bool loaded = theme.load(kCabinet);
+    if (!loaded) {
+        std::cerr << "theme failed to load from " << kCabinet << "\n";
+        std::abort();
+    }
+    return theme;
+}
+
+blaze4k::TextRenderer& loaded_text() {
+    static blaze4k::TextRenderer text;
+    static const bool loaded = text.load(kSourceDir);
+    if (!loaded) {
+        std::cerr << "fonts failed to load from " << kSourceDir << "\n";
+        std::abort();
+    }
+    text.set_window_size(1280, 720);
+    return text;
+}
 
 void write_file(const std::filesystem::path& path, std::string_view content,
                 bool binary = false) {
@@ -244,98 +275,6 @@ void test_best_score(blaze4k::ScreenManager& manager, blaze4k::SelectScreen* sel
     std::cout << "  - best score lookup ok.\n";
 }
 
-bool same_color(blaze4k::Color a, blaze4k::Color b) {
-    return a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
-}
-
-void test_difficulty_colors() {
-    const blaze4k::Color beginner = blaze4k::difficulty_color("Beginner");
-    const blaze4k::Color easy = blaze4k::difficulty_color("Easy");
-    const blaze4k::Color medium = blaze4k::difficulty_color("Medium");
-    const blaze4k::Color hard = blaze4k::difficulty_color("Hard");
-    const blaze4k::Color challenge = blaze4k::difficulty_color("Challenge");
-    const blaze4k::Color edit = blaze4k::difficulty_color("Edit");
-
-    // Each canonical difficulty gets its own tint; Edit falls back to neutral.
-    const blaze4k::Color all[] = {beginner, easy, medium, hard, challenge, edit};
-    for (std::size_t i = 0; i < std::size(all); ++i) {
-        for (std::size_t j = i + 1; j < std::size(all); ++j) {
-            TEST_CHECK(!same_color(all[i], all[j]));
-        }
-    }
-    TEST_CHECK(same_color(blaze4k::difficulty_color("unknown"), edit));
-
-    // Labels are passthrough, so matching is case-insensitive; Novice aliases Beginner.
-    TEST_CHECK(same_color(blaze4k::difficulty_color("hard"), hard));
-    TEST_CHECK(same_color(blaze4k::difficulty_color("CHALLENGE"), challenge));
-    TEST_CHECK(same_color(blaze4k::difficulty_color("Novice"), beginner));
-
-    // Hue sanity: hard is red-dominant, challenge blue-dominant, easy green-dominant.
-    TEST_CHECK(hard.r > hard.g && hard.r > hard.b);
-    TEST_CHECK(challenge.b > challenge.r && challenge.b > challenge.g);
-    TEST_CHECK(easy.g > easy.r && easy.g > easy.b);
-    std::cout << "  - difficulty color mapping ok.\n";
-}
-
-blaze4k::Chart make_row_chart(const std::string& difficulty, const std::string& description,
-                              int meter) {
-    blaze4k::Chart chart;
-    chart.difficulty = difficulty;
-    chart.description = description;
-    chart.meter = meter;
-    return chart;
-}
-
-// Difficulty rows (#84): non-Edit rows keep today's exact format, Edit rows
-// show the chart name, and a long name is shortened to fit the highlight bar.
-void test_difficulty_row_text() {
-    using blaze4k::difficulty_row_text;
-    const float bar_1280 = 0.42f * 1280.0f;
-
-    const blaze4k::Chart hard = make_row_chart("Hard", "Some Author", 9);
-    TEST_CHECK(difficulty_row_text(hard, true, "---", bar_1280, 2.5f) == "> Hard  [9]   ---");
-    TEST_CHECK(difficulty_row_text(hard, false, "---", bar_1280, 2.5f) == "  Hard  [9]   ---");
-
-    const blaze4k::Chart jbean = make_row_chart("Edit", "JBEAN", 10);
-    TEST_CHECK(difficulty_row_text(jbean, true, "100.00%", bar_1280, 2.5f) ==
-               "> JBEAN  [10]   100.00%");
-
-    const blaze4k::Chart unnamed = make_row_chart("Edit", "", 10);
-    TEST_CHECK(difficulty_row_text(unnamed, true, "---", bar_1280, 2.5f) == "> Edit  [10]   ---");
-
-    // Real-data name (ITG3 Bagpipe): 20 cells, budget 17 at 1280 px.
-    const blaze4k::Chart bagpipe = make_row_chart("Edit", "mDaWg & Hatena Zubon", 10);
-    TEST_CHECK(difficulty_row_text(bagpipe, true, "100.00%", bar_1280, 2.5f) ==
-               "> mDaWg & Hatena...  [10]   100.00%");
-    // The budget reserves the widest best column, so the name is shortened the
-    // same with or without a score (review finding: it used to fit with "---").
-    TEST_CHECK(difficulty_row_text(bagpipe, false, "---", bar_1280, 2.5f) ==
-               "  mDaWg & Hatena...  [10]   ---");
-    TEST_CHECK(difficulty_row_text(bagpipe, true, "95.12%", bar_1280, 2.5f) ==
-               "> mDaWg & Hatena...  [10]   95.12%");
-
-    const blaze4k::Chart long_edit = make_row_chart("Edit", std::string(60, 'W'), 10);
-    for (const char* best : {"---", "100.00%"}) {
-        for (const bool selected : {true, false}) {
-            const std::string row = difficulty_row_text(long_edit, selected, best, bar_1280, 2.5f);
-            TEST_CHECK(blaze4k::text_width(row, 2.5f) <= bar_1280);
-            TEST_CHECK(row.find("...") != std::string::npos);
-            TEST_CHECK(row.find("  [10]   " + std::string(best)) != std::string::npos);
-        }
-    }
-
-    // Narrowest window (320 px): the name budget clamps to 9 cells, no underflow.
-    const std::string narrow =
-        difficulty_row_text(long_edit, true, "100.00%", 0.42f * 320.0f, 2.5f);
-    TEST_CHECK(narrow == "> WWWWWW...  [10]   100.00%");
-    TEST_CHECK(difficulty_row_text(hard, true, "100.00%", 0.0f, 2.5f) ==
-               "> Hard  [9]   100.00%");
-    TEST_CHECK(difficulty_row_text(long_edit, true, "---", 1000.0f, 0.0f) ==
-               "> WWWWWW...  [10]   ---");
-    TEST_CHECK(blaze4k::kMinDifficultyLabelCells == 9);
-    std::cout << "  - difficulty row text ok.\n";
-}
-
 // Named Edit charts through the real SongLibrary -> SimfileParser ->
 // SelectScreen::render path (#84): an .sm song (#NOTES description) and an .ssc
 // song (#CHARTNAME + #DESCRIPTION, including a long UTF-8 name).
@@ -405,6 +344,10 @@ void test_named_edit_charts() {
     manager.start(ScreenId::Select);
     TEST_CHECK(select_ptr->song_count() == 2);
 
+    blaze4k::TextRenderer& text = loaded_text();
+    manager.context().theme = &loaded_theme();
+    manager.context().text = &text;
+
     blaze4k::GlQuadRenderer renderer; // uninitialized: safe no-op
     std::vector<std::string> visited;
     for (int song = 0; song < 2; ++song) {
@@ -413,13 +356,19 @@ void test_named_edit_charts() {
             const blaze4k::Chart* chart = select_ptr->selected_chart();
             TEST_CHECK(chart != nullptr);
             visited.push_back(blaze4k::chart_display_label(*chart, 1000));
-            // Same width the draw site passes: the bar minus 6 px inset per side.
-            const float row_w = 0.42f * 1280.0f - 12.0f;
-            const std::string row =
-                blaze4k::difficulty_row_text(*chart, true, "100.00%", row_w, 2.5f);
-            TEST_CHECK(blaze4k::text_width(row, 2.5f) <= row_w);
+            // The draw site's rule: the row label, truncated by measured width
+            // to the tab's name budget (select_art::kDiffNameBudget).
+            const std::string label = blaze4k::select_art::difficulty_row_label(*chart);
+            for (const blaze4k::theme::TextStyle& style :
+                 {blaze4k::theme::text::kDiffName, blaze4k::theme::text::kDiffNameSelected}) {
+                const std::string shown =
+                    text.truncate(label, style, blaze4k::select_art::kDiffNameBudget);
+                TEST_CHECK(text.measure(shown, style) <= blaze4k::select_art::kDiffNameBudget);
+                TEST_CHECK(!shown.empty());
+            }
             manager.render(renderer, 1280, 720);
             manager.render(renderer, 640, 480);
+            text.set_window_size(1280, 720);
             manager.update(kDt, {press(GameAction::Right)});
         }
         manager.update(kDt, {press(GameAction::Down)});
@@ -850,6 +799,192 @@ void test_same_tick_options_back(blaze4k::ScreenManager& manager, blaze4k::Selec
     std::cout << "  - same-tick Options+Back does not navigate on stale state ok.\n";
 }
 
+// 12 songs in two 6-song packs: 14 wheel display rows (two pack headers).
+blaze4k::SongLibrary make_slide_library(const std::filesystem::path& root) {
+    std::filesystem::remove_all(root);
+    for (const char* pack : {"Pack One", "Pack Two"}) {
+        for (int i = 1; i <= 6; ++i) {
+            const std::string name = std::string(pack) + " Song " + std::to_string(i);
+            const std::filesystem::path dir = root / pack / name;
+            write_file(dir / "audio.ogg", "fake audio");
+            write_file(dir / (name + ".sm"), make_sm(name, "", {{"Easy", 3}}));
+        }
+    }
+    blaze4k::SongLibrary library;
+    TEST_CHECK(library.scan_directory(root));
+    TEST_CHECK(library.total_songs() == 12);
+    return library;
+}
+
+// Index of the pack holding `song` in `library`, or -1.
+int pack_of(const blaze4k::SongLibrary& library, const blaze4k::Song* song) {
+    const std::vector<blaze4k::SongPack>& packs = library.packs();
+    for (std::size_t p = 0; p < packs.size(); ++p) {
+        for (const blaze4k::Song& candidate : packs[p].songs) {
+            if (&candidate == song) {
+                return static_cast<int>(p);
+            }
+        }
+    }
+    return -1;
+}
+
+struct SlideFixture {
+    blaze4k::SongLibrary library;
+    blaze4k::GameConfig config;
+    blaze4k::HighScores scores;
+    blaze4k::PlayRequest request;
+    blaze4k::ScreenManager manager{0.0};
+    blaze4k::SelectScreen* select = nullptr;
+
+    explicit SlideFixture(const std::filesystem::path& root) : library(make_slide_library(root)) {
+        auto screen = std::make_unique<blaze4k::SelectScreen>();
+        select = screen.get();
+        manager.add_screen(std::move(screen));
+        manager.context().config = &config;
+        manager.context().scores = &scores;
+        manager.context().library = &library;
+        manager.context().play_request = &request;
+        manager.start(ScreenId::Select);
+    }
+};
+
+// #94: the wheel slides (eased, 80 ms, fixed dt) only when its window moves.
+void test_wheel_slide() {
+    constexpr double kSlideDt = 1.0 / 60.0; // the main fixture's 0.1 s outlasts the slide
+    const std::filesystem::path root =
+        std::filesystem::temp_directory_path() / "blaze4k_select_screen_slide_test";
+    SlideFixture fx(root);
+    blaze4k::ScreenManager& manager = fx.manager;
+    blaze4k::SelectScreen* select = fx.select;
+    const auto down = [&] { manager.update(kSlideDt, {press(GameAction::Down)}); };
+    const auto up = [&] { manager.update(kSlideDt, {press(GameAction::Up)}); };
+    const auto idle = [&](int ticks) {
+        for (int i = 0; i < ticks; ++i) {
+            manager.update(kSlideDt, {});
+        }
+    };
+
+    TEST_CHECK(select->song_count() == 12);
+    TEST_CHECK(select->wheel_row_count() == 14);
+    TEST_CHECK(select->selected_song_index() == 0);
+    TEST_CHECK(select->wheel_first_row() == 0);
+    TEST_CHECK(select->wheel_scroll_offset() == 0.0f);
+
+    // Rows 1 -> 2 -> 3: the window stays at the top, nothing slides.
+    down();
+    TEST_CHECK(select->wheel_first_row() == 0 && select->wheel_scroll_offset() == 0.0f);
+    down();
+    TEST_CHECK(select->wheel_first_row() == 0 && select->wheel_scroll_offset() == 0.0f);
+
+    // Row 3 -> 4: the window moves down one row; the rows start one pitch lower
+    // and ease up to rest within 80 ms (5 ticks = 83 ms).
+    down();
+    TEST_CHECK(select->wheel_first_row() == 1);
+    TEST_CHECK(select->wheel_scroll_offset() == blaze4k::select_art::kWheelPitch);
+    idle(1);
+    const float after_one = select->wheel_scroll_offset();
+    TEST_CHECK(after_one > 0.0f && after_one < blaze4k::select_art::kWheelPitch);
+    idle(4);
+    TEST_CHECK(select->wheel_scroll_offset() == 0.0f);
+
+    // Up mirrors it.
+    up();
+    TEST_CHECK(select->wheel_first_row() == 0);
+    TEST_CHECK(select->wheel_scroll_offset() == -blaze4k::select_art::kWheelPitch);
+    idle(5);
+    TEST_CHECK(select->wheel_scroll_offset() == 0.0f);
+
+    // Back to the first song, then wrap first -> last -> first: the window
+    // jumps across the list, so the offset snaps to 0.
+    up();
+    up();
+    TEST_CHECK(select->selected_song_index() == 0);
+    idle(5);
+    up();
+    TEST_CHECK(select->selected_song_index() == 11);
+    TEST_CHECK(select->wheel_first_row() == 7);
+    TEST_CHECK(select->wheel_scroll_offset() == 0.0f);
+    down();
+    TEST_CHECK(select->selected_song_index() == 0);
+    TEST_CHECK(select->wheel_first_row() == 0);
+    TEST_CHECK(select->wheel_scroll_offset() == 0.0f);
+
+    // Held repeat (accelerating to 40 ms steps, faster than the slide) never
+    // lets the offset run past two rows, and it settles once released.
+    GameAction held = GameAction::Down;
+    manager.context().action_down = [&held](GameAction action) { return action == held; };
+    down();
+    float max_offset = 0.0f;
+    for (int i = 0; i < 120; ++i) {
+        idle(1);
+        max_offset = std::max(max_offset, std::fabs(select->wheel_scroll_offset()));
+        TEST_CHECK(std::fabs(select->wheel_scroll_offset()) <=
+                   blaze4k::select_art::kWheelScrollMax);
+    }
+    TEST_CHECK(max_offset > 0.0f); // it did slide while repeating
+    held = GameAction::None;
+    idle(6);
+    TEST_CHECK(select->wheel_scroll_offset() == 0.0f);
+    manager.context().action_down = nullptr;
+
+    // Re-entering resets the slide.
+    while (select->selected_song_index() != 2) {
+        down();
+    }
+    idle(6);
+    down(); // row 3 -> 4 moves the window
+    TEST_CHECK(select->wheel_scroll_offset() != 0.0f);
+    manager.start(ScreenId::Select);
+    TEST_CHECK(select->wheel_scroll_offset() == 0.0f);
+
+    std::filesystem::remove_all(root);
+    std::cout << "  - wheel slide: window moves only, 80 ms ease, wrap snaps, repeat clamp ok.\n";
+}
+
+// Navigation skips the inline pack header rows (#94).
+void test_wheel_skips_pack_rows() {
+    const std::filesystem::path root =
+        std::filesystem::temp_directory_path() / "blaze4k_select_screen_pack_rows_test";
+    SlideFixture fx(root);
+    blaze4k::SelectScreen* select = fx.select;
+
+    const int first_pack = pack_of(fx.library, select->selected_song());
+    TEST_CHECK(first_pack >= 0);
+    for (int i = 0; i < 5; ++i) {
+        fx.manager.update(kDt, {press(GameAction::Down)});
+        TEST_CHECK(select->selected_song() != nullptr);
+        TEST_CHECK(pack_of(fx.library, select->selected_song()) == first_pack);
+    }
+    TEST_CHECK(select->selected_song_index() == 5); // the first pack's last song
+
+    // One Down crosses the next pack's header and lands on its first song.
+    fx.manager.update(kDt, {press(GameAction::Down)});
+    TEST_CHECK(select->selected_song_index() == 6);
+    TEST_CHECK(select->selected_song() != nullptr);
+    const int second_pack = pack_of(fx.library, select->selected_song());
+    TEST_CHECK(second_pack >= 0 && second_pack != first_pack);
+    // The window moved two rows (song row 6 -> 8): that step still slides.
+    TEST_CHECK(select->wheel_scroll_offset() == 2.0f * blaze4k::select_art::kWheelPitch);
+
+    // And back up across the header.
+    fx.manager.update(kDt, {press(GameAction::Up)});
+    TEST_CHECK(select->selected_song_index() == 5);
+    TEST_CHECK(pack_of(fx.library, select->selected_song()) == first_pack);
+
+    // Render smoke with the real services across the header and at both ends.
+    blaze4k::TextRenderer& text = loaded_text();
+    fx.manager.context().theme = &loaded_theme();
+    fx.manager.context().text = &text;
+    blaze4k::GlQuadRenderer renderer;
+    for (int i = 0; i < 14; ++i) {
+        fx.manager.update(1.0 / 60.0, {press(GameAction::Down)});
+        fx.manager.render(renderer, 1280, 720);
+    }
+    std::filesystem::remove_all(root);
+    std::cout << "  - navigation skips pack header rows ok.\n";
+}
+
 } // namespace
 
 int main() {
@@ -884,8 +1019,6 @@ int main() {
     test_difficulty_navigation(manager, select_ptr);
     test_held_navigation_repeat(manager, select_ptr);
     test_best_score(manager, select_ptr, scores);
-    test_difficulty_colors();
-    test_difficulty_row_text();
     test_named_edit_charts();
     test_bpm_formatting();
     test_options_derivation();
@@ -898,9 +1031,33 @@ int main() {
     test_calibration_launch_from_options(manager, select_ptr, config);
     test_remap_launch_from_options(manager, select_ptr, config);
     test_same_tick_options_back(manager, select_ptr);
+    test_wheel_slide();
+    test_wheel_skips_pack_rows();
 
     blaze4k::GlQuadRenderer renderer; // populated-screen render smoke
     manager.render(renderer, 1280, 720);
+
+    // The same populated screen with the real (headless) theme + text services,
+    // with and without the options overlay, at several window sizes.
+    blaze4k::TextRenderer& text = loaded_text();
+    manager.context().theme = &loaded_theme();
+    manager.context().text = &text;
+    manager.start(ScreenId::Select);
+    for (const bool overlay : {false, true}) {
+        if (overlay) {
+            manager.update(kDt, {press(GameAction::Options)});
+            TEST_CHECK(select_ptr->options_open());
+        }
+        for (const auto& [w, h] : {std::pair{1280, 720}, std::pair{2560, 1440},
+                                   std::pair{3440, 1440}, std::pair{1920, 1200},
+                                   std::pair{640, 480}}) {
+            text.set_window_size(w, h);
+            manager.render(renderer, w, h);
+        }
+    }
+    manager.update(kDt, {press(GameAction::Back)});
+    TEST_CHECK(!select_ptr->options_open());
+    text.set_window_size(1280, 720);
 
     std::filesystem::remove_all(root);
 

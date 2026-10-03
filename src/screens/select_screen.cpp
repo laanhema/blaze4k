@@ -1,6 +1,7 @@
 #include "screens/select_screen.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cctype>
 #include <cmath>
 #include <iomanip>
@@ -15,6 +16,9 @@
 #include "gameplay/hud_renderer.hpp"
 #include "render/bitmap_font.hpp"
 #include "render/gl_quad_renderer.hpp"
+#include "render/theme.hpp"
+#include "render/theme_layout.hpp"
+#include "render/ttf_font.hpp"
 #include "screens/play_request.hpp"
 #include "screens/screen_manager.hpp"
 #include "screens/song_display_text.hpp"
@@ -35,19 +39,12 @@ constexpr double kRepeatInitialIntervalSeconds = 0.12;
 constexpr double kRepeatMinIntervalSeconds = 0.04;
 constexpr double kRepeatAccelFactor = 0.75;
 
+// Options overlay colours (bitmap font; the overlay's Cabinet restyle is #96).
 constexpr Color kTitleColor{0.86f, 0.93f, 1.00f, 1.0f};
-constexpr Color kPackColor{0.90f, 0.75f, 0.30f, 1.0f};
 constexpr Color kSelectedColor{1.00f, 0.92f, 0.35f, 1.0f};
 constexpr Color kTextColor{0.82f, 0.87f, 0.95f, 1.0f};
-constexpr Color kDimColor{0.55f, 0.60f, 0.72f, 1.0f};
 constexpr Color kHintColor{0.60f, 0.66f, 0.78f, 1.0f};
 constexpr Color kPlaceholderColor{0.16f, 0.20f, 0.30f, 1.0f};
-
-constexpr Color kBeginnerColor{0.78f, 0.52f, 1.00f, 1.0f};
-constexpr Color kEasyColor{0.40f, 0.90f, 0.45f, 1.0f};
-constexpr Color kMediumColor{1.00f, 0.88f, 0.30f, 1.0f};
-constexpr Color kHardColor{1.00f, 0.38f, 0.38f, 1.0f};
-constexpr Color kChallengeColor{0.40f, 0.65f, 1.00f, 1.0f};
 
 bool iequals(std::string_view a, std::string_view b) {
     if (a.size() != b.size()) {
@@ -97,49 +94,6 @@ std::string format_bpm_range(const TimingData& timing) {
     return format_bpm_value(lowest) + "-" + format_bpm_value(highest);
 }
 
-Color difficulty_color(const std::string& difficulty) {
-    if (iequals(difficulty, "Beginner") || iequals(difficulty, "Novice")) {
-        return kBeginnerColor;
-    }
-    if (iequals(difficulty, "Easy")) {
-        return kEasyColor;
-    }
-    if (iequals(difficulty, "Medium")) {
-        return kMediumColor;
-    }
-    if (iequals(difficulty, "Hard")) {
-        return kHardColor;
-    }
-    if (iequals(difficulty, "Challenge")) {
-        return kChallengeColor;
-    }
-    return kTextColor;
-}
-
-std::string difficulty_row_text(const Chart& chart, bool selected, const std::string& best,
-                                float max_row_width, float pixel) {
-    const std::string prefix = selected ? "> " : "  ";
-    const std::string meter = "  [" + std::to_string(chart.meter) + "]   ";
-    // Reserve the widest best column ("100.00%") on every row, so a name is
-    // shortened the same whether or not the chart has a score yet.
-    constexpr int kBestColumnCells = 7;
-
-    // Signed arithmetic: a narrow window must clamp, not underflow.
-    const float cell_px = 6.0f * pixel;
-    const float cells_f = cell_px > 0.0f ? std::floor(max_row_width / cell_px) : 0.0f;
-    const int row_cells =
-        cells_f > 0.0f ? static_cast<int>(std::min(cells_f, 100000.0f)) : 0;
-    const int fixed = static_cast<int>(text_width(prefix, 1.0f) / 6.0f) +
-                      static_cast<int>(text_width(meter, 1.0f) / 6.0f) +
-                      std::max(kBestColumnCells,
-                               static_cast<int>(text_width(best, 1.0f) / 6.0f));
-    const int name_budget =
-        std::max(static_cast<int>(kMinDifficultyLabelCells), row_cells - fixed);
-
-    return prefix + chart_display_label(chart, static_cast<std::size_t>(name_budget)) + meter +
-           best;
-}
-
 const ScoreRecord* best_score_for(const ScreenContext& ctx, const Song& song, const Chart& chart) {
     if (ctx.scores == nullptr) {
         return nullptr;
@@ -161,7 +115,9 @@ void SelectScreen::rebuild(const ScreenContext& ctx) {
     }
 
     songs_.clear();
-    pack_names_.clear();
+    pack_labels_.clear();
+    wheel_rows_.clear();
+    song_row_index_.clear();
     selected_song_ = 0;
     selected_chart_ = 0;
 
@@ -171,7 +127,7 @@ void SelectScreen::rebuild(const ScreenContext& ctx) {
 
     const std::vector<SongPack>& packs = ctx.library->packs();
     for (std::size_t pack_index = 0; pack_index < packs.size(); ++pack_index) {
-        pack_names_.push_back(packs[pack_index].name);
+        pack_labels_.push_back(select_art::ascii_upper(packs[pack_index].name));
         for (const Song& song : packs[pack_index].songs) {
             if (!iequals(song.metadata.selectable, "YES")) {
                 continue; // SELECTABLE:NO songs are hidden from the wheel.
@@ -179,6 +135,16 @@ void SelectScreen::rebuild(const ScreenContext& ctx) {
             songs_.push_back(WheelEntry{&song, static_cast<int>(pack_index)});
         }
     }
+
+    // Wheel display rows: an inline pack header before each pack's songs.
+    std::vector<int> song_packs;
+    song_packs.reserve(songs_.size());
+    for (const WheelEntry& entry : songs_) {
+        song_packs.push_back(entry.pack_index);
+    }
+    select_art::WheelRows rows = select_art::build_wheel_rows(song_packs);
+    wheel_rows_ = std::move(rows.rows);
+    song_row_index_ = std::move(rows.song_row);
 
     if (previous_key.empty()) {
         return;
@@ -228,6 +194,37 @@ std::size_t SelectScreen::total_chart_count() const {
     return total;
 }
 
+int SelectScreen::selected_wheel_row() const {
+    if (selected_song_ < 0 || selected_song_ >= static_cast<int>(song_row_index_.size())) {
+        return 0;
+    }
+    return song_row_index_[static_cast<std::size_t>(selected_song_)];
+}
+
+int SelectScreen::wheel_first_row() const {
+    return select_art::list_window(selected_wheel_row(), static_cast<int>(wheel_rows_.size()),
+                                   select_art::kWheelVisibleRows)
+        .first;
+}
+
+float SelectScreen::wheel_scroll_offset() const {
+    return select_art::wheel_scroll_offset(scroll_start_, scroll_elapsed_);
+}
+
+void SelectScreen::refresh_chips(const ScreenContext& ctx) {
+    static const std::string kNone;
+    const std::string& speed = ctx.config != nullptr ? ctx.config->gameplay.speed_mod : kNone;
+    const std::string& scroll = ctx.config != nullptr ? ctx.config->gameplay.scroll : kNone;
+    if (chips_valid_ && speed == chip_src_speed_ && scroll == chip_src_scroll_) {
+        return;
+    }
+    chip_src_speed_ = speed;
+    chip_src_scroll_ = scroll;
+    chip_speed_text_ = select_art::speed_chip_text(ctx.config);
+    chip_scroll_text_ = select_art::scroll_chip_text(ctx.config);
+    chips_valid_ = true;
+}
+
 void SelectScreen::request_preview_for_selected() {
     const Song* song = selected_song();
     if (song == nullptr) {
@@ -245,6 +242,10 @@ void SelectScreen::request_preview_for_selected() {
 void SelectScreen::enter(ScreenContext& ctx) {
     rebuild(ctx);
     options_open_ = false;
+    scroll_start_ = 0.0f;
+    scroll_elapsed_ = 0.0;
+    chips_valid_ = false;
+    refresh_chips(ctx);
 
     // Returning from a screen launched off the options overlay (Calibration,
     // InputRemap): reopen the overlay on the same row instead of dropping to the
@@ -279,8 +280,19 @@ void SelectScreen::move_song(int delta) {
         return;
     }
     const int count = static_cast<int>(songs_.size());
+    const int rows = static_cast<int>(wheel_rows_.size());
+    const int old_first =
+        select_art::list_window(selected_wheel_row(), rows, select_art::kWheelVisibleRows).first;
     selected_song_ = ((selected_song_ + delta) % count + count) % count;
     selected_chart_ = 0;
+
+    // Slide the wheel only when its window moved (select_art::wheel_scroll_start).
+    const int new_first =
+        select_art::list_window(selected_wheel_row(), rows, select_art::kWheelVisibleRows).first;
+    if (new_first != old_first) {
+        scroll_start_ = select_art::wheel_scroll_start(wheel_scroll_offset(), new_first - old_first);
+        scroll_elapsed_ = 0.0;
+    }
     request_preview_for_selected();
 }
 
@@ -333,6 +345,7 @@ GameAction SelectScreen::held_direction(const ScreenContext& ctx) const {
 void SelectScreen::update(ScreenContext& ctx, double fixed_dt,
                           const std::vector<InputEvent>& events) {
     preview_.update(fixed_dt);
+    scroll_elapsed_ += fixed_dt; // wheel slide: fixed dt, never the music clock
 
     // Set once an event closes the overlay or launches a screen this tick, so a
     // second qualifying press in the same batch cannot fall through to the wheel
@@ -487,6 +500,9 @@ void SelectScreen::update(ScreenContext& ctx, double fixed_dt,
         }
     }
 
+    // The overlay may have changed the speed/scroll config this tick.
+    refresh_chips(ctx);
+
     // Held-direction repeat: the press above moved once; if the direction stays
     // down, accelerate through the wheel. Skipped while the options overlay is up
     // (its rows are stepped one press at a time) and when no authoritative
@@ -540,6 +556,7 @@ bool SelectScreen::handle_back(ScreenContext& ctx) {
         options_menu_apply(options_, *ctx.config);
     }
     options_open_ = false;
+    refresh_chips(ctx);
     return true; // consumed: do not navigate away from Select
 }
 
@@ -548,168 +565,156 @@ void SelectScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, i
         return;
     }
 
+    // Cabinet v3 select (#94), back to front. Every theme/text call is
+    // null-guarded (headless and unit tests run without them).
+    const theme::LayoutScale L = theme::layout_scale(w, h);
+    const ThemeTextures* theme = ctx.theme;
+    TextRenderer* text = ctx.text;
+
+    if (theme != nullptr) {
+        select_art::draw_backdrop(*theme, renderer, w, h);
+    }
+
+    if (!songs_.empty()) {
+        const Song* song = selected_song();
+
+        // Banner (or banner_fallback) inside banner_frame, then the song info.
+        const Texture* banner =
+            song != nullptr ? texture_cache_.get(song->resolved_banner_path) : nullptr;
+        select_art::draw_banner(theme, renderer, L, banner);
+        if (song != nullptr && text != nullptr) {
+            const std::string& title =
+                song_display_title(song->metadata, text, theme::text::kSongTitle.font);
+            const std::string& artist =
+                song_display_artist(song->metadata, text, theme::text::kArtist.font);
+            select_art::draw_song_info(*text, renderer, L, title, artist,
+                                       "BPM " + format_bpm_range(song->timing));
+        }
+
+        // Difficulty rows: a window of at most kDiffVisibleRows around the chart cursor.
+        if (song != nullptr && !song->charts.empty()) {
+            const int count = static_cast<int>(song->charts.size());
+            const int selected = std::clamp(selected_chart_, 0, count - 1);
+            const select_art::ListWindow window =
+                select_art::list_window(selected, count, select_art::kDiffVisibleRows);
+            std::array<select_art::DifficultyRowView, select_art::kDiffVisibleRows> views{};
+            std::size_t n = 0;
+            for (int i = window.first; i <= window.last && n < views.size(); ++i, ++n) {
+                const Chart& chart = song->charts[static_cast<std::size_t>(i)];
+                views[n].chart = &chart;
+                const ScoreRecord* record = best_score_for(ctx, *song, chart);
+                views[n].best = record != nullptr ? format_percent(record->percent) : "---";
+            }
+            select_art::draw_difficulty_rows(theme, text, renderer, L,
+                                             std::span(views.data(), n), selected - window.first);
+        }
+
+        // Wheel: a kWheelVisibleRows window over the display rows (pack headers
+        // inline). While sliding, up to two extra rows fill the side the rows
+        // moved away from; draw_wheel skips any row that would leave reference
+        // y 0..720 (the letterbox bands), and the bars drawn next cover the rest.
+        const int rows = static_cast<int>(wheel_rows_.size());
+        const int selected_row = selected_wheel_row();
+        const select_art::ListWindow window =
+            select_art::list_window(selected_row, rows, select_art::kWheelVisibleRows);
+        const float offset = wheel_scroll_offset();
+        const select_art::ListWindow range = select_art::wheel_slide_range(window, rows, offset);
+        std::array<select_art::WheelRowView,
+                   select_art::kWheelVisibleRows + select_art::kWheelMaxSlideRows>
+            views{};
+        std::size_t n = 0;
+        for (int r = range.first; r <= range.last && n < views.size(); ++r, ++n) {
+            const select_art::WheelRow& row = wheel_rows_[static_cast<std::size_t>(r)];
+            select_art::WheelRowView& view = views[n];
+            view.slot = r - window.first;
+            if (row.kind == select_art::WheelRow::Kind::Pack) {
+                view.art = select_art::WheelArt::Pack;
+                if (row.pack_index >= 0 && row.pack_index < static_cast<int>(pack_labels_.size())) {
+                    view.label = pack_labels_[static_cast<std::size_t>(row.pack_index)];
+                }
+                continue;
+            }
+            const bool selected = r == selected_row;
+            view.art = selected ? select_art::WheelArt::Selected : select_art::WheelArt::Song;
+            const Song* row_song =
+                (row.song_index >= 0 && row.song_index < static_cast<int>(songs_.size()))
+                    ? songs_[static_cast<std::size_t>(row.song_index)].song
+                    : nullptr;
+            if (row_song != nullptr) {
+                view.label = song_display_title(
+                    row_song->metadata, text,
+                    selected ? theme::text::kWheelSelected.font : theme::text::kWheelRow.font);
+            }
+        }
+        select_art::draw_wheel(theme, text, renderer, L, w, std::span(views.data(), n),
+                               selected_row - window.first, offset);
+    }
+
+    // Chrome over the wheel: top bar + chips, hint bar.
+    if (theme != nullptr) {
+        select_art::draw_top_bar(*theme, renderer, L, w);
+    }
+    select_art::draw_chips(theme, text, renderer, L, chip_speed_text_, chip_scroll_text_);
+    select_art::draw_hint_bar(theme, text, renderer, L, w);
+    if (songs_.empty() && text != nullptr) {
+        select_art::draw_empty_message(*text, renderer, L);
+    }
+    if (theme != nullptr) {
+        select_art::draw_scanlines(*theme, renderer, w, h, L);
+    }
+
+    if (!options_open_) {
+        return;
+    }
+    // Options overlay over the Cabinet screen (bitmap font until #96).
     const float width = static_cast<float>(w);
     const float height = static_cast<float>(h);
+    const Color kDimOverlay{0.0f, 0.0f, 0.0f, 0.72f};
+    const Color kPanelColor{0.10f, 0.13f, 0.20f, 0.98f};
+    renderer.draw_quad(Rect{0.0f, 0.0f, width, height}, kDimOverlay);
 
-    if (options_open_) {
-        const Color kDimOverlay{0.0f, 0.0f, 0.0f, 0.72f};
-        const Color kPanelColor{0.10f, 0.13f, 0.20f, 0.98f};
-        renderer.draw_quad(Rect{0.0f, 0.0f, width, height}, kDimOverlay);
+    const float panel_w = width * 0.74f;
+    const float panel_h = height * 0.76f;
+    const float panel_x = (width - panel_w) * 0.5f;
+    const float panel_y = (height - panel_h) * 0.5f;
+    renderer.draw_quad(Rect{panel_x, panel_y, panel_w, panel_h}, kPanelColor);
 
-        const float panel_w = width * 0.74f;
-        const float panel_h = height * 0.76f;
-        const float panel_x = (width - panel_w) * 0.5f;
-        const float panel_y = (height - panel_h) * 0.5f;
-        renderer.draw_quad(Rect{panel_x, panel_y, panel_w, panel_h}, kPanelColor);
+    const float text_x = panel_x + panel_w * 0.06f;
+    float row_y = panel_y + panel_h * 0.19f;
+    // Rows share the band between the title and the hint line, so adding a
+    // row shrinks the spacing instead of overlapping the hint.
+    const float row_h = panel_h * 0.69f / static_cast<float>(kOptionsRowCount);
+    const float name_pixel = std::max(2.0f, width * 0.0035f);
+    const float value_pixel = std::max(2.0f, width * 0.0032f);
 
-        const float text_x = panel_x + panel_w * 0.06f;
-        float row_y = panel_y + panel_h * 0.19f;
-        // Rows share the band between the title and the hint line, so adding a
-        // row shrinks the spacing instead of overlapping the hint.
-        const float row_h = panel_h * 0.69f / static_cast<float>(kOptionsRowCount);
-        const float name_pixel = std::max(2.0f, width * 0.0035f);
-        const float value_pixel = std::max(2.0f, width * 0.0032f);
+    draw_text(renderer, "OPTIONS", text_x, panel_y + panel_h * 0.05f,
+              std::max(2.5f, width * 0.0045f), kTitleColor);
 
-        draw_text(renderer, "OPTIONS", text_x, panel_y + panel_h * 0.05f,
-                  std::max(2.5f, width * 0.0045f), kTitleColor);
-
-        // Value column starts after the widest row name, so long names never
-        // run into their values.
-        float name_w = 0.0f;
-        for (int i = 0; i < kOptionsRowCount; ++i) {
-            name_w = std::max(name_w, text_width(options_row_name(i), name_pixel));
-        }
-        const float value_x = text_x + name_w + name_pixel * 12.0f;
-        for (int i = 0; i < kOptionsRowCount; ++i) {
-            const bool selected = i == options_.row;
-            if (selected) {
-                renderer.draw_quad(
-                    Rect{text_x - 8.0f, row_y - 4.0f, panel_w * 0.88f + 16.0f, row_h * 0.9f},
-                    kPlaceholderColor);
-            }
-            draw_text(renderer, options_row_name(i), text_x, row_y, name_pixel,
-                      selected ? kSelectedColor : kTextColor);
-            draw_text(renderer, options_row_value_text(options_, i), value_x, row_y, value_pixel,
-                      selected ? kSelectedColor : kTextColor);
-            row_y += row_h;
-        }
-
-        draw_text_centered(
-            renderer,
-            "[UP/DOWN] ROW  [LEFT/RIGHT] CHANGE  [ENTER] NEXT  [BACK] CLOSE",
-            width * 0.5f, panel_y + panel_h * 0.93f, 2.0f, kHintColor);
-        return;
+    // Value column starts after the widest row name, so long names never
+    // run into their values.
+    float name_w = 0.0f;
+    for (int i = 0; i < kOptionsRowCount; ++i) {
+        name_w = std::max(name_w, text_width(options_row_name(i), name_pixel));
     }
-
-    const float title_pixel = std::max(2.0f, width * 0.0035f);
-    draw_text(renderer, "SONG SELECT", width * 0.04f, height * 0.04f, title_pixel, kTitleColor);
-
-    if (songs_.empty()) {
-        draw_text_centered(renderer, "NO SONGS FOUND", width * 0.5f, height * 0.45f, 3.0f,
-                           kHintColor);
-        draw_text_centered(renderer, "[BACK] TO TITLE", width * 0.5f, height * 0.82f, 2.5f,
-                           kHintColor);
-        return;
-    }
-
-    const Song* song = selected_song();
-    const WheelEntry& entry = songs_[static_cast<std::size_t>(selected_song_)];
-
-    const std::string& pack_name =
-        (entry.pack_index >= 0 && entry.pack_index < static_cast<int>(pack_names_.size()))
-            ? pack_names_[static_cast<std::size_t>(entry.pack_index)]
-            : std::string{};
-    draw_text(renderer, pack_name, width * 0.04f, height * 0.11f, 2.5f, kPackColor);
-
-    // Banner (placeholder quad when the art is missing/undecodable/headless).
-    const Rect banner_rect{width * 0.04f, height * 0.16f, width * 0.42f, width * 0.42f * 0.28f};
-    const Texture* banner =
-        song != nullptr ? texture_cache_.get(song->resolved_banner_path) : nullptr;
-    if (banner != nullptr && banner->valid()) {
-        renderer.draw_textured_quad(banner_rect, *banner, UVRect{}, Color{1.0f, 1.0f, 1.0f, 1.0f});
-    } else {
-        renderer.draw_quad(banner_rect, kPlaceholderColor);
-    }
-
-    if (song != nullptr) {
-        const float info_x = width * 0.04f;
-        float info_y = banner_rect.y + banner_rect.h + height * 0.03f;
-        draw_text(renderer, song_display_title(song->metadata), info_x, info_y, 3.0f,
-                  kSelectedColor);
-        info_y += height * 0.045f;
-        draw_text(renderer, song_display_artist(song->metadata), info_x, info_y, 2.5f, kTextColor);
-        info_y += height * 0.04f;
-        draw_text(renderer, "BPM " + format_bpm_range(song->timing), info_x, info_y, 2.5f,
-                  kDimColor);
-    }
-
-    // Fixed-size windowed wheel on the right, with a pack-change separator. The
-    // window is 13 rows tall; the highlight stays centered whenever the window
-    // can slide, and the window fills the full 13 rows at either end of the list.
-    const int count = static_cast<int>(songs_.size());
-    constexpr int kHalfRows = 6;
-    const int window_rows = 2 * kHalfRows + 1;
-    int first = selected_song_ - kHalfRows;
-    first = std::clamp(first, 0, std::max(0, count - window_rows));
-    const int last = std::min(count - 1, first + window_rows - 1);
-    const float row_h = height * 0.045f;
-    const float list_x = width * 0.52f;
-    float row_y = height * 0.18f;
-    for (int i = first; i <= last; ++i) {
-        const WheelEntry& item = songs_[static_cast<std::size_t>(i)];
-        const bool selected = i == selected_song_;
-        if (i == first && item.pack_index >= 0 &&
-            item.pack_index < static_cast<int>(pack_names_.size())) {
-            draw_text(renderer, pack_names_[static_cast<std::size_t>(item.pack_index)], list_x,
-                      row_y - row_h * 0.9f, 2.0f, kPackColor);
-        }
+    const float value_x = text_x + name_w + name_pixel * 12.0f;
+    for (int i = 0; i < kOptionsRowCount; ++i) {
+        const bool selected = i == options_.row;
         if (selected) {
-            renderer.draw_quad(Rect{list_x - 6.0f, row_y - 4.0f, width * 0.44f, row_h},
-                               kPlaceholderColor);
+            renderer.draw_quad(
+                Rect{text_x - 8.0f, row_y - 4.0f, panel_w * 0.88f + 16.0f, row_h * 0.9f},
+                kPlaceholderColor);
         }
-        if (item.song != nullptr) {
-            draw_text(renderer, song_display_title(item.song->metadata), list_x, row_y, 2.5f,
-                      selected ? kSelectedColor : kTextColor);
-        }
+        draw_text(renderer, options_row_name(i), text_x, row_y, name_pixel,
+                  selected ? kSelectedColor : kTextColor);
+        draw_text(renderer, options_row_value_text(options_, i), value_x, row_y, value_pixel,
+                  selected ? kSelectedColor : kTextColor);
         row_y += row_h;
-    }
-
-    // Difficulty rows for the highlighted song: passthrough label (an Edit
-    // chart shows its name, shortened to fit the highlight bar) + meter + best
-    // percent, tinted per difficulty (Edit keeps the neutral tint). The tint
-    // carries the difficulty, so the selected row is marked by a highlight bar
-    // and a cursor instead of a color.
-    const std::size_t chart_total = song == nullptr ? 0 : song->charts.size();
-    const float diff_x = width * 0.04f;
-    const float diff_row_h = height * 0.042f;
-    float diff_y = height * 0.62f;
-    draw_text(renderer, "DIFFICULTY", diff_x, diff_y, 2.5f, kDimColor);
-    diff_y += height * 0.05f;
-    for (std::size_t i = 0; i < chart_total; ++i) {
-        const Chart& chart = song->charts[i];
-        const bool selected = static_cast<int>(i) == selected_chart_;
-
-        std::string best = "---";
-        if (const ScoreRecord* record = best_score_for(ctx, *song, chart); record != nullptr) {
-            best = format_percent(record->percent);
-        }
-
-        const float bar_w = width * 0.42f;
-        if (selected) {
-            renderer.draw_quad(Rect{diff_x - 6.0f, diff_y - 4.0f, bar_w, diff_row_h},
-                               kPlaceholderColor);
-        }
-        // The text starts 6 px inside the bar; keep the same 6 px clear at the
-        // right edge so a row filled to the budget never runs past the bar.
-        const std::string row = difficulty_row_text(chart, selected, best, bar_w - 12.0f, 2.5f);
-        draw_text(renderer, row, diff_x, diff_y, 2.5f, difficulty_color(chart.difficulty));
-        diff_y += diff_row_h;
     }
 
     draw_text_centered(
         renderer,
-        "[UP/DOWN] SONG   [LEFT/RIGHT] DIFFICULTY   [ENTER] PLAY   [TAB] OPTIONS   [BACK] TITLE",
-        width * 0.5f, height * 0.93f, 2.0f, kHintColor);
+        "[UP/DOWN] ROW  [LEFT/RIGHT] CHANGE  [ENTER] NEXT  [BACK] CLOSE",
+        width * 0.5f, panel_y + panel_h * 0.93f, 2.0f, kHintColor);
 }
 
 void SelectScreen::exit(ScreenContext& /*ctx*/) {
