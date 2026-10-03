@@ -149,15 +149,6 @@ void test_below_percent_text() {
     std::cout << "  - bar stays below the top-left percent text ok.\n";
 }
 
-void test_grade_text_clear() {
-    for (const Size s : {Size{1280, 720}, Size{640, 480}}) {
-        const Rect grade = blaze4k::grade_text_rect("****", s.w, s.h);
-        const LifeBarLayout l = layout_at(1.0, s.w, s.h);
-        TEST_CHECK(!intersects(l.frame, grade));
-    }
-    std::cout << "  - bottom-centre grade text is not overlapped ok.\n";
-}
-
 void test_judgment_pop_clear() {
     using blaze4k::JudgmentAnimator;
     using blaze4k::JudgmentEvent;
@@ -248,7 +239,6 @@ int main() {
     test_frame_wraps_back();
     test_no_field_overlap_common_sizes();
     test_below_percent_text();
-    test_grade_text_clear();
     test_judgment_pop_clear();
     test_narrow_clamp();
     test_degenerate();

@@ -26,11 +26,10 @@ class GlQuadRenderer;
 // D2 judgment pop so both read identically.
 [[nodiscard]] Color judgment_color(JudgmentKind kind, TapJudgment window, HoldJudgment hold);
 
-// Screen rects of the top-left percent text and the bottom-centre grade text, as
-// `HudRenderer::render` draws them (Blaze 4k presentation). Exposed so layout
-// checks (e.g. life bar clearance) read the real HUD geometry.
+// Screen rect of the top-left percent text, as `HudRenderer::render` draws it
+// (Blaze 4k presentation). Exposed so layout checks (e.g. life bar clearance) read
+// the real HUD geometry.
 [[nodiscard]] Rect percent_text_rect(const std::string& text);
-[[nodiscard]] Rect grade_text_rect(const std::string& text, int screen_w, int screen_h);
 
 // Minimum clearance between the life bar frame's right edge and the note field
 // (Blaze 4k presentation, unsourced).
@@ -50,7 +49,7 @@ struct LifeBarLayout {
 [[nodiscard]] LifeBarLayout layout_life_bar(double life, int screen_w, int screen_h,
                                             double field_left);
 
-// Minimal live HUD: score percent, combo, per-window judgment counts, and grade,
+// Minimal live HUD: score percent, combo, and per-window judgment counts,
 // drawn as solid quads with a self-contained 5x7 bitmap font. No font asset, no
 // stb_truetype, no GL context required to construct (drawing is a no-op when the
 // renderer is uninitialized, which is also how `GlQuadRenderer` behaves).

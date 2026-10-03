@@ -37,7 +37,7 @@ constexpr float kLifeBarMinInset = 40.0f;      // keeps the frame below the perc
 
 // HUD text layout (Blaze 4k presentation, unsourced).
 constexpr float kHudEdgeMargin = 8.0f;  // inset of the HUD text from the screen edges
-constexpr float kHudTextPixel = 3.0f;   // bitmap-font pixel for percent/combo/grade
+constexpr float kHudTextPixel = 3.0f;   // bitmap-font pixel for percent/combo
 constexpr float kGlyphRows = 7.0f;      // 5x7 font glyph height, in font pixels
 
 } // namespace
@@ -45,13 +45,6 @@ constexpr float kGlyphRows = 7.0f;      // 5x7 font glyph height, in font pixels
 Rect percent_text_rect(const std::string& text) {
     return Rect{kHudEdgeMargin, kHudEdgeMargin, text_width(text, kHudTextPixel),
                 kGlyphRows * kHudTextPixel};
-}
-
-Rect grade_text_rect(const std::string& text, int screen_w, int screen_h) {
-    const float text_w = text_width(text, kHudTextPixel);
-    const float text_h = kGlyphRows * kHudTextPixel;
-    return Rect{(static_cast<float>(screen_w) - text_w) * 0.5f,
-                static_cast<float>(screen_h) - kHudEdgeMargin - text_h, text_w, text_h};
 }
 
 std::string format_percent(double percent) {
@@ -176,13 +169,6 @@ void HudRenderer::render(const ScoreState& state, int screen_w, int screen_h,
               judgment_color(JudgmentKind::HoldOk, TapJudgment::Num, HoldJudgment::Ok), chip_y);
     draw_chip(state.hold_counts[static_cast<std::size_t>(HoldJudgment::Ng)],
               judgment_color(JudgmentKind::HoldNg, TapJudgment::Num, HoldJudgment::Ng), chip_y);
-
-    // Bottom-centre: live grade.
-    if (state.grade != nullptr) {
-        const std::string grade_text = format_grade(*state.grade);
-        const Rect grade_rect = grade_text_rect(grade_text, screen_w, screen_h);
-        draw_text(renderer, grade_text, grade_rect.x, grade_rect.y, main_pixel, kTextColor);
-    }
 }
 
 LifeBarLayout layout_life_bar(double life, int screen_w, int screen_h, double field_left) {
