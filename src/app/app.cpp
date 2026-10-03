@@ -50,10 +50,10 @@ bool App::init() {
     theme_textures_.load(ThemeTextures::default_directory());
 
     // #90: load the theme fonts and pre-bake every theme text atlas at the
-    // current height. Non-fatal: a missing/corrupt font logs once and that font
+    // current window size. Non-fatal: a missing/corrupt font logs once and that font
     // draws with the bitmap fallback; headless logs one line and bakes nothing.
     text_renderer_.load();
-    text_renderer_.set_window_height(window_.height());
+    text_renderer_.set_window_size(window_.width(), window_.height());
 
     std::cout << "[App] Initialized successfully (fixed_dt=" << config_.fixed_dt
               << "s, vsync=" << (config_.window.vsync ? "on" : "off") << ").\n";
@@ -96,8 +96,8 @@ void App::run() {
 
         // Render pass with interpolation factor alpha
         double alpha = accumulator_ / config_.fixed_dt;
-        // O(1) unless the window height changed (then the atlases re-bake once).
-        text_renderer_.set_window_height(window_.height());
+        // O(1) unless the layout scale changed (then the atlases re-bake once).
+        text_renderer_.set_window_size(window_.width(), window_.height());
         on_render(alpha);
 
         window_.swap_buffers();

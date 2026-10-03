@@ -16,6 +16,7 @@
 #include "data/data_paths.hpp"
 #include "render/bitmap_font.hpp"
 #include "render/gl_quad_renderer.hpp"
+#include "render/theme_layout.hpp"
 #include "render/unicode_text.hpp"
 
 namespace blaze4k {
@@ -312,8 +313,8 @@ std::vector<std::uint8_t> coverage_to_white_rgba(std::span<const std::uint8_t> c
     return rgba;
 }
 
-float text_layout_scale(int window_height) {
-    return window_height <= 0 ? 1.0f : static_cast<float>(window_height) / 720.0f;
+float text_layout_scale(int window_width, int window_height) {
+    return theme::layout_scale_factor(window_width, window_height);
 }
 
 TextLayout resolve_text_layout(const theme::TextStyle& style, float s, TextAlign align,
@@ -757,7 +758,9 @@ void TextRenderer::shutdown() {
     for (std::optional<FontFace>& face : faces_) {
         face.reset();
     }
+    baked_width_ = -1;
     baked_height_ = -1;
+    sized_ = false;
     scale_ = 1.0f;
     warned_headless_ = false;
     warned_atlas_cap_ = false;
@@ -801,12 +804,20 @@ bool TextRenderer::load_paths(const std::array<std::filesystem::path, theme::kFo
     return loaded > 0;
 }
 
-void TextRenderer::set_window_height(int window_height) {
-    if (window_height == baked_height_) {
+void TextRenderer::set_window_size(int window_width, int window_height) {
+    if (sized_ && window_width == baked_width_ && window_height == baked_height_) {
         return;
     }
+    baked_width_ = window_width;
     baked_height_ = window_height;
-    scale_ = text_layout_scale(window_height);
+    const float scale = text_layout_scale(window_width, window_height);
+    // Atlases depend only on the scale: a resize that keeps it (e.g. widening a
+    // height-limited 21:9 window) keeps them.
+    if (sized_ && scale == scale_) {
+        return;
+    }
+    sized_ = true;
+    scale_ = scale;
     atlases_.clear();
     if (!gl_present()) {
         if (!warned_headless_) {
@@ -843,8 +854,9 @@ void TextRenderer::set_window_height(int window_height) {
                           .count();
     const std::ios::fmtflags saved_flags = std::cout.flags();
     const std::streamsize saved_precision = std::cout.precision();
-    std::cout << "[TextRenderer] Baked " << baked << " atlases for " << window_height << "p ("
-              << std::fixed << std::setprecision(1)
+    std::cout << "[TextRenderer] Baked " << baked << " atlases for " << window_width << "x"
+              << window_height << " (s=" << std::fixed << std::setprecision(2) << scale_ << ", "
+              << std::setprecision(1)
               << static_cast<double>(bytes) / (1024.0 * 1024.0) << " MB, " << ms << " ms)\n";
     std::cout.flags(saved_flags);
     std::cout.precision(saved_precision);

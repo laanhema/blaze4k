@@ -1,9 +1,9 @@
 #pragma once
 
 // Blaze 4k "Cabinet" theme: colours, text styles and layout taken from the Cabinet v3 mock-ups.
-// Layout values are in a 1280x720 reference space: multiply by (window_height / 720) and centre
-// horizontally the same way the existing screens do. Baked textures live in assets/theme/cabinet/
-// and are described in assets/theme/cabinet/manifest.json.
+// Layout values are in a 1280x720 reference space: map them to window pixels (scale by `s` and
+// place them in the centred content column) with render/theme_layout.hpp (#91). Baked textures
+// live in assets/theme/cabinet/ and are described in assets/theme/cabinet/manifest.json.
 
 #include <array>
 #include <cstddef>

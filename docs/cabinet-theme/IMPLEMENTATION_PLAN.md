@@ -73,9 +73,11 @@ Considered and not needed now:
 
 ### 2.4 Layout scale
 
-Add one helper used by every screen: `s = window_height / 720`, and a 1280·s-wide content column
-centred horizontally (wider windows show more background, as the game already does for the note
-field). Every `theme::layout` value is multiplied by `s`.
+Add one helper used by every screen (`render/theme_layout.hpp`, #91): `s = min(window_height / 720,
+window_width / 1280)`, so the whole layout always fits, and a 1280·s x 720·s content column centred
+on both axes. Wider windows (21:9) show more background at the sides, as the game already does for
+the note field; narrower ones (16:10, 4:3) show bands above and below, and nothing is cropped.
+Every `theme::layout` value is multiplied by `s`, and text atlases bake at the same `s`.
 
 ## 3. Screen by screen
 
