@@ -77,6 +77,11 @@ void options_menu_adjust(OptionsMenu& menu, int delta);
 [[nodiscard]] std::string options_row_name(int row);
 [[nodiscard]] std::string options_row_value_text(const OptionsMenu& menu, int row);
 
+// "2.5x", "C450", "M600": the forms parse_speed_mod accepts (the overlay's
+// value text, the persisted config string and the select screen's speed chip).
+// Pure.
+[[nodiscard]] std::string format_speed_mod(const SpeedMod& mod);
+
 // Signed seconds, e.g. "+0.023 s" / "-0.011 s". Pure.
 [[nodiscard]] std::string format_offset(double seconds);
 

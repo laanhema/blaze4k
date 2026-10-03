@@ -191,7 +191,7 @@ constexpr float kDiffListX = 44.0f;
 constexpr float kDiffListTop = 372.0f;
 constexpr float kDiffRowHeight = 44.0f;
 constexpr float kDiffRowSelectedHeight = 52.0f;
-constexpr float kDiffRowGap = 8.0f;
+constexpr float kDiffRowGap = 10.0f; // measured from cabinet-v3-select.png (#94): 54px row pitch
 constexpr float kDiffRowSelectedShiftX = 14.0f;
 constexpr float kDiffTickPitch = 18.0f; // 14px tick + 4px gap, 10 ticks
 constexpr float kWheelX = 676.0f;
@@ -199,7 +199,7 @@ constexpr float kWheelTop = 92.0f;
 constexpr float kWheelWidth = 640.0f;   // runs off the right edge on purpose
 constexpr float kWheelRowHeight = 62.0f;
 constexpr float kWheelRowSelectedHeight = 92.0f;
-constexpr float kWheelRowGap = 10.0f;
+constexpr float kWheelRowGap = 14.0f; // measured from cabinet-v3-select.png (#94): 76px row pitch
 // Indent per distance from the selected row (0 = selected): fakes the curve of the wheel.
 constexpr std::array<float, 4> kWheelIndent = {0.0f, 46.0f, 76.0f, 96.0f};
 
