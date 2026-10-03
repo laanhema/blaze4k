@@ -425,3 +425,20 @@ target_link_libraries(assist_tick_test PRIVATE
 )
 
 add_test(NAME assist_tick_test COMMAND assist_tick_test)
+
+add_executable(theme_test
+    theme_test.cpp
+)
+
+target_link_libraries(theme_test PRIVATE
+    blaze4k_core
+)
+
+# Compiles render/theme.hpp and checks the committed Cabinet theme pack
+# (fonts, manifest, textures) from out-of-tree test runs, mirroring
+# background_test's BLAZE4K_ASSETS_DIR seam.
+target_compile_definitions(theme_test PRIVATE
+    BLAZE4K_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets"
+)
+
+add_test(NAME theme_test COMMAND theme_test)

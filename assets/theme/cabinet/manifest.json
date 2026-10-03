@@ -1,0 +1,1483 @@
+{
+ "name": "Blaze 4k — Cabinet theme",
+ "version": 1,
+ "reference_resolution": [
+  1280,
+  720
+ ],
+ "texture_scale": 2,
+ "about": "All textures are rendered at 2x (designed for 1280x720, sharp up to 2560x1440). Draw a texture at size_px / 2 * (window_height / 720). content_px is the design box inside the padding that holds glows and shadows: position that box at layout_720p, the padding hangs outside it. slice3_px: left/right caps, stretch the middle horizontally. slice9_px: border insets. tint: 'multiply' = draw with a vertex colour.",
+ "textures": {
+  "bg_title": {
+   "file": "bg_title.png",
+   "kind": "fullscreen",
+   "size_px": [
+    2560,
+    1440
+   ],
+   "content_px": [
+    0,
+    0,
+    2560,
+    1440
+   ],
+   "screen": "title",
+   "notes": "Static title background: vignette, speed streaks, floor grid and footer fade. Draw first, stretched to the window."
+  },
+  "bg_select": {
+   "file": "bg_select.png",
+   "kind": "fullscreen",
+   "size_px": [
+    2560,
+    1440
+   ],
+   "content_px": [
+    0,
+    0,
+    2560,
+    1440
+   ],
+   "screen": "select",
+   "notes": "Song select / options background."
+  },
+  "bg_results": {
+   "file": "bg_results.png",
+   "kind": "fullscreen",
+   "size_px": [
+    2560,
+    1440
+   ],
+   "content_px": [
+    0,
+    0,
+    2560,
+    1440
+   ],
+   "screen": "results",
+   "notes": "Score screen background with the sunburst behind the grade medallion. Can be slowly rotated: split the sunburst out if you want motion."
+  },
+  "logo": {
+   "file": "logo.png",
+   "kind": "sprite",
+   "size_px": [
+    2120,
+    540
+   ],
+   "content_px": [
+    80,
+    80,
+    1960,
+    380
+   ],
+   "layout_720p": [
+    150,
+    168,
+    980,
+    190
+   ],
+   "anchor": "centre",
+   "screen": "title",
+   "notes": "BLAZE 4K wordmark: chrome + fire, skewed -10deg, shadows baked. Place centred, content top at y=168 (1280x720)."
+  },
+  "subtitle": {
+   "file": "subtitle.png",
+   "kind": "sprite",
+   "size_px": [
+    1120,
+    140
+   ],
+   "content_px": [
+    40,
+    40,
+    1040,
+    60
+   ],
+   "layout_720p": [
+    380,
+    362,
+    520,
+    30
+   ],
+   "anchor": "centre",
+   "screen": "title",
+   "notes": "Subtitle under the logo, centred, top y=362."
+  },
+  "press_start": {
+   "file": "press_start.png",
+   "kind": "sprite",
+   "size_px": [
+    1024,
+    296
+   ],
+   "content_px": [
+    72,
+    72,
+    880,
+    152
+   ],
+   "layout_720p": [
+    420,
+    548,
+    440,
+    76
+   ],
+   "anchor": "centre",
+   "screen": "title",
+   "notes": "PRESS START plate. Blink by alpha (the game blinks at 1 Hz)."
+  },
+  "bar_top": {
+   "file": "bar_top.png",
+   "kind": "stretch_x",
+   "size_px": [
+    32,
+    132
+   ],
+   "content_px": [
+    0,
+    0,
+    32,
+    132
+   ],
+   "notes": "Chrome top bar (64 + 2px black rule). Stretch horizontally to the window width; never vertically."
+  },
+  "bar_hint": {
+   "file": "bar_hint.png",
+   "kind": "stretch_x",
+   "size_px": [
+    32,
+    108
+   ],
+   "content_px": [
+    0,
+    0,
+    32,
+    108
+   ],
+   "notes": "Bottom key-hint bar. Stretch horizontally; 52px on select, 44px on the score screen (stretching vertically is fine, it is a plain gradient)."
+  },
+  "title_select_music": {
+   "file": "title_select_music.png",
+   "kind": "sprite",
+   "size_px": [
+    656,
+    148
+   ],
+   "content_px": [
+    28,
+    28,
+    600,
+    92
+   ],
+   "layout_720p": [
+    40,
+    9,
+    300,
+    46
+   ],
+   "screen": "select",
+   "notes": "Top-bar title, left x=40, vertically centred in bar_top."
+  },
+  "title_score_screen": {
+   "file": "title_score_screen.png",
+   "kind": "sprite",
+   "size_px": [
+    656,
+    148
+   ],
+   "content_px": [
+    28,
+    28,
+    600,
+    92
+   ],
+   "layout_720p": [
+    40,
+    9,
+    300,
+    46
+   ],
+   "screen": "results",
+   "notes": "Top-bar title on the score screen."
+  },
+  "banner_frame": {
+   "file": "banner_frame.png",
+   "kind": "frame",
+   "size_px": [
+    1136,
+    330
+   ],
+   "content_px": [
+    0,
+    0,
+    1136,
+    330
+   ],
+   "layout_720p": [
+    44,
+    96,
+    568,
+    165
+   ],
+   "hole_px": [
+    8,
+    8,
+    1120,
+    314
+   ],
+   "screen": "select",
+   "notes": "Chrome frame around the song banner; the 560x157 hole is where the banner image goes (0.28 aspect, as now). Draw the banner first, frame on top."
+  },
+  "banner_fallback": {
+   "file": "banner_fallback.png",
+   "kind": "sprite",
+   "size_px": [
+    1120,
+    314
+   ],
+   "content_px": [
+    0,
+    0,
+    1120,
+    314
+   ],
+   "screen": "select",
+   "notes": "Banner placeholder when a song has no banner (replaces the flat placeholder quad). The song title can be drawn on it."
+  },
+  "chip": {
+   "file": "chip.png",
+   "kind": "slice3",
+   "size_px": [
+    296,
+    76
+   ],
+   "content_px": [
+    8,
+    8,
+    280,
+    60
+   ],
+   "slice3_px": {
+    "left": 44,
+    "right": 44
+   },
+   "tint": "border",
+   "screen": "select",
+   "notes": "Option chip (SPEED 2.5x, UPSCROLL). White border on navy: multiply by the chip colour (cyan 2fd2ff, green 3dff7a). Stretch the middle for text width; text 18px Saira ExtraBold, tracking 3px, same colour."
+  },
+  "wheel_row": {
+   "file": "wheel_row.png",
+   "kind": "slice3",
+   "size_px": [
+    1144,
+    140
+   ],
+   "content_px": [
+    8,
+    8,
+    1128,
+    124
+   ],
+   "slice3_px": {
+    "left": 68,
+    "right": 68
+   },
+   "screen": "select",
+   "notes": "Song wheel row (unselected). Text 28px Saira Bold, d6e2ff, x+26 from the row's left edge. Rows are indented in the mock (0/46/76px) to fake a curved wheel."
+  },
+  "wheel_pack": {
+   "file": "wheel_pack.png",
+   "kind": "slice3",
+   "size_px": [
+    1144,
+    140
+   ],
+   "content_px": [
+    8,
+    8,
+    1128,
+    124
+   ],
+   "slice3_px": {
+    "left": 120,
+    "right": 68
+   },
+   "screen": "select",
+   "notes": "Pack/group row with the folder caret baked in. Text 28px Saira ExtraBold, 1e0b00, tracking 3px, starts x+54."
+  },
+  "wheel_row_selected": {
+   "file": "wheel_row_selected.png",
+   "kind": "sprite",
+   "size_px": [
+    1416,
+    320
+   ],
+   "content_px": [
+    68,
+    68,
+    1280,
+    184
+   ],
+   "screen": "select",
+   "notes": "Selected song bar (fixed width). Title 40px Saira ExtraBold italic, 1b0d00, x+30. No artist on the wheel."
+  },
+  "diff_row_beginner": {
+   "file": "diff_row_beginner.png",
+   "kind": "slice3",
+   "size_px": [
+    1144,
+    104
+   ],
+   "content_px": [
+    8,
+    8,
+    1128,
+    88
+   ],
+   "slice3_px": {
+    "left": 348,
+    "right": 56
+   },
+   "screen": "select",
+   "notes": "Beginner difficulty row with its colour tab. Name 20px Saira ExtraBold #14062e tracking 2px at x+24; meter 28px white centred at x+183; ticks from x+216; best % right-aligned 20px a9b6cf."
+  },
+  "diff_row_beginner_selected": {
+   "file": "diff_row_beginner_selected.png",
+   "kind": "slice3",
+   "size_px": [
+    1232,
+    208
+   ],
+   "content_px": [
+    52,
+    52,
+    1128,
+    104
+   ],
+   "slice3_px": {
+    "left": 432,
+    "right": 144
+   },
+   "screen": "select",
+   "notes": "Selected beginner row: gold frame + glow, drawn 14px further right than the others. Name 22px, meter 32px, best % 22px ffd633."
+  },
+  "diff_row_easy": {
+   "file": "diff_row_easy.png",
+   "kind": "slice3",
+   "size_px": [
+    1144,
+    104
+   ],
+   "content_px": [
+    8,
+    8,
+    1128,
+    88
+   ],
+   "slice3_px": {
+    "left": 348,
+    "right": 56
+   },
+   "screen": "select",
+   "notes": "Easy difficulty row with its colour tab. Name 20px Saira ExtraBold #04210d tracking 2px at x+24; meter 28px white centred at x+183; ticks from x+216; best % right-aligned 20px a9b6cf."
+  },
+  "diff_row_easy_selected": {
+   "file": "diff_row_easy_selected.png",
+   "kind": "slice3",
+   "size_px": [
+    1232,
+    208
+   ],
+   "content_px": [
+    52,
+    52,
+    1128,
+    104
+   ],
+   "slice3_px": {
+    "left": 432,
+    "right": 144
+   },
+   "screen": "select",
+   "notes": "Selected easy row: gold frame + glow, drawn 14px further right than the others. Name 22px, meter 32px, best % 22px ffd633."
+  },
+  "diff_row_medium": {
+   "file": "diff_row_medium.png",
+   "kind": "slice3",
+   "size_px": [
+    1144,
+    104
+   ],
+   "content_px": [
+    8,
+    8,
+    1128,
+    88
+   ],
+   "slice3_px": {
+    "left": 348,
+    "right": 56
+   },
+   "screen": "select",
+   "notes": "Medium difficulty row with its colour tab. Name 20px Saira ExtraBold #2a1d00 tracking 2px at x+24; meter 28px white centred at x+183; ticks from x+216; best % right-aligned 20px a9b6cf."
+  },
+  "diff_row_medium_selected": {
+   "file": "diff_row_medium_selected.png",
+   "kind": "slice3",
+   "size_px": [
+    1232,
+    208
+   ],
+   "content_px": [
+    52,
+    52,
+    1128,
+    104
+   ],
+   "slice3_px": {
+    "left": 432,
+    "right": 144
+   },
+   "screen": "select",
+   "notes": "Selected medium row: gold frame + glow, drawn 14px further right than the others. Name 22px, meter 32px, best % 22px ffd633."
+  },
+  "diff_row_hard": {
+   "file": "diff_row_hard.png",
+   "kind": "slice3",
+   "size_px": [
+    1144,
+    104
+   ],
+   "content_px": [
+    8,
+    8,
+    1128,
+    88
+   ],
+   "slice3_px": {
+    "left": 348,
+    "right": 56
+   },
+   "screen": "select",
+   "notes": "Hard difficulty row with its colour tab. Name 20px Saira ExtraBold #2a0000 tracking 2px at x+24; meter 28px white centred at x+183; ticks from x+216; best % right-aligned 20px a9b6cf."
+  },
+  "diff_row_hard_selected": {
+   "file": "diff_row_hard_selected.png",
+   "kind": "slice3",
+   "size_px": [
+    1232,
+    208
+   ],
+   "content_px": [
+    52,
+    52,
+    1128,
+    104
+   ],
+   "slice3_px": {
+    "left": 432,
+    "right": 144
+   },
+   "screen": "select",
+   "notes": "Selected hard row: gold frame + glow, drawn 14px further right than the others. Name 22px, meter 32px, best % 22px ffd633."
+  },
+  "diff_row_challenge": {
+   "file": "diff_row_challenge.png",
+   "kind": "slice3",
+   "size_px": [
+    1144,
+    104
+   ],
+   "content_px": [
+    8,
+    8,
+    1128,
+    88
+   ],
+   "slice3_px": {
+    "left": 348,
+    "right": 56
+   },
+   "screen": "select",
+   "notes": "Challenge difficulty row with its colour tab. Name 20px Saira ExtraBold #001a33 tracking 2px at x+24; meter 28px white centred at x+183; ticks from x+216; best % right-aligned 20px a9b6cf."
+  },
+  "diff_row_challenge_selected": {
+   "file": "diff_row_challenge_selected.png",
+   "kind": "slice3",
+   "size_px": [
+    1232,
+    208
+   ],
+   "content_px": [
+    52,
+    52,
+    1128,
+    104
+   ],
+   "slice3_px": {
+    "left": 432,
+    "right": 144
+   },
+   "screen": "select",
+   "notes": "Selected challenge row: gold frame + glow, drawn 14px further right than the others. Name 22px, meter 32px, best % 22px ffd633."
+  },
+  "diff_tick": {
+   "file": "diff_tick.png",
+   "kind": "sprite",
+   "size_px": [
+    40,
+    36
+   ],
+   "content_px": [
+    0,
+    0,
+    40,
+    36
+   ],
+   "tint": "multiply",
+   "screen": "select",
+   "notes": "One meter tick (white, slanted). Multiply by the difficulty colour when lit, by 26304f when unlit. 10 ticks, 18px pitch (14 + 4 gap); 20px tall in the selected row."
+  },
+  "diff_badge": {
+   "file": "diff_badge.png",
+   "kind": "slice3",
+   "size_px": [
+    340,
+    160
+   ],
+   "content_px": [
+    40,
+    40,
+    260,
+    80
+   ],
+   "layout_720p": [
+    36,
+    28,
+    130,
+    40
+   ],
+   "slice3_px": {
+    "left": 100,
+    "right": 100
+   },
+   "tint": "multiply",
+   "screen": "gameplay",
+   "notes": "Gameplay difficulty badge, top-left. White plate (hard black shadow + soft glow): multiply by the difficulty colour. Text e.g. HARD 8, 24px Saira ExtraBold, tracking 3px, in the difficulty's dark ink colour."
+  },
+  "life_frame": {
+   "file": "life_frame.png",
+   "kind": "slice9",
+   "size_px": [
+    80,
+    960
+   ],
+   "content_px": [
+    0,
+    0,
+    80,
+    960
+   ],
+   "layout_720p": [
+    40,
+    120,
+    40,
+    480
+   ],
+   "slice9_px": {
+    "top": 16,
+    "right": 8,
+    "bottom": 16,
+    "left": 8
+   },
+   "screen": "gameplay",
+   "notes": "Life bar frame + empty track. Stretch vertically (9-slice, 4px border). Fill goes inside the 32px-wide track, bottom-anchored, then life_stripes over the fill."
+  },
+  "life_fill": {
+   "file": "life_fill.png",
+   "kind": "stretch",
+   "size_px": [
+    16,
+    512
+   ],
+   "content_px": [
+    0,
+    0,
+    16,
+    512
+   ],
+   "screen": "gameplay",
+   "notes": "Life fill gradient (normal). Stretch to the filled height. Map the full texture to the full bar height and crop UVs to the filled part so the gradient stays fixed as life changes."
+  },
+  "life_fill_danger": {
+   "file": "life_fill_danger.png",
+   "kind": "stretch",
+   "size_px": [
+    16,
+    512
+   ],
+   "content_px": [
+    0,
+    0,
+    16,
+    512
+   ],
+   "screen": "gameplay",
+   "notes": "Life fill below the 0.3 danger threshold. Extrapolated: the mock-ups only show the healthy bar."
+  },
+  "life_stripes": {
+   "file": "life_stripes.png",
+   "kind": "tile",
+   "size_px": [
+    16,
+    24
+   ],
+   "content_px": [
+    0,
+    0,
+    16,
+    24
+   ],
+   "screen": "gameplay",
+   "notes": "Segment stripes over the life fill. GL_REPEAT vertically, 12px period, aligned to the track bottom."
+  },
+  "judgment_fantastic": {
+   "file": "judgment_fantastic.png",
+   "kind": "sprite",
+   "size_px": [
+    1000,
+    244
+   ],
+   "content_px": [
+    56,
+    56,
+    888,
+    132
+   ],
+   "layout_720p": [
+    418,
+    296,
+    444,
+    66
+   ],
+   "anchor": "centre",
+   "screen": "gameplay",
+   "notes": "Judgment pop 'FANTASTIC'. Centred on the field, top y=296 (41% of height). Scale/fade per the existing pop animation."
+  },
+  "judgment_excellent": {
+   "file": "judgment_excellent.png",
+   "kind": "sprite",
+   "size_px": [
+    1000,
+    244
+   ],
+   "content_px": [
+    56,
+    56,
+    888,
+    132
+   ],
+   "layout_720p": [
+    418,
+    296,
+    444,
+    66
+   ],
+   "anchor": "centre",
+   "screen": "gameplay",
+   "notes": "Judgment pop 'EXCELLENT'. Centred on the field, top y=296 (41% of height). Scale/fade per the existing pop animation."
+  },
+  "judgment_great": {
+   "file": "judgment_great.png",
+   "kind": "sprite",
+   "size_px": [
+    1000,
+    244
+   ],
+   "content_px": [
+    56,
+    56,
+    888,
+    132
+   ],
+   "layout_720p": [
+    418,
+    296,
+    444,
+    66
+   ],
+   "anchor": "centre",
+   "screen": "gameplay",
+   "notes": "Judgment pop 'GREAT'. Centred on the field, top y=296 (41% of height). Scale/fade per the existing pop animation."
+  },
+  "judgment_decent": {
+   "file": "judgment_decent.png",
+   "kind": "sprite",
+   "size_px": [
+    1000,
+    244
+   ],
+   "content_px": [
+    56,
+    56,
+    888,
+    132
+   ],
+   "layout_720p": [
+    418,
+    296,
+    444,
+    66
+   ],
+   "anchor": "centre",
+   "screen": "gameplay",
+   "notes": "Judgment pop 'DECENT'. Centred on the field, top y=296 (41% of height). Scale/fade per the existing pop animation."
+  },
+  "judgment_wayoff": {
+   "file": "judgment_wayoff.png",
+   "kind": "sprite",
+   "size_px": [
+    1000,
+    244
+   ],
+   "content_px": [
+    56,
+    56,
+    888,
+    132
+   ],
+   "layout_720p": [
+    418,
+    296,
+    444,
+    66
+   ],
+   "anchor": "centre",
+   "screen": "gameplay",
+   "notes": "Judgment pop 'WAY OFF'. Centred on the field, top y=296 (41% of height). Scale/fade per the existing pop animation."
+  },
+  "judgment_miss": {
+   "file": "judgment_miss.png",
+   "kind": "sprite",
+   "size_px": [
+    1000,
+    244
+   ],
+   "content_px": [
+    56,
+    56,
+    888,
+    132
+   ],
+   "layout_720p": [
+    418,
+    296,
+    444,
+    66
+   ],
+   "anchor": "centre",
+   "screen": "gameplay",
+   "notes": "Judgment pop 'MISS'. Centred on the field, top y=296 (41% of height). Scale/fade per the existing pop animation."
+  },
+  "judgment_mine": {
+   "file": "judgment_mine.png",
+   "kind": "sprite",
+   "size_px": [
+    1000,
+    244
+   ],
+   "content_px": [
+    56,
+    56,
+    888,
+    132
+   ],
+   "layout_720p": [
+    418,
+    296,
+    444,
+    66
+   ],
+   "anchor": "centre",
+   "screen": "gameplay",
+   "notes": "Judgment pop 'MINE'. Centred on the field, top y=296 (41% of height). Scale/fade per the existing pop animation."
+  },
+  "judgment_ok": {
+   "file": "judgment_ok.png",
+   "kind": "sprite",
+   "size_px": [
+    1000,
+    244
+   ],
+   "content_px": [
+    56,
+    56,
+    888,
+    132
+   ],
+   "layout_720p": [
+    418,
+    296,
+    444,
+    66
+   ],
+   "anchor": "centre",
+   "screen": "gameplay",
+   "notes": "Judgment pop 'OK'. Centred on the field, top y=296 (41% of height). Scale/fade per the existing pop animation."
+  },
+  "judgment_ng": {
+   "file": "judgment_ng.png",
+   "kind": "sprite",
+   "size_px": [
+    1000,
+    244
+   ],
+   "content_px": [
+    56,
+    56,
+    888,
+    132
+   ],
+   "layout_720p": [
+    418,
+    296,
+    444,
+    66
+   ],
+   "anchor": "centre",
+   "screen": "gameplay",
+   "notes": "Judgment pop 'NG'. Centred on the field, top y=296 (41% of height). Scale/fade per the existing pop animation."
+  },
+  "medallion": {
+   "file": "medallion.png",
+   "kind": "sprite",
+   "size_px": [
+    1016,
+    1016
+   ],
+   "content_px": [
+    128,
+    128,
+    760,
+    760
+   ],
+   "layout_720p": [
+    450,
+    110,
+    380,
+    380
+   ],
+   "anchor": "centre",
+   "screen": "results",
+   "notes": "Grade medallion. Grade sprite centred on it; tier label (e.g. ONE STAR) 20px Saira ExtraBold ffd633 tracking 6px below the grade."
+  },
+  "grade_quad_star": {
+   "file": "grade_quad_star.png",
+   "kind": "sprite",
+   "size_px": [
+    776,
+    496
+   ],
+   "content_px": [
+    48,
+    48,
+    680,
+    400
+   ],
+   "anchor": "centre",
+   "screen": "results",
+   "notes": "Grade 'quad_star' (4 stars), centred on the medallion."
+  },
+  "grade_triple_star": {
+   "file": "grade_triple_star.png",
+   "kind": "sprite",
+   "size_px": [
+    776,
+    496
+   ],
+   "content_px": [
+    48,
+    48,
+    680,
+    400
+   ],
+   "anchor": "centre",
+   "screen": "results",
+   "notes": "Grade 'triple_star' (3 stars), centred on the medallion."
+  },
+  "grade_double_star": {
+   "file": "grade_double_star.png",
+   "kind": "sprite",
+   "size_px": [
+    776,
+    496
+   ],
+   "content_px": [
+    48,
+    48,
+    680,
+    400
+   ],
+   "anchor": "centre",
+   "screen": "results",
+   "notes": "Grade 'double_star' (2 stars), centred on the medallion."
+  },
+  "grade_single_star": {
+   "file": "grade_single_star.png",
+   "kind": "sprite",
+   "size_px": [
+    776,
+    496
+   ],
+   "content_px": [
+    48,
+    48,
+    680,
+    400
+   ],
+   "anchor": "centre",
+   "screen": "results",
+   "notes": "Grade 'single_star' (1 star), centred on the medallion."
+  },
+  "grade_S_plus": {
+   "file": "grade_S_plus.png",
+   "kind": "sprite",
+   "size_px": [
+    776,
+    496
+   ],
+   "content_px": [
+    48,
+    48,
+    680,
+    400
+   ],
+   "anchor": "centre",
+   "screen": "results",
+   "notes": "Grade 'S+', centred on the medallion."
+  },
+  "grade_S": {
+   "file": "grade_S.png",
+   "kind": "sprite",
+   "size_px": [
+    776,
+    496
+   ],
+   "content_px": [
+    48,
+    48,
+    680,
+    400
+   ],
+   "anchor": "centre",
+   "screen": "results",
+   "notes": "Grade 'S', centred on the medallion."
+  },
+  "grade_S_minus": {
+   "file": "grade_S_minus.png",
+   "kind": "sprite",
+   "size_px": [
+    776,
+    496
+   ],
+   "content_px": [
+    48,
+    48,
+    680,
+    400
+   ],
+   "anchor": "centre",
+   "screen": "results",
+   "notes": "Grade 'S-', centred on the medallion."
+  },
+  "grade_A_plus": {
+   "file": "grade_A_plus.png",
+   "kind": "sprite",
+   "size_px": [
+    776,
+    496
+   ],
+   "content_px": [
+    48,
+    48,
+    680,
+    400
+   ],
+   "anchor": "centre",
+   "screen": "results",
+   "notes": "Grade 'A+', centred on the medallion."
+  },
+  "grade_A": {
+   "file": "grade_A.png",
+   "kind": "sprite",
+   "size_px": [
+    776,
+    496
+   ],
+   "content_px": [
+    48,
+    48,
+    680,
+    400
+   ],
+   "anchor": "centre",
+   "screen": "results",
+   "notes": "Grade 'A', centred on the medallion."
+  },
+  "grade_A_minus": {
+   "file": "grade_A_minus.png",
+   "kind": "sprite",
+   "size_px": [
+    776,
+    496
+   ],
+   "content_px": [
+    48,
+    48,
+    680,
+    400
+   ],
+   "anchor": "centre",
+   "screen": "results",
+   "notes": "Grade 'A-', centred on the medallion."
+  },
+  "grade_B_plus": {
+   "file": "grade_B_plus.png",
+   "kind": "sprite",
+   "size_px": [
+    776,
+    496
+   ],
+   "content_px": [
+    48,
+    48,
+    680,
+    400
+   ],
+   "anchor": "centre",
+   "screen": "results",
+   "notes": "Grade 'B+', centred on the medallion."
+  },
+  "grade_B": {
+   "file": "grade_B.png",
+   "kind": "sprite",
+   "size_px": [
+    776,
+    496
+   ],
+   "content_px": [
+    48,
+    48,
+    680,
+    400
+   ],
+   "anchor": "centre",
+   "screen": "results",
+   "notes": "Grade 'B', centred on the medallion."
+  },
+  "grade_B_minus": {
+   "file": "grade_B_minus.png",
+   "kind": "sprite",
+   "size_px": [
+    776,
+    496
+   ],
+   "content_px": [
+    48,
+    48,
+    680,
+    400
+   ],
+   "anchor": "centre",
+   "screen": "results",
+   "notes": "Grade 'B-', centred on the medallion."
+  },
+  "grade_C_plus": {
+   "file": "grade_C_plus.png",
+   "kind": "sprite",
+   "size_px": [
+    776,
+    496
+   ],
+   "content_px": [
+    48,
+    48,
+    680,
+    400
+   ],
+   "anchor": "centre",
+   "screen": "results",
+   "notes": "Grade 'C+', centred on the medallion."
+  },
+  "grade_C": {
+   "file": "grade_C.png",
+   "kind": "sprite",
+   "size_px": [
+    776,
+    496
+   ],
+   "content_px": [
+    48,
+    48,
+    680,
+    400
+   ],
+   "anchor": "centre",
+   "screen": "results",
+   "notes": "Grade 'C', centred on the medallion."
+  },
+  "grade_C_minus": {
+   "file": "grade_C_minus.png",
+   "kind": "sprite",
+   "size_px": [
+    776,
+    496
+   ],
+   "content_px": [
+    48,
+    48,
+    680,
+    400
+   ],
+   "anchor": "centre",
+   "screen": "results",
+   "notes": "Grade 'C-', centred on the medallion."
+  },
+  "grade_D": {
+   "file": "grade_D.png",
+   "kind": "sprite",
+   "size_px": [
+    776,
+    496
+   ],
+   "content_px": [
+    48,
+    48,
+    680,
+    400
+   ],
+   "anchor": "centre",
+   "screen": "results",
+   "notes": "Grade 'D', centred on the medallion."
+  },
+  "record_ribbon": {
+   "file": "record_ribbon.png",
+   "kind": "sprite",
+   "size_px": [
+    808,
+    216
+   ],
+   "content_px": [
+    64,
+    64,
+    680,
+    88
+   ],
+   "layout_720p": [
+    470,
+    600,
+    340,
+    44
+   ],
+   "anchor": "centre",
+   "screen": "results",
+   "notes": "NEW RECORD ribbon (replaces the flashing text). Keep the white-flash finale if you like."
+  },
+  "failed_ribbon": {
+   "file": "failed_ribbon.png",
+   "kind": "sprite",
+   "size_px": [
+    808,
+    216
+   ],
+   "content_px": [
+    64,
+    64,
+    680,
+    88
+   ],
+   "layout_720p": [
+    470,
+    600,
+    340,
+    44
+   ],
+   "anchor": "centre",
+   "screen": "results",
+   "notes": "FAILED ribbon. Extrapolated (not in the mock-ups), same slot as NEW RECORD."
+  },
+  "stat_panel": {
+   "file": "stat_panel.png",
+   "kind": "slice3",
+   "size_px": [
+    752,
+    224
+   ],
+   "content_px": [
+    16,
+    16,
+    720,
+    192
+   ],
+   "slice3_px": {
+    "left": 64,
+    "right": 64
+   },
+   "screen": "results",
+   "notes": "Score-screen stat panel (MAX COMBO, DANCE POINTS, HOLDS). Label 18px Saira Bold 9fd8ff tracking 4px at x+20,y+14; value in the white digit font."
+  },
+  "scanlines": {
+   "file": "scanlines.png",
+   "kind": "tile",
+   "size_px": [
+    1,
+    3
+   ],
+   "notes": "1 dark row in 3 (22% black). Tile at 1 texel per screen pixel with GL_REPEAT and GL_NEAREST over the whole screen. Title, select and score screens only (not gameplay).",
+   "scale": "1x (screen pixels)"
+  }
+ },
+ "bitmap_fonts": {
+  "digits_chrome": {
+   "file": "digits_chrome.png",
+   "font": "Audiowide",
+   "size_px": 156,
+   "line_height_px": 171.6,
+   "note": "Pre-rendered glyphs. Draw each glyph at (pen_x - origin_x, y), then pen_x += advance. Pixel values are @2x: scale by (window_height / 1440).",
+   "glyphs": {
+    "0": {
+     "x": 0,
+     "y": 0,
+     "w": 202,
+     "h": 228,
+     "origin_x": 28,
+     "advance": 144.38
+    },
+    "1": {
+     "x": 204,
+     "y": 0,
+     "w": 112,
+     "h": 228,
+     "origin_x": 28,
+     "advance": 55.31
+    },
+    "2": {
+     "x": 318,
+     "y": 0,
+     "w": 176,
+     "h": 228,
+     "origin_x": 28,
+     "advance": 117.41
+    },
+    "3": {
+     "x": 496,
+     "y": 0,
+     "w": 170,
+     "h": 228,
+     "origin_x": 28,
+     "advance": 112.22
+    },
+    "4": {
+     "x": 668,
+     "y": 0,
+     "w": 178,
+     "h": 228,
+     "origin_x": 28,
+     "advance": 120.66
+    },
+    "5": {
+     "x": 848,
+     "y": 0,
+     "w": 176,
+     "h": 228,
+     "origin_x": 28,
+     "advance": 117.09
+    },
+    "6": {
+     "x": 1026,
+     "y": 0,
+     "w": 174,
+     "h": 228,
+     "origin_x": 28,
+     "advance": 116.09
+    },
+    "7": {
+     "x": 1202,
+     "y": 0,
+     "w": 158,
+     "h": 228,
+     "origin_x": 28,
+     "advance": 100.03
+    },
+    "8": {
+     "x": 1362,
+     "y": 0,
+     "w": 174,
+     "h": 228,
+     "origin_x": 28,
+     "advance": 116.41
+    },
+    "9": {
+     "x": 1538,
+     "y": 0,
+     "w": 174,
+     "h": 228,
+     "origin_x": 28,
+     "advance": 116.09
+    },
+    ".": {
+     "x": 1714,
+     "y": 0,
+     "w": 90,
+     "h": 228,
+     "origin_x": 28,
+     "advance": 32
+    },
+    "%": {
+     "x": 1806,
+     "y": 0,
+     "w": 194,
+     "h": 228,
+     "origin_x": 28,
+     "advance": 135.16
+    },
+    "/": {
+     "x": 2002,
+     "y": 0,
+     "w": 160,
+     "h": 228,
+     "origin_x": 28,
+     "advance": 102.84
+    },
+    " ": {
+     "x": 2164,
+     "y": 0,
+     "w": 110,
+     "h": 228,
+     "origin_x": 28,
+     "advance": 50.75
+    }
+   }
+  },
+  "digits_white": {
+   "file": "digits_white.png",
+   "font": "Audiowide",
+   "size_px": 96,
+   "line_height_px": 105.6,
+   "note": "Pre-rendered glyphs. Draw each glyph at (pen_x - origin_x, y), then pen_x += advance. Pixel values are @2x: scale by (window_height / 1440).",
+   "glyphs": {
+    "0": {
+     "x": 0,
+     "y": 0,
+     "w": 146,
+     "h": 164,
+     "origin_x": 28,
+     "advance": 88.84
+    },
+    "1": {
+     "x": 148,
+     "y": 0,
+     "w": 92,
+     "h": 164,
+     "origin_x": 28,
+     "advance": 34.03
+    },
+    "2": {
+     "x": 242,
+     "y": 0,
+     "w": 130,
+     "h": 164,
+     "origin_x": 28,
+     "advance": 72.25
+    },
+    "3": {
+     "x": 374,
+     "y": 0,
+     "w": 128,
+     "h": 164,
+     "origin_x": 28,
+     "advance": 69.06
+    },
+    "4": {
+     "x": 504,
+     "y": 0,
+     "w": 132,
+     "h": 164,
+     "origin_x": 28,
+     "advance": 74.25
+    },
+    "5": {
+     "x": 638,
+     "y": 0,
+     "w": 130,
+     "h": 164,
+     "origin_x": 28,
+     "advance": 72.06
+    },
+    "6": {
+     "x": 770,
+     "y": 0,
+     "w": 128,
+     "h": 164,
+     "origin_x": 28,
+     "advance": 71.44
+    },
+    "7": {
+     "x": 900,
+     "y": 0,
+     "w": 120,
+     "h": 164,
+     "origin_x": 28,
+     "advance": 61.56
+    },
+    "8": {
+     "x": 1022,
+     "y": 0,
+     "w": 130,
+     "h": 164,
+     "origin_x": 28,
+     "advance": 71.62
+    },
+    "9": {
+     "x": 1154,
+     "y": 0,
+     "w": 130,
+     "h": 164,
+     "origin_x": 28,
+     "advance": 71.44
+    },
+    ".": {
+     "x": 1286,
+     "y": 0,
+     "w": 78,
+     "h": 164,
+     "origin_x": 28,
+     "advance": 19.69
+    },
+    "%": {
+     "x": 1366,
+     "y": 0,
+     "w": 140,
+     "h": 164,
+     "origin_x": 28,
+     "advance": 83.16
+    },
+    "/": {
+     "x": 1508,
+     "y": 0,
+     "w": 122,
+     "h": 164,
+     "origin_x": 28,
+     "advance": 63.28
+    },
+    " ": {
+     "x": 1632,
+     "y": 0,
+     "w": 88,
+     "h": 164,
+     "origin_x": 28,
+     "advance": 31.22
+    }
+   }
+  }
+ }
+}

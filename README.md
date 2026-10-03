@@ -80,6 +80,7 @@ blaze-4k/
 - [Product Requirements Document](.agents/PRDs/PRD.md) — full spec, scope, and locked decisions
 - [Building](docs/BUILDING.md) — per-OS prerequisites, presets, testing, portable data layout
 - [Cross-platform verification](docs/CROSS_PLATFORM_VERIFICATION.md) — D4 verification record + owner checklist
+- [Cabinet theme](docs/cabinet-theme/README.md) — theme pack overview, implementation plan, and reference mock-ups
 - [AGENTS.md](AGENTS.md) — contributor/agent guidance
 
 ## License
@@ -90,5 +91,7 @@ Bundled third-party assets keep their own licenses:
 
 - The Cel noteskin (`assets/noteskins/cel/`) is public domain under the [Unlicense](assets/noteskins/cel/LICENSE).
 - `assets/noteskins/cel/explosions/Fallback HitMine Explosion.png` is from StepMania and is distributed under [StepMania's license](assets/noteskins/cel/explosions/LICENSE-StepMania.txt).
+- The Audiowide font (`assets/fonts/Audiowide-Regular.ttf`) is distributed under the [SIL Open Font License 1.1](assets/fonts/OFL-Audiowide.txt).
+- The Saira Condensed fonts (`assets/fonts/SairaCondensed-*.ttf`) are distributed under the [SIL Open Font License 1.1](assets/fonts/OFL-SairaCondensed.txt).
 
 Dependencies fetched at build time (SDL3, glad, nlohmann/json, miniaudio, stb) are covered by their own licenses.
