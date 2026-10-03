@@ -144,8 +144,9 @@ PRD §4/§9: all state is local, portable, and offline.
 - A `data/` folder next to the binary holds `config.json`, `scores.json`, and
   the calibration click sample. On Linux, `--xdg` (or `BLAZE4K_XDG=1`) uses the
   XDG data directory instead. `--data-dir <path>` overrides both for testing.
-- `assets/` (fallback background, bundled judgment constants, UI sounds) is
-  copied next to the binary at build time via a POST_BUILD step.
+- `assets/` (fallback background, bundled judgment constants, UI sounds,
+  fonts, Cabinet theme textures) is copied next to the binary at build time
+  via a POST_BUILD step.
 - No network, no accounts, no server. Settings, high scores, and the calibrated
   global offset survive restart.
 
