@@ -147,6 +147,18 @@ constexpr TextStyle kJudgmentLabel{Font::SairaExtraBold, 22, 0, false, color::kW
 constexpr TextStyle kJudgmentCount{Font::SairaExtraBold, 22, 0, false, color::kWhite};
 // Big numbers on the score screen use the baked bitmap fonts:
 //   digits_chrome (Audiowide 78px, the percentage) and digits_white (Audiowide 48px, stats).
+
+// Every style above, in declaration order. TextRenderer pre-bakes one atlas per unique
+// (font, size_px) pair in this list (#90), so a style missing here bakes lazily mid-screen.
+// Keep it in sync when adding or removing a style (ttf_font_test pins the count).
+constexpr std::array kAllStyles = {
+    kFooter,           kSongTitle,         kArtist,          kBpm,           kWheelRow,
+    kWheelSelected,    kWheelPack,         kDiffName,        kDiffMeter,     kDiffBest,
+    kDiffNameSelected, kDiffMeterSelected, kDiffBestSelected, kChip,         kHintWord,
+    kHintKey,          kBadge,             kComboNumber,     kComboLabel,    kBarSongTitle,
+    kBarArtist,        kBarBadge,          kStatLabel,       kTierLabel,     kJudgmentLabel,
+    kJudgmentCount,
+};
 } // namespace text
 
 // ---------------------------------------------------------------------------------------------

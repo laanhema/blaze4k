@@ -11,8 +11,9 @@ App::App(const AppConfig& config)
 
 App::~App() {
     stop();
-    // The theme textures must be released while the GL context is still alive:
-    // window_.shutdown() destroys it, before members are destroyed.
+    // The text atlases and theme textures must be released while the GL context
+    // is still alive: window_.shutdown() destroys it, before members are destroyed.
+    text_renderer_.shutdown();
     theme_textures_.shutdown();
     window_.shutdown();
     SDL_Quit();
@@ -47,6 +48,12 @@ bool App::init() {
     // #89: load every Cabinet theme PNG once. Non-fatal: a missing pack logs
     // once and the draws fall back to flat quads; headless logs one line.
     theme_textures_.load(ThemeTextures::default_directory());
+
+    // #90: load the theme fonts and pre-bake every theme text atlas at the
+    // current height. Non-fatal: a missing/corrupt font logs once and that font
+    // draws with the bitmap fallback; headless logs one line and bakes nothing.
+    text_renderer_.load();
+    text_renderer_.set_window_height(window_.height());
 
     std::cout << "[App] Initialized successfully (fixed_dt=" << config_.fixed_dt
               << "s, vsync=" << (config_.window.vsync ? "on" : "off") << ").\n";
@@ -89,6 +96,8 @@ void App::run() {
 
         // Render pass with interpolation factor alpha
         double alpha = accumulator_ / config_.fixed_dt;
+        // O(1) unless the window height changed (then the atlases re-bake once).
+        text_renderer_.set_window_height(window_.height());
         on_render(alpha);
 
         window_.swap_buffers();

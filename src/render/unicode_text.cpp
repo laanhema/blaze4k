@@ -1,5 +1,8 @@
 #include "render/unicode_text.hpp"
 
+#include <cstddef>
+#include <vector>
+
 namespace blaze4k {
 
 namespace {
@@ -168,6 +171,74 @@ char fold_to_ascii(char32_t cp) {
     default:
         return '\0';
     }
+}
+
+std::string truncate_to_width(std::string_view text, float max_width,
+                              const std::function<float(std::string_view)>& measure) {
+    constexpr float kEpsilon = 1e-3f;
+    constexpr std::string_view kEllipsis = "...";
+    if (!(max_width >= 0.0f)) {
+        max_width = 0.0f; // NaN or negative
+    }
+    const auto fits = [&](std::string_view candidate) {
+        return measure(candidate) <= max_width + kEpsilon;
+    };
+    if (fits(text)) {
+        return std::string(text);
+    }
+
+    // Candidate cut offsets: 0, every offset where a visible code point
+    // starts, and the full length. Ascending, so the measured width of the
+    // prefix (with or without the ellipsis) never decreases along the list.
+    std::vector<std::size_t> cuts;
+    cuts.push_back(0);
+    std::size_t pos = 0;
+    while (pos < text.size()) {
+        const std::size_t start = pos;
+        if (!is_zero_width(next_code_point(text, pos)) && start != cuts.back()) {
+            cuts.push_back(start);
+        }
+    }
+    if (cuts.back() != text.size()) {
+        cuts.push_back(text.size());
+    }
+
+    const bool ellipsis = fits(kEllipsis);
+    std::string scratch;
+    scratch.reserve(text.size() + kEllipsis.size());
+    const auto cut_fits = [&](std::size_t cut) {
+        scratch.assign(text.substr(0, cut));
+        if (ellipsis) {
+            scratch += kEllipsis;
+        }
+        return fits(scratch);
+    };
+
+    // Longest fitting candidate by binary search. Every accepted index was
+    // measured, so the result holds even if `measure` is not monotonic.
+    std::size_t lo = 0;
+    std::size_t hi = cuts.size();
+    std::size_t best = 0;
+    bool found = false;
+    while (lo < hi) {
+        const std::size_t mid = lo + (hi - lo) / 2;
+        if (cut_fits(cuts[mid])) {
+            best = mid;
+            found = true;
+            lo = mid + 1;
+        } else {
+            hi = mid;
+        }
+    }
+
+    std::string out(text.substr(0, found ? cuts[best] : 0));
+    if (ellipsis) {
+        out += kEllipsis;
+    }
+    if (!found && !fits(out)) {
+        out.clear(); // a measure where even the shortest candidate overflows
+    }
+    return out;
 }
 
 } // namespace blaze4k

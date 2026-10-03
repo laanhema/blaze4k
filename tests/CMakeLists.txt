@@ -472,3 +472,19 @@ target_compile_definitions(theme_textures_test PRIVATE
 )
 
 add_test(NAME theme_textures_test COMMAND theme_textures_test)
+
+add_executable(ttf_font_test
+    ttf_font_test.cpp
+)
+
+target_link_libraries(ttf_font_test PRIVATE
+    blaze4k_core
+)
+
+# #90: loads the bundled fonts (theme::kFontFiles paths start with assets/, so
+# the root is the source dir) and bakes CPU atlases headless.
+target_compile_definitions(ttf_font_test PRIVATE
+    BLAZE4K_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+)
+
+add_test(NAME ttf_font_test COMMAND ttf_font_test)
