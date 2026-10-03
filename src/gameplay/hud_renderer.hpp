@@ -26,6 +26,16 @@ class GlQuadRenderer;
 // D2 judgment pop so both read identically.
 [[nodiscard]] Color judgment_color(JudgmentKind kind, TapJudgment window, HoldJudgment hold);
 
+// Screen rects of the top-left percent text and the bottom-centre grade text, as
+// `HudRenderer::render` draws them (Blaze 4k presentation). Exposed so layout
+// checks (e.g. life bar clearance) read the real HUD geometry.
+[[nodiscard]] Rect percent_text_rect(const std::string& text);
+[[nodiscard]] Rect grade_text_rect(const std::string& text, int screen_w, int screen_h);
+
+// Minimum clearance between the life bar frame's right edge and the note field
+// (Blaze 4k presentation, unsourced).
+inline constexpr float kLifeBarFieldGap = 16.0f;
+
 // Vertical life bar geometry (Blaze 4k presentation): anchored to the left screen
 // edge, centred vertically over ~60% of the height, filling bottom (empty) to top
 // (full), and clamped to stay at least a small gap left of `field_left` (the note

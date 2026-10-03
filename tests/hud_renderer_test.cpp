@@ -1,8 +1,11 @@
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <iostream>
+#include <string>
 
 #include "gameplay/hud_renderer.hpp"
+#include "gameplay/judgment_animator.hpp"
 #include "gameplay/note_field.hpp"
 #include "gameplay/noteskin.hpp"
 #include "render/bitmap_font.hpp"
@@ -22,8 +25,13 @@ using blaze4k::LifeBarLayout;
 using blaze4k::Rect;
 using blaze4k::layout_life_bar;
 
-constexpr double kGap = 16.0;              // kLifeBarFieldGap
-constexpr double kPercentBottom = 8.0 + 21.0;  // percent text: y 8, 7 rows x pixel 3
+constexpr double kGap = blaze4k::kLifeBarFieldGap;
+
+// Bottom edge of the top-left percent text, from the HUD's own layout.
+double percent_bottom() {
+    const Rect r = blaze4k::percent_text_rect("100.00%");
+    return static_cast<double>(r.y + r.h);
+}
 
 bool near(double a, double b) {
     return std::abs(a - b) < 1e-3;
@@ -123,8 +131,8 @@ void test_no_field_overlap_common_sizes() {
         TEST_CHECK(l.frame.x + l.frame.w + kGap <= field_left);
         TEST_CHECK(near(l.back.w, 16.0));  // no shrinking needed
         TEST_CHECK(near(l.back.x, 24.0));  // fixed left margin
-        // The whole field (receptors, arrows, combo/judgment pop inside it) is right of
-        // field_left, so the bar cannot overlap any of it.
+        // The whole field (receptors, arrows, and the judgment pop, asserted in
+        // test_judgment_pop_clear) is right of field_left, so the bar cannot overlap it.
         TEST_CHECK(!intersects(l.frame, Rect{static_cast<float>(field_left), 0.0f,
                                              static_cast<float>(4 * blaze4k::NoteSkin::kColumnWidth),
                                              static_cast<float>(s.h)}));
@@ -133,24 +141,60 @@ void test_no_field_overlap_common_sizes() {
 }
 
 void test_below_percent_text() {
+    const double bottom = percent_bottom();
     for (const Size s : kCommonSizes) {
-        TEST_CHECK(layout_at(1.0, s.w, s.h).frame.y >= kPercentBottom);
+        TEST_CHECK(layout_at(1.0, s.w, s.h).frame.y >= bottom);
     }
-    TEST_CHECK(layout_at(1.0, 320, 240).frame.y >= kPercentBottom);
+    TEST_CHECK(layout_at(1.0, 320, 240).frame.y >= bottom);
     std::cout << "  - bar stays below the top-left percent text ok.\n";
 }
 
 void test_grade_text_clear() {
-    const float pixel = 3.0f;
-    const float grade_w = blaze4k::text_width("****", pixel);
     for (const Size s : {Size{1280, 720}, Size{640, 480}}) {
-        const float w = static_cast<float>(s.w);
-        const float h = static_cast<float>(s.h);
-        const Rect grade{(w - grade_w) * 0.5f, h - 8.0f - 7.0f * pixel, grade_w, 7.0f * pixel};
+        const Rect grade = blaze4k::grade_text_rect("****", s.w, s.h);
         const LifeBarLayout l = layout_at(1.0, s.w, s.h);
         TEST_CHECK(!intersects(l.frame, grade));
     }
     std::cout << "  - bottom-centre grade text is not overlapped ok.\n";
+}
+
+void test_judgment_pop_clear() {
+    using blaze4k::JudgmentAnimator;
+    using blaze4k::JudgmentEvent;
+    using blaze4k::JudgmentKind;
+    using blaze4k::TapJudgment;
+
+    // Peak pop scale over the whole pop curve.
+    const double d = JudgmentAnimator::kJudgmentPopSeconds;
+    float peak = 0.0f;
+    for (int i = 0; i <= 1000; ++i) {
+        peak = std::max(peak, JudgmentAnimator::pop_scale(d * i / 1000.0, d));
+    }
+    TEST_CHECK(peak >= 1.0f);
+    const float pixel = JudgmentAnimator::kJudgmentPopPixel * peak;
+
+    // Widest judgment label the animator can show, at peak scale.
+    float pop_w = 0.0f;
+    for (int k = 0; k <= static_cast<int>(JudgmentKind::RollHit); ++k) {
+        for (int win = 0; win <= static_cast<int>(TapJudgment::Num); ++win) {
+            JudgmentEvent e;
+            e.kind = static_cast<JudgmentKind>(k);
+            e.window = static_cast<TapJudgment>(win);
+            pop_w = std::max(pop_w, blaze4k::text_width(JudgmentAnimator::judgment_label(e), pixel));
+        }
+    }
+    TEST_CHECK(pop_w > 0.0f);
+
+    // Centred on the screen (as JudgmentAnimator::render draws it) at 640x480, the
+    // widest pop stays inside the field rect and so clear of the bar.
+    const float field_left = static_cast<float>(field_left_for(640));
+    const float field_w = static_cast<float>(4 * blaze4k::NoteSkin::kColumnWidth);
+    const float pop_left = (640.0f - pop_w) * 0.5f;
+    TEST_CHECK(pop_left >= field_left);
+    TEST_CHECK(pop_left + pop_w <= field_left + field_w);
+    const LifeBarLayout l = layout_at(1.0, 640, 480);
+    TEST_CHECK(l.frame.x + l.frame.w + kGap <= pop_left);
+    std::cout << "  - widest judgment pop at peak scale clears the bar ok.\n";
 }
 
 void test_narrow_clamp() {
@@ -205,6 +249,7 @@ int main() {
     test_no_field_overlap_common_sizes();
     test_below_percent_text();
     test_grade_text_clear();
+    test_judgment_pop_clear();
     test_narrow_clamp();
     test_degenerate();
     test_height_scales();

@@ -31,12 +31,28 @@ constexpr double kLifeDangerThreshold = 0.3;
 constexpr float kLifeBarLeft = 24.0f;          // x of the inner bar
 constexpr float kLifeBarThickness = 16.0f;     // inner bar width
 constexpr float kLifeBarBorder = 2.0f;         // frame thickness on every side
-constexpr float kLifeBarFieldGap = 16.0f;      // min clearance, frame right edge -> field
 constexpr float kLifeBarMinThickness = 6.0f;   // narrowest width in very narrow windows
 constexpr float kLifeBarInsetFraction = 0.2f;  // top/bottom inset as a fraction of height
 constexpr float kLifeBarMinInset = 40.0f;      // keeps the frame below the percent text
 
+// HUD text layout (Blaze 4k presentation, unsourced).
+constexpr float kHudEdgeMargin = 8.0f;  // inset of the HUD text from the screen edges
+constexpr float kHudTextPixel = 3.0f;   // bitmap-font pixel for percent/combo/grade
+constexpr float kGlyphRows = 7.0f;      // 5x7 font glyph height, in font pixels
+
 } // namespace
+
+Rect percent_text_rect(const std::string& text) {
+    return Rect{kHudEdgeMargin, kHudEdgeMargin, text_width(text, kHudTextPixel),
+                kGlyphRows * kHudTextPixel};
+}
+
+Rect grade_text_rect(const std::string& text, int screen_w, int screen_h) {
+    const float text_w = text_width(text, kHudTextPixel);
+    const float text_h = kGlyphRows * kHudTextPixel;
+    return Rect{(static_cast<float>(screen_w) - text_w) * 0.5f,
+                static_cast<float>(screen_h) - kHudEdgeMargin - text_h, text_w, text_h};
+}
 
 std::string format_percent(double percent) {
     // Display-clamp to [0,1] (PercentageDisplay.cpp:110-116), then the OpenITG
@@ -116,11 +132,12 @@ void HudRenderer::render(const ScoreState& state, int screen_w, int screen_h,
     }
 
     const float width = static_cast<float>(screen_w);
-    const float height = static_cast<float>(screen_h);
-    const float main_pixel = 3.0f;
+    const float main_pixel = kHudTextPixel;
 
     // Top-left: live percent.
-    draw_text(renderer, format_percent(state.percent), 8.0f, 8.0f, main_pixel, kTextColor);
+    const std::string percent_text = format_percent(state.percent);
+    const Rect percent_rect = percent_text_rect(percent_text);
+    draw_text(renderer, percent_text, percent_rect.x, percent_rect.y, main_pixel, kTextColor);
 
     // Top-centre: live combo.
     const std::string combo_text = format_combo(state.combo) + "x";
@@ -163,9 +180,8 @@ void HudRenderer::render(const ScoreState& state, int screen_w, int screen_h,
     // Bottom-centre: live grade.
     if (state.grade != nullptr) {
         const std::string grade_text = format_grade(*state.grade);
-        draw_text(renderer, grade_text,
-                  (width - text_width(grade_text, main_pixel)) * 0.5f,
-                  height - 8.0f - 7.0f * main_pixel, main_pixel, kTextColor);
+        const Rect grade_rect = grade_text_rect(grade_text, screen_w, screen_h);
+        draw_text(renderer, grade_text, grade_rect.x, grade_rect.y, main_pixel, kTextColor);
     }
 }
 

@@ -21,6 +21,7 @@ public:
     static constexpr double kJudgmentPopSeconds = 0.6;
     static constexpr double kComboPopSeconds = 0.5;
     static constexpr int kComboMilestone = 50;
+    static constexpr float kJudgmentPopPixel = 5.0f;  // judgment label font pixel at scale 1
 
     void reset();
 
