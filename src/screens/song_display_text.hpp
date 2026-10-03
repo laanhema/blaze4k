@@ -26,6 +26,11 @@ namespace blaze4k {
 [[nodiscard]] const std::string& song_display_title(const SongMetadata& metadata);
 [[nodiscard]] const std::string& song_display_artist(const SongMetadata& metadata);
 
+// Narrowest name budget for a difficulty label, in cells: the width of
+// "Challenge", the longest standard label, so an edit name is never shortened
+// below what a standard label already takes. Shared by select and results.
+inline constexpr std::size_t kMinDifficultyLabelCells = 9;
+
 // Difficulty label to draw for `chart`: for an Edit chart (the resolved
 // difficulty, SM5 Steps::IsAnEdit) with a non-empty description, that
 // description shortened to `max_name_cells` cells (truncate_to_cells);

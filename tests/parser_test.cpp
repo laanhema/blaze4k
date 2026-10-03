@@ -216,6 +216,20 @@ int main() {
             TEST_CHECK(p.charts().size() == 1);
             TEST_CHECK(p.charts()[0].description.empty());
         }
+        // Float parity with SM5 strtof: "0.73999999" rounds to 0.74f (modern),
+        // "1e39" overflows float to inf -> 0 (old), though both are finite doubles.
+        {
+            auto p = parse_ssc("#VERSION:0.73999999;\n" + ssc_header +
+                               block("#DESCRIPTION:Rounded Up;\n"));
+            TEST_CHECK(p.charts().size() == 1);
+            TEST_CHECK(p.charts()[0].description == "Rounded Up");
+        }
+        {
+            auto p = parse_ssc("#VERSION:1e39;\n" + ssc_header +
+                               block("#DESCRIPTION:Float Overflow;\n"));
+            TEST_CHECK(p.charts().size() == 1);
+            TEST_CHECK(p.charts()[0].description.empty());
+        }
         // A later #VERSION (steps-level) applies to the blocks after it, in file order.
         {
             auto p = parse_ssc("#VERSION:0.83;\n" + ssc_header +

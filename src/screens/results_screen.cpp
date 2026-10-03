@@ -54,12 +54,12 @@ std::string results_difficulty_line(const Chart* chart, float max_line_width, fl
     }
     const std::string suffix = " " + std::to_string(chart->meter);
     // Signed arithmetic: a narrow window must clamp, not underflow.
-    constexpr int kMinNameCells = 9; // "Challenge", the longest standard label
     const float cell_px = 6.0f * pixel;
     const float cells_f = cell_px > 0.0f ? std::floor(max_line_width / cell_px) : 0.0f;
     const int line_cells = cells_f > 0.0f ? static_cast<int>(std::min(cells_f, 100000.0f)) : 0;
     const int name_budget =
-        std::max(kMinNameCells, line_cells - static_cast<int>(suffix.size()));
+        std::max(static_cast<int>(kMinDifficultyLabelCells),
+                 line_cells - static_cast<int>(suffix.size()));
     return chart_display_label(*chart, static_cast<std::size_t>(name_budget)) + suffix;
 }
 

@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cctype>
 #include <cmath>
+#include <cstdlib>
 
 namespace blaze4k {
 
@@ -31,16 +32,18 @@ double parse_double_safe(std::string_view s, double fallback = 0.0) {
 
 // SM5 Song.h:25 (STEPFILE_VERSION_NUMBER): the SSC version assumed until a
 // #VERSION tag says otherwise (Song.cpp:78).
-constexpr double kSscDefaultVersion = 0.83;
+constexpr float kSscDefaultVersion = 0.83f;
 // SM5 NotesLoaderSSC.h:32 (VERSION_CHART_NAME_TAG): below this, an SSC
 // #DESCRIPTION is the chart name rather than the description.
-constexpr double kSscChartNameTagVersion = 0.74;
+constexpr float kSscChartNameTagVersion = 0.74f;
 
 // Mirrors SM5 StringToFloat (RageUtil.cpp:1861-1869): strtof, non-finite -> 0.
-// Unparsable or out-of-range input also maps to 0.0 (the catch-all fallback).
-double parse_ssc_version(std::string_view s) {
-    const double v = parse_double_safe(s, 0.0);
-    return std::isfinite(v) ? v : 0.0;
+// Float precision matters at the edges: "0.73999999" rounds to 0.74f (modern)
+// and "1e39" overflows to inf (-> 0, old), exactly as SM5 compares them.
+float parse_ssc_version(std::string_view s) {
+    const std::string text(s); // strtof needs a NUL-terminated string
+    const float v = std::strtof(text.c_str(), nullptr);
+    return std::isfinite(v) ? v : 0.0f;
 }
 
 int parse_int_safe(std::string_view s, int fallback = 1) {
@@ -141,7 +144,7 @@ bool SimfileParser::parse_msd(const MsdFile& msd, const std::string& file_extens
         // Song-wide, not per block: SM5 stores both the header and the
         // steps #VERSION on the song (NotesLoaderSSC.cpp:74-78,315-318), so
         // each tag applies to the chart blocks after it, in file order.
-        double ssc_version = kSscDefaultVersion;
+        float ssc_version = kSscDefaultVersion;
 
         for (const auto& tag : msd.tags()) {
             if (iequals(tag.name, "VERSION")) {

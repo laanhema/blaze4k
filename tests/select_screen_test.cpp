@@ -307,8 +307,12 @@ void test_difficulty_row_text() {
     const blaze4k::Chart bagpipe = make_row_chart("Edit", "mDaWg & Hatena Zubon", 10);
     TEST_CHECK(difficulty_row_text(bagpipe, true, "100.00%", bar_1280, 2.5f) ==
                "> mDaWg & Hatena...  [10]   100.00%");
+    // The budget reserves the widest best column, so the name is shortened the
+    // same with or without a score (review finding: it used to fit with "---").
     TEST_CHECK(difficulty_row_text(bagpipe, false, "---", bar_1280, 2.5f) ==
-               "  mDaWg & Hatena Zubon  [10]   ---"); // shorter best: fits
+               "  mDaWg & Hatena...  [10]   ---");
+    TEST_CHECK(difficulty_row_text(bagpipe, true, "95.12%", bar_1280, 2.5f) ==
+               "> mDaWg & Hatena...  [10]   95.12%");
 
     const blaze4k::Chart long_edit = make_row_chart("Edit", std::string(60, 'W'), 10);
     for (const char* best : {"---", "100.00%"}) {
@@ -409,9 +413,11 @@ void test_named_edit_charts() {
             const blaze4k::Chart* chart = select_ptr->selected_chart();
             TEST_CHECK(chart != nullptr);
             visited.push_back(blaze4k::chart_display_label(*chart, 1000));
+            // Same width the draw site passes: the bar minus 6 px inset per side.
+            const float row_w = 0.42f * 1280.0f - 12.0f;
             const std::string row =
-                blaze4k::difficulty_row_text(*chart, true, "100.00%", 0.42f * 1280.0f, 2.5f);
-            TEST_CHECK(blaze4k::text_width(row, 2.5f) <= 0.42f * 1280.0f);
+                blaze4k::difficulty_row_text(*chart, true, "100.00%", row_w, 2.5f);
+            TEST_CHECK(blaze4k::text_width(row, 2.5f) <= row_w);
             manager.render(renderer, 1280, 720);
             manager.render(renderer, 640, 480);
             manager.update(kDt, {press(GameAction::Right)});
