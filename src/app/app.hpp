@@ -6,6 +6,7 @@
 #include "app/window.hpp"
 #include "input/input_manager.hpp"
 #include "render/theme_textures.hpp"
+#include "render/ttf_font.hpp"
 #include "timing/judgment_constants.hpp"
 
 namespace blaze4k {
@@ -39,6 +40,9 @@ public:
     [[nodiscard]] const JudgmentConstants& judgment_constants() const { return judgment_constants_; }
     // #89: Cabinet theme textures + bitmap digits, loaded once in init().
     [[nodiscard]] const ThemeTextures& theme_textures() const { return theme_textures_; }
+    // #90: TrueType text (theme fonts + per-size atlases), loaded in init() and
+    // re-baked from run() when the window height changes. Non-const: lazy bakes.
+    [[nodiscard]] TextRenderer& text_renderer() { return text_renderer_; }
     [[nodiscard]] uint64_t input_reference_ns() const { return input_reference_ns_; }
     [[nodiscard]] const FrameStats& frame_stats() const { return frame_stats_; }
 
@@ -65,6 +69,7 @@ private:
     InputManager input_manager_;
     JudgmentConstants judgment_constants_;
     ThemeTextures theme_textures_;
+    TextRenderer text_renderer_;
     FrameStats frame_stats_;
     bool is_running_ = false;
     uint64_t perf_frequency_ = 0;

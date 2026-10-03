@@ -365,6 +365,7 @@ int main(int argc, char* argv[]) {
         shell->context().library = &library;
         shell->context().constants = &app.judgment_constants();
         shell->context().theme = &app.theme_textures();
+        shell->context().text = &app.text_renderer();
         shell->context().play_request = &play_request;
         shell->context().results = &results_summary;
         shell->context().action_down = [&app](blaze4k::GameAction action) {

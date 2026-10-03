@@ -20,6 +20,7 @@ struct PlayRequest;
 struct ResultsSummary;
 class IUiSoundSink;
 class ThemeTextures;
+class TextRenderer;
 
 // Stable identity of every arcade screen (PRD section 6/7.3). C1 implements
 // Title/Attract and a Select placeholder; C3/C4/C5/C7 replace/extend the rest.
@@ -65,6 +66,11 @@ struct ScreenContext {
     // #89: Cabinet theme textures + bitmap digits, owned by App; null in
     // headless/unit tests (screens must null-check).
     const ThemeTextures* theme = nullptr;
+
+    // #90: TrueType text in theme::TextStyle (measure, truncate, draw), owned by
+    // App; null in headless/unit tests (screens must null-check). Non-const
+    // because a size missing from theme::text::kAllStyles bakes lazily.
+    TextRenderer* text = nullptr;
 };
 
 // A screen is an object with explicit enter/update/render/exit (PRD section 6

@@ -213,39 +213,18 @@ float text_width(const std::string& text, float pixel) {
 }
 
 std::string truncate_to_cells(std::string_view text, std::size_t max_cells) {
-    std::size_t total = 0;
-    std::size_t pos = 0;
-    while (pos < text.size()) {
-        if (!is_zero_width(next_code_point(text, pos))) {
-            ++total;
+    // One 6-unit cell per visible code point (the text_width model at pixel 1).
+    const auto cell_width = [](std::string_view candidate) {
+        std::size_t cells = 0;
+        std::size_t pos = 0;
+        while (pos < candidate.size()) {
+            if (!is_zero_width(next_code_point(candidate, pos))) {
+                ++cells;
+            }
         }
-    }
-    if (total <= max_cells) {
-        return std::string(text);
-    }
-
-    const bool ellipsis = max_cells >= 3;
-    const std::size_t keep = ellipsis ? max_cells - 3 : max_cells;
-    std::size_t kept = 0;
-    std::size_t cut = text.size();
-    pos = 0;
-    while (pos < text.size()) {
-        const std::size_t start = pos;
-        if (is_zero_width(next_code_point(text, pos))) {
-            continue; // attaches to the previous kept glyph
-        }
-        if (kept == keep) {
-            cut = start; // first visible code point that does not fit
-            break;
-        }
-        ++kept;
-    }
-
-    std::string out(text.substr(0, cut));
-    if (ellipsis) {
-        out += "...";
-    }
-    return out;
+        return static_cast<float>(cells) * 6.0f;
+    };
+    return truncate_to_width(text, 6.0f * static_cast<float>(max_cells), cell_width);
 }
 
 void draw_text(GlQuadRenderer& renderer, const std::string& text, float x, float y, float pixel,

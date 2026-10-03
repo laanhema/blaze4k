@@ -195,70 +195,18 @@ bool ends_with_ellipsis(const std::string& text) {
     return text.size() >= 3 && text.compare(text.size() - 3, 3, "...") == 0;
 }
 
+// truncate_to_cells is a thin wrapper over truncate_to_width (#90); the full
+// truncation contract is pinned in unicode_text_test. This is a wrapper smoke.
 void test_truncate_to_cells() {
     using blaze4k::truncate_to_cells;
 
-    // Fits: returned unchanged, byte for byte.
-    TEST_CHECK(truncate_to_cells("", 0).empty());
-    TEST_CHECK(truncate_to_cells("", 17).empty());
-    TEST_CHECK(truncate_to_cells("JBEAN", 17) == "JBEAN");
-    TEST_CHECK(truncate_to_cells("JBEAN", 5) == "JBEAN");
-    TEST_CHECK(truncate_to_cells("VerTex\xC2\xB3", 7) == "VerTex\xC2\xB3");
-
-    // Real-data name longer than the 17-cell select budget at 1280 px.
     const std::string bagpipe = truncate_to_cells("mDaWg & Hatena Zubon", 17);
     TEST_CHECK(bagpipe == "mDaWg & Hatena...");
     TEST_CHECK(text_width(bagpipe, 1.0f) == 17.0f * 6.0f);
-
-    // Multi-byte: never cuts inside a code point.
-    const std::string multi = "VerTex\xC2\xB3 Edit Name"; // 16 cells
-    TEST_CHECK(truncate_to_cells(multi, 10) == "VerTex\xC2\xB3...");
-    TEST_CHECK(truncate_to_cells(multi, 9) == "VerTex...");
-    TEST_CHECK(truncate_to_cells(multi, 8) == "VerTe...");
-    for (std::size_t budget = 0; budget <= 20; ++budget) {
-        const std::string out = truncate_to_cells(multi, budget);
-        TEST_CHECK(cells(out) <= budget);
-        const std::size_t cut = out.find("\xC2");
-        if (cut != std::string::npos) {
-            TEST_CHECK(cut + 1 < out.size() && out[cut + 1] == '\xB3');
-        }
-    }
-
-    // A combining mark after the last kept glyph stays attached to it.
-    const std::string combining = "abe\xCC\x81" "cdefg"; // e + U+0301, 8 cells
-    TEST_CHECK(cells(combining) == 8);
-    TEST_CHECK(truncate_to_cells(combining, 6) == "abe\xCC\x81" "...");
-    TEST_CHECK(truncate_to_cells(combining, 2) == "ab");
-
-    // Budgets below 3: a prefix with no ellipsis.
-    TEST_CHECK(truncate_to_cells("ABCDEF", 0).empty());
-    TEST_CHECK(truncate_to_cells("ABCDEF", 1) == "A");
+    TEST_CHECK(truncate_to_cells("mDaWg", 17) == "mDaWg");
+    // Budget below 3: a prefix with no ellipsis.
     TEST_CHECK(truncate_to_cells("ABCDEF", 2) == "AB");
-    TEST_CHECK(truncate_to_cells("ABCDEF", 3) == "...");
-    TEST_CHECK(truncate_to_cells("ABCDEF", 4) == "A...");
-
-    // Fuzz: random bytes and budgets; never exceeds the budget, never rewrites.
-    std::mt19937 rng{84};
-    std::uniform_int_distribution<int> length_dist(0, 64);
-    std::uniform_int_distribution<int> byte_dist(0, 255);
-    std::uniform_int_distribution<int> budget_dist(0, 40);
-    for (int i = 0; i < 10000; ++i) {
-        std::string in(static_cast<std::size_t>(length_dist(rng)), '\0');
-        for (char& c : in) {
-            c = static_cast<char>(byte_dist(rng));
-        }
-        const auto budget = static_cast<std::size_t>(budget_dist(rng));
-        const std::string out = truncate_to_cells(in, budget);
-        TEST_CHECK(cells(out) <= budget);
-        if (out != in) {
-            if (budget >= 3) {
-                TEST_CHECK(ends_with_ellipsis(out));
-                TEST_CHECK(in.compare(0, out.size() - 3, out, 0, out.size() - 3) == 0);
-            } else {
-                TEST_CHECK(in.compare(0, out.size(), out) == 0);
-            }
-        }
-    }
+    TEST_CHECK(truncate_to_cells("ABCDEF", 0).empty());
     std::cout << "  - truncate_to_cells ok.\n";
 }
 

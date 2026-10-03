@@ -42,6 +42,8 @@ class GlQuadRenderer;
 // (3 cells); when max_cells < 3, a max_cells-cell prefix with no ellipsis.
 // Cuts only on code-point boundaries, keeps zero-width code points attached
 // to the last kept glyph, and never rewrites malformed bytes. Never throws.
+// A thin wrapper over truncate_to_width (see unicode_text.hpp) with a 6-unit
+// cell measure.
 [[nodiscard]] std::string truncate_to_cells(std::string_view text, std::size_t max_cells);
 
 // Draws UTF-8 `text` with its top-left at (x, y). Undrawable code points draw
