@@ -100,6 +100,7 @@ add_library(blaze4k_core STATIC
     src/render/bitmap_font.cpp
     src/render/unicode_text.cpp
     src/render/note_art.cpp
+    src/render/theme_textures.cpp
     src/audio/preview_player.cpp
     src/audio/metronome.cpp
     src/audio/ui_sounds.cpp

@@ -19,6 +19,7 @@ struct JudgmentConstants;
 struct PlayRequest;
 struct ResultsSummary;
 class IUiSoundSink;
+class ThemeTextures;
 
 // Stable identity of every arcade screen (PRD section 6/7.3). C1 implements
 // Title/Attract and a Select placeholder; C3/C4/C5/C7 replace/extend the rest.
@@ -60,6 +61,10 @@ struct ScreenContext {
     // D2: menu UI sound sink, wired by main; null in headless/unit tests and the
     // `--gameplay-demo` path (every trigger is null-guarded).
     IUiSoundSink* ui_sounds = nullptr;
+
+    // #89: Cabinet theme textures + bitmap digits, owned by App; null in
+    // headless/unit tests (screens must null-check).
+    const ThemeTextures* theme = nullptr;
 };
 
 // A screen is an object with explicit enter/update/render/exit (PRD section 6
