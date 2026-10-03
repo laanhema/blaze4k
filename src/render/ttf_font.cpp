@@ -279,6 +279,10 @@ bool validate_sfnt(std::span<const std::uint8_t> data, std::string* error) {
         }
         for (Required& entry : required) {
             if (entry.tag == table_tag) {
+                // stb reads the first match; a second one would go unchecked.
+                if (entry.found) {
+                    return fail(error, "duplicate table '" + tag_text(table_tag) + "'");
+                }
                 if (length < entry.min_length) {
                     return fail(error, "table '" + tag_text(table_tag) + "' is truncated");
                 }
@@ -332,6 +336,16 @@ TextLayout resolve_text_layout(const theme::TextStyle& style, float s, TextAlign
         break;
     }
     return layout;
+}
+
+float bitmap_fallback_baseline(const FontFace* face, float pixel_size) {
+    if (!finite_positive(pixel_size)) {
+        return 0.0f;
+    }
+    if (face != nullptr) {
+        return static_cast<float>(face->ascent()) * face->em_scale(pixel_size);
+    }
+    return (kFallbackLineEm * pixel_size + 7.0f * kFallbackPixelPerEm * pixel_size) * 0.5f;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -916,12 +930,8 @@ float TextRenderer::measure(std::string_view text, const theme::TextStyle& style
 }
 
 float TextRenderer::ascent(const theme::TextStyle& style) const {
-    const float pixel_size = style.size_px * scale_;
-    if (const FontFace* source = face(style.font)) {
-        return static_cast<float>(source->ascent()) * source->em_scale(pixel_size);
-    }
-    // Bitmap fallback: rows end 0.95em below the line top (see draw_bitmap_fallback).
-    return finite_positive(pixel_size) ? 0.95f * pixel_size : 0.0f;
+    // The same baseline the bitmap fallback draws on, with or without a face.
+    return bitmap_fallback_baseline(face(style.font), style.size_px * scale_);
 }
 
 float TextRenderer::line_height(const theme::TextStyle& style) const {
@@ -1019,7 +1029,8 @@ void TextRenderer::draw_bitmap_fallback(GlQuadRenderer& renderer, const FontFace
     const float width = source != nullptr ? measure_text(*source, text, pixel_size, tracking)
                                           : bitmap_measure(text, pixel_size, tracking);
     const float start = aligned_start(x, width, layout.align);
-    const float top = y + (kFallbackLineEm * pixel_size - 7.0f * pixel) * 0.5f;
+    // Rows end on the baseline ascent() reports (the face's when there is one).
+    const float top = y + bitmap_fallback_baseline(source, pixel_size) - 7.0f * pixel;
 
     const auto draw_cell = [&](char32_t cp, float pen, float row_top, Color color) {
         const std::uint8_t* rows = glyph_rows(cp);

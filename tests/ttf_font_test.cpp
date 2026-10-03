@@ -224,6 +224,19 @@ void test_validate_sfnt() {
     bad_upem[head_offset + 19] = 3;
     expect_invalid(bad_upem, "unitsPerEm 3");
 
+    // A second 'head' record (stb reads the first, so a duplicate would go
+    // unchecked): copy the head record over the optional 'post' record.
+    std::vector<std::uint8_t> dup_head = real;
+    const std::size_t post_record = record_of(dup_head, "post");
+    std::copy_n(real.begin() + static_cast<std::ptrdiff_t>(head_record), 16,
+                dup_head.begin() + static_cast<std::ptrdiff_t>(post_record));
+    expect_invalid(dup_head, "duplicate head");
+    {
+        std::string error;
+        TEST_CHECK(!blaze4k::validate_sfnt(dup_head, &error));
+        TEST_CHECK(error.find("duplicate table 'head'") != std::string::npos);
+    }
+
     expect_invalid(std::vector<std::uint8_t>(real.begin(), real.begin() + 1024), "1 KiB prefix");
     expect_invalid(std::vector<std::uint8_t>(real.begin(),
                                              real.begin() + static_cast<std::ptrdiff_t>(real.size() / 2)),
@@ -287,6 +300,18 @@ void test_corrupt_and_missing_files() {
     TEST_CHECK(approx(renderer.measure("ABC", footer), 3.0f * (6.0f * 18.0f / 10.0f + 4.0f)));
     TEST_CHECK(approx(renderer.measure("e\xCC\x81", footer), 6.0f * 1.8f + 4.0f));
     TEST_CHECK(approx(renderer.line_height(footer), 1.2f * 18.0f));
+    // Fallback rows end on the reported ascent: centred in the 1.2em box with no
+    // face, on the face ascent when the face loaded but its atlas did not.
+    TEST_CHECK(approx(renderer.ascent(footer), 0.95f * 18.0f));
+    TEST_CHECK(approx(blaze4k::bitmap_fallback_baseline(nullptr, 18.0f), 0.95f * 18.0f));
+    const FontFace loaded = load_face(theme::Font::SairaExtraBold);
+    const float title_px = theme::text::kSongTitle.size_px;
+    TEST_CHECK(approx(blaze4k::bitmap_fallback_baseline(&loaded, title_px),
+                      renderer.ascent(theme::text::kSongTitle)));
+    TEST_CHECK(approx(blaze4k::bitmap_fallback_baseline(&loaded, title_px),
+                      static_cast<float>(loaded.ascent()) * loaded.em_scale(title_px)));
+    TEST_CHECK(blaze4k::bitmap_fallback_baseline(&loaded, 0.0f) == 0.0f);
+    TEST_CHECK(blaze4k::bitmap_fallback_baseline(nullptr, std::nanf("")) == 0.0f);
     // Truncation stays consistent with the fallback measure.
     const std::string cut = renderer.truncate("ABCDEFGHIJ", footer, 60.0f);
     TEST_CHECK(renderer.measure(cut, footer) <= 60.0f + 1e-3f);

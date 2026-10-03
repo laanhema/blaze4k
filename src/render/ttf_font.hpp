@@ -71,7 +71,7 @@ inline constexpr std::size_t kBakedGlyphCount = 319;
 // Checks the sfnt table directory of a TrueType font: size in [12, kMaxFontBytes],
 // version 0x00010000 or 'true' (CFF 'OTTO' and collections 'ttcf' are rejected),
 // 1 <= numTables <= 64, the directory and every table inside the data, the
-// required tables (cmap, head, hhea, hmtx, loca, glyf, maxp) present, and
+// required tables (cmap, head, hhea, hmtx, loca, glyf, maxp) present once each, and
 // head.unitsPerEm in [16, 16384]. On failure returns false and, when `error`
 // is non-null, stores a readable reason. Pure; never reads out of bounds.
 [[nodiscard]] bool validate_sfnt(std::span<const std::uint8_t> data, std::string* error);
@@ -197,6 +197,12 @@ void for_each_text_quad(const FontFace& face, const FontAtlas& atlas, std::strin
 // 2s/3s. Pure.
 [[nodiscard]] TextLayout resolve_text_layout(const theme::TextStyle& style, float s,
                                              TextAlign align, float extra_shear);
+
+// Bitmap fallback baseline: distance from the line-box top to the bottom of the
+// 5x7 rows at em size `pixel_size`. With a face (its atlas failed) it is the
+// face ascent, so the rows sit where TextRenderer::ascent() says; without one,
+// the rows are centred in the 1.2em line box (0.95em). 0 for non-finite/<= 0. Pure.
+[[nodiscard]] float bitmap_fallback_baseline(const FontFace* face, float pixel_size);
 
 // Owner of the theme fonts and their atlases. App owns one: load() at init,
 // set_window_height() before each render, shutdown() while GL is alive.
