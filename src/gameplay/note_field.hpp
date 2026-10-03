@@ -64,6 +64,11 @@ public:
 
     [[nodiscard]] double column_x(int column, double field_left) const;
     [[nodiscard]] double field_width() const { return 4.0 * config_.column_width; }
+    // Left edge of the horizontally centred field on a `screen_w`-wide screen
+    // (negative when the window is narrower than the field).
+    [[nodiscard]] double field_left(int screen_w) const {
+        return (static_cast<double>(screen_w) - field_width()) * 0.5;
+    }
     [[nodiscard]] double screen_y(double offset) const;
 
 private:

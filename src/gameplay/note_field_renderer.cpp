@@ -141,7 +141,7 @@ void NoteFieldRenderer::render(const NoteField& field,
         return;
     }
 
-    const double field_left = (static_cast<double>(screen_w) - field.field_width()) * 0.5;
+    const double field_left = field.field_left(screen_w);
     const double receptor_y = field.screen_y(0.0);
     const double note_size = NoteSkin::kNoteSize;
     const bool reverse = field.config().direction == ScrollDirection::Down;

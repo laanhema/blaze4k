@@ -324,7 +324,7 @@ void GameplayView::render(GlQuadRenderer& renderer, int screen_w, int screen_h) 
     // Live HUD. Only reached with a valid GL context (`render()` above early-returns
     // when the renderer is uninitialized); the score/life state is computed in update().
     hud_.render(score_.state(), screen_w, screen_h, renderer);
-    hud_.render_life(life_.life(), screen_w, screen_h, renderer);
+    hud_.render_life(life_.life(), screen_w, screen_h, field_.field_left(screen_w), renderer);
     judge_anim_.render(renderer, screen_w, screen_h);
 }
 

@@ -28,6 +28,13 @@ constexpr Color kLifeFrameColor{0.55f, 0.60f, 0.70f, 1.0f};
 constexpr Color kLifeFillColor{0.40f, 0.90f, 1.00f, 1.0f};
 constexpr Color kLifeDangerColor{1.00f, 0.30f, 0.30f, 1.0f};
 constexpr double kLifeDangerThreshold = 0.3;
+constexpr float kLifeBarLeft = 24.0f;          // x of the inner bar
+constexpr float kLifeBarThickness = 16.0f;     // inner bar width
+constexpr float kLifeBarBorder = 2.0f;         // frame thickness on every side
+constexpr float kLifeBarFieldGap = 16.0f;      // min clearance, frame right edge -> field
+constexpr float kLifeBarMinThickness = 6.0f;   // narrowest width in very narrow windows
+constexpr float kLifeBarInsetFraction = 0.2f;  // top/bottom inset as a fraction of height
+constexpr float kLifeBarMinInset = 40.0f;      // keeps the frame below the percent text
 
 } // namespace
 
@@ -162,10 +169,10 @@ void HudRenderer::render(const ScoreState& state, int screen_w, int screen_h,
     }
 }
 
-void HudRenderer::render_life(double life, int screen_w, int screen_h,
-                              GlQuadRenderer& renderer) const {
+LifeBarLayout layout_life_bar(double life, int screen_w, int screen_h, double field_left) {
+    LifeBarLayout layout;
     if (screen_w <= 0 || screen_h <= 0) {
-        return;
+        return layout;
     }
 
     double clamped = life;
@@ -174,24 +181,49 @@ void HudRenderer::render_life(double life, int screen_w, int screen_h,
     } else if (clamped > 1.0) {
         clamped = 1.0;
     }
+    layout.danger = clamped < kLifeDangerThreshold;
 
-    const float width = static_cast<float>(screen_w);
+    // Vertical: centred, inset top and bottom by max(20% of height, 40 px).
     const float height = static_cast<float>(screen_h);
-    const float bar_w = std::min(width * 0.40f, 480.0f);
-    const float bar_h = 16.0f;
-    const float border = 2.0f;
-    const float x = (width - bar_w) * 0.5f;
-    // Sit above the bottom-centre grade text.
-    const float y = height - 8.0f - 21.0f - 12.0f - bar_h;
+    const float inset = std::max(height * kLifeBarInsetFraction, kLifeBarMinInset);
+    const float y = inset;
+    const float bar_h = std::max(0.0f, height - 2.0f * inset);
 
-    // Frame (drawn as a slightly larger backing quad), then the filled portion.
-    renderer.draw_quad(Rect{x - border, y - border, bar_w + border * 2.0f, bar_h + border * 2.0f},
-                       kLifeFrameColor);
-    renderer.draw_quad(Rect{x, y, bar_w, bar_h}, kLifeBackColor);
+    // Horizontal: fixed left margin, then slide left and shrink as needed so the
+    // frame stays at least kLifeBarFieldGap left of the note field.
+    const float max_right = static_cast<float>(field_left) - kLifeBarFieldGap - kLifeBarBorder;
+    float x = kLifeBarLeft;
+    float w = kLifeBarThickness;
+    if (x + w > max_right) {
+        x = std::max(kLifeBarBorder, max_right - w);
+        if (x + w > max_right) {
+            w = std::max(kLifeBarMinThickness, max_right - x);
+        }
+    }
 
-    const Color fill =
-        clamped < kLifeDangerThreshold ? kLifeDangerColor : kLifeFillColor;
-    renderer.draw_quad(Rect{x, y, bar_w * static_cast<float>(clamped), bar_h}, fill);
+    const float fill_h = bar_h * static_cast<float>(clamped);
+    layout.back = Rect{x, y, w, bar_h};
+    layout.frame = Rect{x - kLifeBarBorder, y - kLifeBarBorder, w + kLifeBarBorder * 2.0f,
+                        bar_h + kLifeBarBorder * 2.0f};
+    layout.fill = Rect{x, y + bar_h - fill_h, w, fill_h};
+    layout.visible = true;
+    return layout;
+}
+
+void HudRenderer::render_life(double life, int screen_w, int screen_h, double field_left,
+                              GlQuadRenderer& renderer) const {
+    const LifeBarLayout bar = layout_life_bar(life, screen_w, screen_h, field_left);
+    if (!bar.visible) {
+        return;
+    }
+
+    // Frame (drawn as a slightly larger backing quad), the empty back, then the
+    // bottom-anchored filled portion.
+    renderer.draw_quad(bar.frame, kLifeFrameColor);
+    renderer.draw_quad(bar.back, kLifeBackColor);
+    if (bar.fill.h > 0.0f) {
+        renderer.draw_quad(bar.fill, bar.danger ? kLifeDangerColor : kLifeFillColor);
+    }
 }
 
 } // namespace blaze4k
