@@ -5,6 +5,7 @@
 #include "app/frame_stats.hpp"
 #include "app/window.hpp"
 #include "input/input_manager.hpp"
+#include "render/theme_textures.hpp"
 #include "timing/judgment_constants.hpp"
 
 namespace blaze4k {
@@ -36,6 +37,8 @@ public:
     [[nodiscard]] InputManager& input_manager() { return input_manager_; }
     [[nodiscard]] const AppConfig& config() const { return config_; }
     [[nodiscard]] const JudgmentConstants& judgment_constants() const { return judgment_constants_; }
+    // #89: Cabinet theme textures + bitmap digits, loaded once in init().
+    [[nodiscard]] const ThemeTextures& theme_textures() const { return theme_textures_; }
     [[nodiscard]] uint64_t input_reference_ns() const { return input_reference_ns_; }
     [[nodiscard]] const FrameStats& frame_stats() const { return frame_stats_; }
 
@@ -61,6 +64,7 @@ private:
     Window window_;
     InputManager input_manager_;
     JudgmentConstants judgment_constants_;
+    ThemeTextures theme_textures_;
     FrameStats frame_stats_;
     bool is_running_ = false;
     uint64_t perf_frequency_ = 0;

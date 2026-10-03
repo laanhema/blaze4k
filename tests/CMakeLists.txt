@@ -457,3 +457,18 @@ target_compile_definitions(theme_test PRIVATE
 )
 
 add_test(NAME theme_test COMMAND theme_test)
+
+add_executable(theme_textures_test
+    theme_textures_test.cpp
+)
+
+target_link_libraries(theme_textures_test PRIVATE
+    blaze4k_core
+)
+
+# #89: parses the committed Cabinet manifest and probes its PNGs (headless).
+target_compile_definitions(theme_textures_test PRIVATE
+    BLAZE4K_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets"
+)
+
+add_test(NAME theme_textures_test COMMAND theme_textures_test)

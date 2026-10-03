@@ -11,6 +11,9 @@ App::App(const AppConfig& config)
 
 App::~App() {
     stop();
+    // The theme textures must be released while the GL context is still alive:
+    // window_.shutdown() destroys it, before members are destroyed.
+    theme_textures_.shutdown();
     window_.shutdown();
     SDL_Quit();
 }
@@ -40,6 +43,10 @@ bool App::init() {
             std::cout << constants_message << "\n";
         }
     }
+
+    // #89: load every Cabinet theme PNG once. Non-fatal: a missing pack logs
+    // once and the draws fall back to flat quads; headless logs one line.
+    theme_textures_.load(ThemeTextures::default_directory());
 
     std::cout << "[App] Initialized successfully (fixed_dt=" << config_.fixed_dt
               << "s, vsync=" << (config_.window.vsync ? "on" : "off") << ").\n";
