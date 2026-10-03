@@ -230,6 +230,8 @@ void GlQuadRenderer::append_quad(const Rect& rect, const UVRect& uv, Color color
 
     // Callers pass straight alpha; the pipeline (textures + blend funcs) is
     // premultiplied, so convert the tint once per quad (#59).
+    // tests/gl_quad_renderer_test.cpp (reference_rect_vertices) copies this
+    // corner build + push order; edit both together.
     const Color pm = premultiply(color);
 
     Vertex top_left{x0, y0, uv.u0, uv.v0, pm.r, pm.g, pm.b, pm.a};

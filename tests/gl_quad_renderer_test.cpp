@@ -44,6 +44,9 @@ constexpr std::array<int, 6> kCornerOf = {0, 1, 2, 0, 2, 3};
 // Reference copy of the axis-aligned part of GlQuadRenderer::append_quad
 // (src/render/gl_quad_renderer.cpp: corner build + push order, no rotation).
 // Pins quad_vertices to the same layout, triangle order and premultiply.
+// Limitation: this is a snapshot, not the live path (append_quad writes the
+// private vertices_ and has no test seam), so a change to append_quad will not
+// fail this test; append_quad carries a comment to keep the two in step.
 std::array<QuadVertex, 6> reference_rect_vertices(const Rect& rect, const UVRect& uv, Color color) {
     const float x0 = rect.x;
     const float y0 = rect.y;
@@ -186,10 +189,11 @@ void test_headless_noop() {
                                          Vec2{0.0f, 10.0f}};
     const Color c{};
     const blaze4k::Texture invalid;
+    // Headless can only prove "does not crash": once in Alpha with unit UVs, then
+    // after an Add blend switch with a repeat range (UV > 1).
     renderer.draw_quad_points(corners, invalid, UVRect{}, {c, c, c, c});
-    const blaze4k::Texture default_texture{};
     renderer.set_blend_mode(blaze4k::BlendMode::Add);
-    renderer.draw_quad_points(corners, default_texture, UVRect{0.0f, 0.0f, 4.0f, 4.0f}, {c, c, c, c});
+    renderer.draw_quad_points(corners, invalid, UVRect{0.0f, 0.0f, 4.0f, 4.0f}, {c, c, c, c});
     renderer.end();
     TEST_CHECK(!renderer.is_initialized());
     std::cout << "  - uninitialized renderer draw_quad_points is a no-op ok.\n";

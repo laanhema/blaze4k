@@ -74,9 +74,11 @@ public:
     // General quad from four corners (TL, TR, BR, BL; any convex quad, e.g. a
     // parallelogram from a theme::skew), each with its own straight-alpha colour.
     // An invalid `texture` draws solid (the white texture), like draw_textured_quad.
-    // Colour and UV are interpolated per triangle (split along TL-BR): linear
-    // gradients (TL==TR and BL==BR, or TL==BL and TR==BR) are exact; four distinct
-    // colours or a non-parallelogram with texture shows the diagonal.
+    // Colour and UV are interpolated per triangle (split along TL-BR): a linear
+    // gradient (TL==TR and BL==BR, or TL==BL and TR==BR) is exact only when its two
+    // constant-colour edges are parallel (rects, parallelograms); on a general
+    // convex quad, with four distinct colours, or a non-parallelogram with texture,
+    // the TL-BR diagonal shows.
     void draw_quad_points(const std::array<Vec2, 4>& corners, const Texture& texture,
                           const UVRect& uv, const std::array<Color, 4>& colours);
 
