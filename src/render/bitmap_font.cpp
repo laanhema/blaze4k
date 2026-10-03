@@ -1,8 +1,12 @@
 #include "render/bitmap_font.hpp"
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
+#include <iterator>
 
 #include "render/gl_quad_renderer.hpp"
+#include "render/unicode_text.hpp"
 
 namespace blaze4k {
 
@@ -85,37 +89,144 @@ constexpr Glyph kGlyphs[] = {
     {'x', {0x00, 0x00, 0x11, 0x0A, 0x04, 0x0A, 0x11}},
     {'y', {0x00, 0x11, 0x11, 0x11, 0x0F, 0x01, 0x0E}},
     {'z', {0x00, 0x00, 0x1F, 0x02, 0x04, 0x08, 0x1F}},
+    {'!', {0x04, 0x04, 0x04, 0x04, 0x04, 0x00, 0x04}},
+    {'"', {0x0A, 0x0A, 0x00, 0x00, 0x00, 0x00, 0x00}},
+    {'#', {0x0A, 0x0A, 0x1F, 0x0A, 0x1F, 0x0A, 0x0A}},
+    {'$', {0x04, 0x0F, 0x14, 0x0E, 0x05, 0x1E, 0x04}},
+    {'&', {0x0C, 0x12, 0x14, 0x08, 0x15, 0x12, 0x0D}},
+    {'\'', {0x0C, 0x04, 0x08, 0x00, 0x00, 0x00, 0x00}},
+    {'(', {0x02, 0x04, 0x08, 0x08, 0x08, 0x04, 0x02}},
+    {')', {0x08, 0x04, 0x02, 0x02, 0x02, 0x04, 0x08}},
+    {',', {0x00, 0x00, 0x00, 0x00, 0x0C, 0x04, 0x08}},
+    {'/', {0x00, 0x01, 0x02, 0x04, 0x08, 0x10, 0x00}},
+    {':', {0x00, 0x0C, 0x0C, 0x00, 0x0C, 0x0C, 0x00}},
+    {';', {0x00, 0x0C, 0x0C, 0x00, 0x0C, 0x04, 0x08}},
+    {'<', {0x02, 0x04, 0x08, 0x10, 0x08, 0x04, 0x02}},
+    {'=', {0x00, 0x00, 0x1F, 0x00, 0x1F, 0x00, 0x00}},
+    {'>', {0x08, 0x04, 0x02, 0x01, 0x02, 0x04, 0x08}},
+    {'?', {0x0E, 0x11, 0x01, 0x02, 0x04, 0x00, 0x04}},
+    {'@', {0x0E, 0x11, 0x01, 0x0D, 0x15, 0x15, 0x0E}},
+    {'\\', {0x00, 0x10, 0x08, 0x04, 0x02, 0x01, 0x00}},
+    {'^', {0x04, 0x0A, 0x11, 0x00, 0x00, 0x00, 0x00}},
+    {'_', {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x1F}},
+    {'`', {0x08, 0x04, 0x02, 0x00, 0x00, 0x00, 0x00}},
+    {'{', {0x02, 0x04, 0x04, 0x08, 0x04, 0x04, 0x02}},
+    {'|', {0x04, 0x04, 0x04, 0x04, 0x04, 0x04, 0x04}},
+    {'}', {0x08, 0x04, 0x04, 0x02, 0x04, 0x04, 0x08}},
+    {'~', {0x00, 0x00, 0x08, 0x15, 0x02, 0x00, 0x00}},
 };
 
-const std::uint8_t* glyph_for(char symbol) {
-    for (const Glyph& glyph : kGlyphs) {
-        if (glyph.symbol == symbol) {
-            return glyph.rows;
+// Undrawable code points (no native glyph, no ASCII fold) draw this hollow box
+// in one cell. Square corners keep it distinct from 'O' and '0'.
+constexpr std::uint8_t kPlaceholderRows[7] = {0x1F, 0x11, 0x11, 0x11, 0x11, 0x11, 0x1F};
+
+constexpr char32_t kFirstPrintable = 0x20;
+constexpr char32_t kLastPrintable = 0x7E;
+constexpr std::size_t kPrintableCount = kLastPrintable - kFirstPrintable + 1; // 95
+
+static_assert(std::size(kGlyphs) == kPrintableCount,
+              "kGlyphs must hold exactly one glyph per printable ASCII character");
+
+// O(1) printable-ASCII index into kGlyphs (-1 = missing; rejected below).
+constexpr std::array<int, kPrintableCount> build_ascii_index() {
+    std::array<int, kPrintableCount> index{};
+    for (int& slot : index) {
+        slot = -1;
+    }
+    for (std::size_t i = 0; i < std::size(kGlyphs); ++i) {
+        const auto symbol = static_cast<unsigned char>(kGlyphs[i].symbol);
+        if (symbol >= kFirstPrintable && symbol <= kLastPrintable) {
+            index[symbol - kFirstPrintable] = static_cast<int>(i);
         }
     }
-    return nullptr;
+    return index;
+}
+
+constexpr std::array<int, kPrintableCount> kAsciiIndex = build_ascii_index();
+
+constexpr bool ascii_index_complete() {
+    for (int slot : kAsciiIndex) {
+        if (slot < 0) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static_assert(ascii_index_complete(), "every printable ASCII character needs a glyph");
+
+const std::uint8_t* native_glyph(char32_t cp) {
+    if (cp < kFirstPrintable || cp > kLastPrintable) {
+        return nullptr;
+    }
+    return kGlyphs[kAsciiIndex[cp - kFirstPrintable]].rows;
+}
+
+// Resolution order: zero-width -> nothing (no cell); native glyph; ASCII fold;
+// placeholder box.
+const std::uint8_t* resolve_glyph(char32_t cp) {
+    if (is_zero_width(cp)) {
+        return nullptr;
+    }
+    if (const std::uint8_t* rows = native_glyph(cp)) {
+        return rows;
+    }
+    const char folded = fold_to_ascii(cp);
+    if (folded != '\0') {
+        if (const std::uint8_t* rows = native_glyph(static_cast<unsigned char>(folded))) {
+            return rows;
+        }
+    }
+    return kPlaceholderRows;
 }
 
 } // namespace
 
+bool has_glyph(char32_t cp) {
+    return native_glyph(cp) != nullptr;
+}
+
+const std::uint8_t* glyph_rows(char32_t cp) {
+    return resolve_glyph(cp);
+}
+
+bool font_covers_text(std::string_view text) {
+    std::size_t pos = 0;
+    while (pos < text.size()) {
+        const char32_t cp = next_code_point(text, pos);
+        if (!is_zero_width(cp) && !has_glyph(cp)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 float text_width(const std::string& text, float pixel) {
-    return static_cast<float>(text.size()) * 6.0f * pixel;
+    std::size_t cells = 0;
+    std::size_t pos = 0;
+    while (pos < text.size()) {
+        if (!is_zero_width(next_code_point(text, pos))) {
+            ++cells;
+        }
+    }
+    return static_cast<float>(cells) * 6.0f * pixel;
 }
 
 void draw_text(GlQuadRenderer& renderer, const std::string& text, float x, float y, float pixel,
                Color color) {
     float cursor = x;
-    for (char symbol : text) {
-        const std::uint8_t* rows = glyph_for(symbol);
-        if (rows != nullptr) {
-            for (int row = 0; row < 7; ++row) {
-                for (int col = 0; col < 5; ++col) {
-                    if ((rows[row] >> (4 - col)) & 1u) {
-                        renderer.draw_quad(
-                            Rect{cursor + static_cast<float>(col) * pixel,
-                                 y + static_cast<float>(row) * pixel, pixel, pixel},
-                            color);
-                    }
+    std::size_t pos = 0;
+    while (pos < text.size()) {
+        const std::uint8_t* rows = resolve_glyph(next_code_point(text, pos));
+        if (rows == nullptr) {
+            continue; // zero-width: no cell
+        }
+        for (int row = 0; row < 7; ++row) {
+            for (int col = 0; col < 5; ++col) {
+                if ((rows[row] >> (4 - col)) & 1u) {
+                    renderer.draw_quad(Rect{cursor + static_cast<float>(col) * pixel,
+                                            y + static_cast<float>(row) * pixel, pixel, pixel},
+                                       color);
                 }
             }
         }

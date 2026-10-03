@@ -25,6 +25,7 @@
 #include "screens/play_request.hpp"
 #include "screens/select_screen.hpp"
 #include "screens/screen_manager.hpp"
+#include "screens/song_display_text.hpp"
 #include "screens/title_screen.hpp"
 
 #define TEST_CHECK(expr) \
@@ -45,18 +46,21 @@ using blaze4k::ScreenId;
 
 constexpr double kDt = 0.1;
 
-void write_file(const std::filesystem::path& path, std::string_view content) {
+void write_file(const std::filesystem::path& path, std::string_view content,
+                bool binary = false) {
     std::filesystem::create_directories(path.parent_path());
-    std::ofstream ofs(path);
+    std::ofstream ofs(path, binary ? std::ios::out | std::ios::binary : std::ios::out);
     ofs << content;
 }
 
 std::string make_sm(const std::string& title, const std::string& sample_start,
                     const std::vector<std::pair<std::string, int>>& charts,
-                    const std::string& selectable = "YES") {
+                    const std::string& selectable = "YES",
+                    const std::string& extra_tags = "") {
     std::ostringstream out;
     out << "#TITLE:" << title << ";\n"
         << "#ARTIST:Test Artist;\n"
+        << extra_tags
         << "#BANNER:banner.png;\n"
         << "#MUSIC:audio.ogg;\n"
         << "#SELECTABLE:" << selectable << ";\n"
@@ -413,6 +417,89 @@ void test_empty_library() {
     std::cout << "  - empty library is crash-free and inert ok.\n";
 }
 
+// Titles with punctuation, UTF-8 (+ translit), malformed bytes and an MSD-escaped
+// colon go through the real SongLibrary -> SimfileParser -> SelectScreen::render
+// path headlessly (#77). The parser must keep raw bytes; only drawing changes.
+void test_special_character_titles() {
+    const std::filesystem::path root =
+        std::filesystem::temp_directory_path() / "blaze4k_select_screen_utf8_test";
+    std::filesystem::remove_all(root);
+    const std::filesystem::path pack = root / "UTF8 Pack";
+
+    const struct {
+        const char* dir;
+        std::string title;
+        std::string extra_tags;
+    } songs[] = {
+        {"Dont", "Don't Promise Me", ""},
+        {"VerTex3", "VerTex\xC2\xB3", "#TITLETRANSLIT:VerTex^3;\n#ARTISTTRANSLIT:Smiley;\n"},
+        {"Bad", "Bad\xC3\x28\xFF Title", ""},
+        {"Glacier", "Glacier\\:Groove", ""},
+    };
+    for (const auto& song : songs) {
+        const std::filesystem::path dir = pack / song.dir;
+        write_file(dir / "audio.ogg", "fake audio");
+        write_file(dir / (std::string(song.dir) + ".sm"),
+                   make_sm(song.title, "", {{"Easy", 3}}, "YES", song.extra_tags), true);
+    }
+
+    blaze4k::SongLibrary library;
+    TEST_CHECK(library.scan_directory(root));
+    TEST_CHECK(library.total_songs() == 4);
+
+    bool found_vertex = false;
+    bool found_dont = false;
+    bool found_glacier = false;
+    bool found_bad = false;
+    for (const blaze4k::SongPack& song_pack : library.packs()) {
+        for (const blaze4k::Song& song : song_pack.songs) {
+            const blaze4k::SongMetadata& metadata = song.metadata;
+            if (metadata.title == "VerTex\xC2\xB3") {
+                found_vertex = true;
+                TEST_CHECK(blaze4k::song_display_title(metadata) == "VerTex^3");
+                TEST_CHECK(blaze4k::song_display_artist(metadata) == "Test Artist");
+            } else if (metadata.title == "Don't Promise Me") {
+                found_dont = true;
+                TEST_CHECK(blaze4k::song_display_title(metadata) == "Don't Promise Me");
+            } else if (metadata.title == "Glacier:Groove") {
+                found_glacier = true;
+                TEST_CHECK(blaze4k::song_display_title(metadata) == "Glacier:Groove");
+            } else if (metadata.title == "Bad\xC3\x28\xFF Title") {
+                found_bad = true;
+                TEST_CHECK(blaze4k::song_display_title(metadata) == metadata.title);
+            }
+        }
+    }
+    TEST_CHECK(found_vertex && found_dont && found_glacier && found_bad);
+    // Identity lookup still uses the raw native title.
+    TEST_CHECK(library.find_song("UTF8 Pack", "VerTex\xC2\xB3") != nullptr);
+
+    blaze4k::GameConfig config;
+    blaze4k::HighScores scores;
+    blaze4k::PlayRequest request;
+    auto select = std::make_unique<blaze4k::SelectScreen>();
+    blaze4k::SelectScreen* select_ptr = select.get();
+    blaze4k::ScreenManager manager(0.0);
+    manager.add_screen(std::move(select));
+    manager.context().config = &config;
+    manager.context().scores = &scores;
+    manager.context().library = &library;
+    manager.context().play_request = &request;
+    manager.start(ScreenId::Select);
+    TEST_CHECK(select_ptr->song_count() == 4);
+
+    blaze4k::GlQuadRenderer renderer; // uninitialized: safe no-op
+    manager.render(renderer, 1280, 720);
+    for (int i = 0; i < 4; ++i) {
+        manager.update(kDt, {press(GameAction::Down)});
+        TEST_CHECK(select_ptr->selected_song() != nullptr);
+        manager.render(renderer, 1280, 720);
+        manager.render(renderer, 640, 480);
+    }
+    std::filesystem::remove_all(root);
+    std::cout << "  - special-character / UTF-8 / malformed titles render crash-free ok.\n";
+}
+
 // Drives the C4 overlay through the real ScreenManager + shared GameConfig,
 // verifying open/adjust/close, wheel suspension, gameplay application, and the
 // real C2 save/load persistence path.
@@ -648,6 +735,7 @@ int main() {
     test_selection_preserved_on_reenter(manager, select_ptr);
     test_gameplay_held_state(manager, gameplay_ptr);
     test_empty_library();
+    test_special_character_titles();
     test_options_overlay(manager, select_ptr, config, request);
     test_calibration_launch_from_options(manager, select_ptr, config);
     test_remap_launch_from_options(manager, select_ptr, config);
