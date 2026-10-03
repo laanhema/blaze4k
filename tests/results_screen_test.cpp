@@ -11,6 +11,7 @@
 #include "data/config.hpp"
 #include "data/high_scores.hpp"
 #include "gameplay/gameplay_options.hpp"
+#include "render/bitmap_font.hpp"
 #include "render/gl_quad_renderer.hpp"
 #include "screens/gameplay_screen.hpp"
 #include "screens/play_request.hpp"
@@ -302,6 +303,67 @@ void test_render_and_reenter() {
     std::cout << "  - headless render + re-enter robustness ok.\n";
 }
 
+// 6b. Difficulty line (#84): Edit charts show their name, everything else is
+//     unchanged, and a long name is shortened to fit the line.
+void test_difficulty_line() {
+    using blaze4k::results_difficulty_line;
+    const float line_1280 = 0.9f * 1280.0f;
+
+    TEST_CHECK(results_difficulty_line(nullptr, line_1280, 2.0f) == "UNKNOWN");
+
+    Chart hard = make_chart();
+    hard.description = "Some Author";
+    TEST_CHECK(results_difficulty_line(&hard, line_1280, 2.0f) == "Hard 9");
+
+    Chart edit = make_chart();
+    edit.difficulty = "Edit";
+    edit.meter = 10;
+    edit.description = "JBEAN";
+    TEST_CHECK(results_difficulty_line(&edit, line_1280, 2.0f) == "JBEAN 10");
+    // Results has more room than the select bar: the real-data Bagpipe name fits whole.
+    edit.description = "mDaWg & Hatena Zubon";
+    TEST_CHECK(results_difficulty_line(&edit, line_1280, 2.0f) == "mDaWg & Hatena Zubon 10");
+
+    Chart unnamed = edit;
+    unnamed.description.clear();
+    TEST_CHECK(results_difficulty_line(&unnamed, line_1280, 2.0f) == "Edit 10");
+
+    Chart long_edit = edit;
+    long_edit.description = std::string(200, 'W');
+    const std::string line = results_difficulty_line(&long_edit, line_1280, 2.0f);
+    TEST_CHECK(blaze4k::text_width(line, 2.0f) <= line_1280);
+    TEST_CHECK(line.find("... 10") != std::string::npos);
+    // Narrow / degenerate widths clamp the name to 9 cells, no underflow.
+    TEST_CHECK(results_difficulty_line(&long_edit, 0.0f, 2.0f) == "WWWWWW... 10");
+    TEST_CHECK(results_difficulty_line(&long_edit, line_1280, 0.0f) == "WWWWWW... 10");
+
+    // The chart name is draw-only: high-score keys ignore the description.
+    const Song song = make_song();
+    Chart renamed = edit;
+    renamed.description = "Another Name";
+    TEST_CHECK(blaze4k::make_chart_key(song, edit) == blaze4k::make_chart_key(song, renamed));
+    std::cout << "  - difficulty line (Edit chart names) ok.\n";
+}
+
+// 6c. Headless render of a results summary for a named Edit chart.
+void test_render_edit_chart() {
+    ResultsFixture fx;
+    fx.chart.difficulty = "Edit";
+    fx.chart.meter = 10;
+    fx.chart.description = "Caf\xC3\xA9 \xE2\x98\xBA " + std::string(100, 'W');
+    fx.start();
+
+    blaze4k::GlQuadRenderer renderer; // uninitialized: draws are no-ops
+    for (int i = 0; i < 40; ++i) {
+        fx.manager.update(0.1, {});
+        fx.manager.render(renderer, 1280, 720);
+        fx.manager.render(renderer, 320, 240);
+    }
+    TEST_CHECK(fx.results->valid());
+    TEST_CHECK(fx.results->summary().chart == &fx.chart);
+    std::cout << "  - headless render with a named Edit chart ok.\n";
+}
+
 // 7. End-to-end: a real GameplayScreen run reports to Results, which submits and
 //    returns to Select on Confirm (mirrors the headless completed-run pattern).
 void test_gameplay_to_results_end_to_end() {
@@ -393,6 +455,8 @@ int main() {
     test_invalid_summary_exits_immediately();
     test_back_returns_to_wheel();
     test_render_and_reenter();
+    test_difficulty_line();
+    test_render_edit_chart();
     test_gameplay_to_results_end_to_end();
     std::cout << "[results_screen_test] All tests passed!\n";
     return 0;

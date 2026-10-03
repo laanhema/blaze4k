@@ -116,6 +116,30 @@ Color difficulty_color(const std::string& difficulty) {
     return kTextColor;
 }
 
+std::string difficulty_row_text(const Chart& chart, bool selected, const std::string& best,
+                                float max_row_width, float pixel) {
+    const std::string prefix = selected ? "> " : "  ";
+    const std::string meter = "  [" + std::to_string(chart.meter) + "]   ";
+    // Reserve the widest best column ("100.00%") on every row, so a name is
+    // shortened the same whether or not the chart has a score yet.
+    constexpr int kBestColumnCells = 7;
+
+    // Signed arithmetic: a narrow window must clamp, not underflow.
+    const float cell_px = 6.0f * pixel;
+    const float cells_f = cell_px > 0.0f ? std::floor(max_row_width / cell_px) : 0.0f;
+    const int row_cells =
+        cells_f > 0.0f ? static_cast<int>(std::min(cells_f, 100000.0f)) : 0;
+    const int fixed = static_cast<int>(text_width(prefix, 1.0f) / 6.0f) +
+                      static_cast<int>(text_width(meter, 1.0f) / 6.0f) +
+                      std::max(kBestColumnCells,
+                               static_cast<int>(text_width(best, 1.0f) / 6.0f));
+    const int name_budget =
+        std::max(static_cast<int>(kMinDifficultyLabelCells), row_cells - fixed);
+
+    return prefix + chart_display_label(chart, static_cast<std::size_t>(name_budget)) + meter +
+           best;
+}
+
 const ScoreRecord* best_score_for(const ScreenContext& ctx, const Song& song, const Chart& chart) {
     if (ctx.scores == nullptr) {
         return nullptr;
@@ -650,9 +674,11 @@ void SelectScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, i
         row_y += row_h;
     }
 
-    // Difficulty rows for the highlighted song: passthrough label + meter + best
-    // percent, tinted per difficulty. The tint carries the difficulty, so the
-    // selected row is marked by a highlight bar and a cursor instead of a color.
+    // Difficulty rows for the highlighted song: passthrough label (an Edit
+    // chart shows its name, shortened to fit the highlight bar) + meter + best
+    // percent, tinted per difficulty (Edit keeps the neutral tint). The tint
+    // carries the difficulty, so the selected row is marked by a highlight bar
+    // and a cursor instead of a color.
     const std::size_t chart_total = song == nullptr ? 0 : song->charts.size();
     const float diff_x = width * 0.04f;
     const float diff_row_h = height * 0.042f;
@@ -668,12 +694,14 @@ void SelectScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, i
             best = format_percent(record->percent);
         }
 
+        const float bar_w = width * 0.42f;
         if (selected) {
-            renderer.draw_quad(Rect{diff_x - 6.0f, diff_y - 4.0f, width * 0.42f, diff_row_h},
+            renderer.draw_quad(Rect{diff_x - 6.0f, diff_y - 4.0f, bar_w, diff_row_h},
                                kPlaceholderColor);
         }
-        const std::string row = std::string(selected ? "> " : "  ") + chart.difficulty + "  [" +
-                                std::to_string(chart.meter) + "]   " + best;
+        // The text starts 6 px inside the bar; keep the same 6 px clear at the
+        // right edge so a row filled to the budget never runs past the bar.
+        const std::string row = difficulty_row_text(chart, selected, best, bar_w - 12.0f, 2.5f);
         draw_text(renderer, row, diff_x, diff_y, 2.5f, difficulty_color(chart.difficulty));
         diff_y += diff_row_h;
     }

@@ -4,6 +4,8 @@
 #include <iostream>
 #include <algorithm>
 #include <cctype>
+#include <cmath>
+#include <cstdlib>
 
 namespace blaze4k {
 
@@ -26,6 +28,22 @@ double parse_double_safe(std::string_view s, double fallback = 0.0) {
     } catch (...) {
         return fallback;
     }
+}
+
+// SM5 Song.h:25 (STEPFILE_VERSION_NUMBER): the SSC version assumed until a
+// #VERSION tag says otherwise (Song.cpp:78).
+constexpr float kSscDefaultVersion = 0.83f;
+// SM5 NotesLoaderSSC.h:32 (VERSION_CHART_NAME_TAG): below this, an SSC
+// #DESCRIPTION is the chart name rather than the description.
+constexpr float kSscChartNameTagVersion = 0.74f;
+
+// Mirrors SM5 StringToFloat (RageUtil.cpp:1861-1869): strtof, non-finite -> 0.
+// Float precision matters at the edges: "0.73999999" rounds to 0.74f (modern)
+// and "1e39" overflows to inf (-> 0, old), exactly as SM5 compares them.
+float parse_ssc_version(std::string_view s) {
+    const std::string text(s); // strtof needs a NUL-terminated string
+    const float v = std::strtof(text.c_str(), nullptr);
+    return std::isfinite(v) ? v : 0.0f;
 }
 
 int parse_int_safe(std::string_view s, int fallback = 1) {
@@ -123,9 +141,15 @@ bool SimfileParser::parse_msd(const MsdFile& msd, const std::string& file_extens
         std::string cur_diff = "Beginner";
         int cur_meter = 1;
         TimingData cur_timing = timing_;
+        // Song-wide, not per block: SM5 stores both the header and the
+        // steps #VERSION on the song (NotesLoaderSSC.cpp:74-78,315-318), so
+        // each tag applies to the chart blocks after it, in file order.
+        float ssc_version = kSscDefaultVersion;
 
         for (const auto& tag : msd.tags()) {
-            if (iequals(tag.name, "NOTEDATA")) {
+            if (iequals(tag.name, "VERSION")) {
+                ssc_version = parse_ssc_version(tag.value());
+            } else if (iequals(tag.name, "NOTEDATA")) {
                 cur_stepstype.clear();
                 cur_desc.clear();
                 cur_diff = "Beginner";
@@ -133,8 +157,18 @@ bool SimfileParser::parse_msd(const MsdFile& msd, const std::string& file_extens
                 cur_timing = timing_;
             } else if (iequals(tag.name, "STEPSTYPE")) {
                 cur_stepstype = tag.value();
-            } else if (iequals(tag.name, "CHARTNAME") || iequals(tag.name, "DESCRIPTION")) {
-                cur_desc = tag.value();
+            } else if (iequals(tag.name, "CHARTNAME")) {
+                // Chart name: not the edit display name (SM5
+                // StepsDisplay.cpp:199-202 shows the description); per
+                // NotesLoaderSSC.cpp:319-324 it has its own slot, so it never
+                // overwrites the description. Deliberately not stored.
+            } else if (iequals(tag.name, "DESCRIPTION")) {
+                // SM5 NotesLoaderSSC.cpp:336-349: before 0.74 #DESCRIPTION is
+                // the chart name (not stored, see above); otherwise it is the
+                // description.
+                if (ssc_version >= kSscChartNameTagVersion) {
+                    cur_desc = tag.value();
+                }
             } else if (iequals(tag.name, "DIFFICULTY")) {
                 cur_diff = tag.value();
             } else if (iequals(tag.name, "METER")) {

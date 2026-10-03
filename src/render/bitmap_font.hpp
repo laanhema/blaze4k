@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstddef>
 #include <cstdint>
 #include <string>
 #include <string_view>
@@ -34,6 +35,14 @@ class GlQuadRenderer;
 // Pixel width of UTF-8 `text` at `pixel` scale (one 6*pixel cell per visible
 // code point).
 [[nodiscard]] float text_width(const std::string& text, float pixel);
+
+// Shortens UTF-8 `text` to at most `max_cells` cells (same cell model as
+// text_width). Text that fits is returned unchanged. Otherwise, when
+// max_cells >= 3, the longest prefix of max_cells - 3 cells plus ASCII "..."
+// (3 cells); when max_cells < 3, a max_cells-cell prefix with no ellipsis.
+// Cuts only on code-point boundaries, keeps zero-width code points attached
+// to the last kept glyph, and never rewrites malformed bytes. Never throws.
+[[nodiscard]] std::string truncate_to_cells(std::string_view text, std::size_t max_cells);
 
 // Draws UTF-8 `text` with its top-left at (x, y). Undrawable code points draw
 // the placeholder box; zero-width code points are skipped.

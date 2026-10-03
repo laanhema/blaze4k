@@ -22,4 +22,13 @@ const std::string& song_display_artist(const SongMetadata& metadata) {
                                font_covers_text(metadata.artist));
 }
 
+std::string chart_display_label(const Chart& chart, std::size_t max_name_cells) {
+    if (!chart.description.empty() &&
+        resolve_difficulty(chart.difficulty, chart.description, chart.meter) ==
+            StepsDifficulty::Edit) {
+        return truncate_to_cells(chart.description, max_name_cells);
+    }
+    return chart.difficulty;
+}
+
 } // namespace blaze4k

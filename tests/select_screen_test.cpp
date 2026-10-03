@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstdlib>
 #include <fstream>
 #include <filesystem>
@@ -17,6 +18,7 @@
 #include "data/config_loader.hpp"
 #include "data/high_scores.hpp"
 #include "gameplay/gameplay_options.hpp"
+#include "render/bitmap_font.hpp"
 #include "render/gl_quad_renderer.hpp"
 #include "screens/calibration_screen.hpp"
 #include "screens/gameplay_screen.hpp"
@@ -273,6 +275,160 @@ void test_difficulty_colors() {
     TEST_CHECK(challenge.b > challenge.r && challenge.b > challenge.g);
     TEST_CHECK(easy.g > easy.r && easy.g > easy.b);
     std::cout << "  - difficulty color mapping ok.\n";
+}
+
+blaze4k::Chart make_row_chart(const std::string& difficulty, const std::string& description,
+                              int meter) {
+    blaze4k::Chart chart;
+    chart.difficulty = difficulty;
+    chart.description = description;
+    chart.meter = meter;
+    return chart;
+}
+
+// Difficulty rows (#84): non-Edit rows keep today's exact format, Edit rows
+// show the chart name, and a long name is shortened to fit the highlight bar.
+void test_difficulty_row_text() {
+    using blaze4k::difficulty_row_text;
+    const float bar_1280 = 0.42f * 1280.0f;
+
+    const blaze4k::Chart hard = make_row_chart("Hard", "Some Author", 9);
+    TEST_CHECK(difficulty_row_text(hard, true, "---", bar_1280, 2.5f) == "> Hard  [9]   ---");
+    TEST_CHECK(difficulty_row_text(hard, false, "---", bar_1280, 2.5f) == "  Hard  [9]   ---");
+
+    const blaze4k::Chart jbean = make_row_chart("Edit", "JBEAN", 10);
+    TEST_CHECK(difficulty_row_text(jbean, true, "100.00%", bar_1280, 2.5f) ==
+               "> JBEAN  [10]   100.00%");
+
+    const blaze4k::Chart unnamed = make_row_chart("Edit", "", 10);
+    TEST_CHECK(difficulty_row_text(unnamed, true, "---", bar_1280, 2.5f) == "> Edit  [10]   ---");
+
+    // Real-data name (ITG3 Bagpipe): 20 cells, budget 17 at 1280 px.
+    const blaze4k::Chart bagpipe = make_row_chart("Edit", "mDaWg & Hatena Zubon", 10);
+    TEST_CHECK(difficulty_row_text(bagpipe, true, "100.00%", bar_1280, 2.5f) ==
+               "> mDaWg & Hatena...  [10]   100.00%");
+    // The budget reserves the widest best column, so the name is shortened the
+    // same with or without a score (review finding: it used to fit with "---").
+    TEST_CHECK(difficulty_row_text(bagpipe, false, "---", bar_1280, 2.5f) ==
+               "  mDaWg & Hatena...  [10]   ---");
+    TEST_CHECK(difficulty_row_text(bagpipe, true, "95.12%", bar_1280, 2.5f) ==
+               "> mDaWg & Hatena...  [10]   95.12%");
+
+    const blaze4k::Chart long_edit = make_row_chart("Edit", std::string(60, 'W'), 10);
+    for (const char* best : {"---", "100.00%"}) {
+        for (const bool selected : {true, false}) {
+            const std::string row = difficulty_row_text(long_edit, selected, best, bar_1280, 2.5f);
+            TEST_CHECK(blaze4k::text_width(row, 2.5f) <= bar_1280);
+            TEST_CHECK(row.find("...") != std::string::npos);
+            TEST_CHECK(row.find("  [10]   " + std::string(best)) != std::string::npos);
+        }
+    }
+
+    // Narrowest window (320 px): the name budget clamps to 9 cells, no underflow.
+    const std::string narrow =
+        difficulty_row_text(long_edit, true, "100.00%", 0.42f * 320.0f, 2.5f);
+    TEST_CHECK(narrow == "> WWWWWW...  [10]   100.00%");
+    TEST_CHECK(difficulty_row_text(hard, true, "100.00%", 0.0f, 2.5f) ==
+               "> Hard  [9]   100.00%");
+    TEST_CHECK(difficulty_row_text(long_edit, true, "---", 1000.0f, 0.0f) ==
+               "> WWWWWW...  [10]   ---");
+    TEST_CHECK(blaze4k::kMinDifficultyLabelCells == 9);
+    std::cout << "  - difficulty row text ok.\n";
+}
+
+// Named Edit charts through the real SongLibrary -> SimfileParser ->
+// SelectScreen::render path (#84): an .sm song (#NOTES description) and an .ssc
+// song (#CHARTNAME + #DESCRIPTION, including a long UTF-8 name).
+void test_named_edit_charts() {
+    const std::filesystem::path root =
+        std::filesystem::temp_directory_path() / "blaze4k_select_screen_edit_test";
+    std::filesystem::remove_all(root);
+    const std::filesystem::path pack = root / "Edit Pack";
+    const std::string rows = "1000\n0100\n0010\n0001\n";
+
+    write_file(pack / "SmSong" / "audio.ogg", "fake audio");
+    write_file(pack / "SmSong" / "SmSong.sm",
+               "#TITLE:Sm Edit Song;\n#ARTIST:Test Artist;\n#MUSIC:audio.ogg;\n"
+               "#BPMS:0.0=128.0;\n"
+               "#NOTES:dance-single::Hard:9:0,0,0,0,0:\n" + rows + ";\n"
+               "#NOTES:dance-single:JBEAN:Edit:10:0,0,0,0,0:\n" + rows + ";\n",
+               true);
+
+    const std::string long_utf8 = "Caf\xC3\xA9 \xE2\x98\xBA Extremely Long Custom Edit Name";
+    write_file(pack / "SscSong" / "audio.ogg", "fake audio");
+    write_file(pack / "SscSong" / "SscSong.ssc",
+               "#VERSION:0.83;\n#TITLE:Ssc Edit Song;\n#ARTIST:Test Artist;\n"
+               "#MUSIC:audio.ogg;\n#BPMS:0.0=128.0;\n"
+               "#NOTEDATA:;\n#STEPSTYPE:dance-single;\n#CHARTNAME:Chart Title;\n"
+               "#DESCRIPTION:My Edit;\n#DIFFICULTY:Edit;\n#METER:12;\n#NOTES:\n" + rows + ";\n"
+               "#NOTEDATA:;\n#STEPSTYPE:dance-single;\n#DESCRIPTION:" + long_utf8 +
+               ";\n#CHARTNAME:Other Title;\n#DIFFICULTY:Edit;\n#METER:11;\n#NOTES:\n" + rows +
+               ";\n"
+               "#NOTEDATA:;\n#STEPSTYPE:dance-single;\n#CHARTNAME:Only Name;\n"
+               "#DIFFICULTY:Edit;\n#METER:10;\n#NOTES:\n" + rows + ";\n",
+               true);
+
+    blaze4k::SongLibrary library;
+    TEST_CHECK(library.scan_directory(root));
+    TEST_CHECK(library.total_songs() == 2);
+
+    std::vector<std::string> labels;
+    for (const blaze4k::SongPack& song_pack : library.packs()) {
+        for (const blaze4k::Song& song : song_pack.songs) {
+            for (const blaze4k::Chart& chart : song.charts) {
+                labels.push_back(blaze4k::chart_display_label(chart, 1000));
+            }
+        }
+    }
+    auto has = [&labels](const std::string& label) {
+        return std::find(labels.begin(), labels.end(), label) != labels.end();
+    };
+    TEST_CHECK(labels.size() == 5);
+    TEST_CHECK(has("Hard"));
+    TEST_CHECK(has("JBEAN"));
+    TEST_CHECK(has("My Edit"));
+    TEST_CHECK(has(long_utf8));
+    TEST_CHECK(has("Edit")); // #CHARTNAME only: falls back to the label
+    TEST_CHECK(!has("Chart Title") && !has("Other Title") && !has("Only Name"));
+
+    blaze4k::GameConfig config;
+    blaze4k::HighScores scores;
+    blaze4k::PlayRequest request;
+    auto select = std::make_unique<blaze4k::SelectScreen>();
+    blaze4k::SelectScreen* select_ptr = select.get();
+    blaze4k::ScreenManager manager(0.0);
+    manager.add_screen(std::move(select));
+    manager.context().config = &config;
+    manager.context().scores = &scores;
+    manager.context().library = &library;
+    manager.context().play_request = &request;
+    manager.start(ScreenId::Select);
+    TEST_CHECK(select_ptr->song_count() == 2);
+
+    blaze4k::GlQuadRenderer renderer; // uninitialized: safe no-op
+    std::vector<std::string> visited;
+    for (int song = 0; song < 2; ++song) {
+        const int charts = select_ptr->chart_count();
+        for (int i = 0; i < charts; ++i) {
+            const blaze4k::Chart* chart = select_ptr->selected_chart();
+            TEST_CHECK(chart != nullptr);
+            visited.push_back(blaze4k::chart_display_label(*chart, 1000));
+            // Same width the draw site passes: the bar minus 6 px inset per side.
+            const float row_w = 0.42f * 1280.0f - 12.0f;
+            const std::string row =
+                blaze4k::difficulty_row_text(*chart, true, "100.00%", row_w, 2.5f);
+            TEST_CHECK(blaze4k::text_width(row, 2.5f) <= row_w);
+            manager.render(renderer, 1280, 720);
+            manager.render(renderer, 640, 480);
+            manager.update(kDt, {press(GameAction::Right)});
+        }
+        manager.update(kDt, {press(GameAction::Down)});
+    }
+    std::sort(visited.begin(), visited.end());
+    std::sort(labels.begin(), labels.end());
+    TEST_CHECK(visited == labels);
+    std::filesystem::remove_all(root);
+    std::cout << "  - named Edit charts (.sm + .ssc) through the real render path ok.\n";
 }
 
 void test_bpm_formatting() {
@@ -729,6 +885,8 @@ int main() {
     test_held_navigation_repeat(manager, select_ptr);
     test_best_score(manager, select_ptr, scores);
     test_difficulty_colors();
+    test_difficulty_row_text();
+    test_named_edit_charts();
     test_bpm_formatting();
     test_options_derivation();
     test_confirm_handoff(manager, select_ptr, gameplay_ptr, request);

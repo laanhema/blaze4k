@@ -138,6 +138,120 @@ int main() {
     TEST_CHECK(std::abs(malformed_parser.timing().get_bpm_at_beat(0.0) - 150.0) < 1e-6);
     std::cout << "  - Malformed and corrupt headers handled gracefully without crash.\n";
 
+    // 6. Named Edit charts (#84): SM #NOTES description and SSC
+    // #DESCRIPTION/#CHARTNAME/#VERSION precedence per SM5 NotesLoaderSSC.cpp:319-349.
+    {
+        const std::string rows = "0000\n0000\n0000\n0000\n";
+        // SM: the 2nd #NOTES field is the description (real-data shape,
+        // ITG3 Dance All Night.sm).
+        const std::string sm_edit = "#TITLE:Edit Song;\n#BPMS:0.000=120.000;\n"
+                                    "#NOTES:dance-single:JBEAN:Edit:10:0,0,0,0,0:\n" +
+                                    rows + ";\n";
+        blaze4k::SimfileParser sm_parser;
+        TEST_CHECK(sm_parser.parse_string(sm_edit, ".sm"));
+        TEST_CHECK(sm_parser.charts().size() == 1);
+        TEST_CHECK(sm_parser.charts()[0].difficulty == "Edit");
+        TEST_CHECK(sm_parser.charts()[0].description == "JBEAN");
+        TEST_CHECK(sm_parser.charts()[0].meter == 10);
+
+        const std::string ssc_header = "#TITLE:SSC Edit;\n#BPMS:0.000=120.000;\n";
+        auto block = [&rows](const std::string& tags) {
+            return "#NOTEDATA:;\n#STEPSTYPE:dance-single;\n" + tags +
+                   "#DIFFICULTY:Edit;\n#METER:12;\n#NOTES:\n" + rows + ";\n";
+        };
+        auto parse_ssc = [](const std::string& content) {
+            blaze4k::SimfileParser parser;
+            TEST_CHECK(parser.parse_string(content, ".ssc"));
+            TEST_CHECK(parser.is_ssc());
+            return parser;
+        };
+
+        // Modern version: #DESCRIPTION is the description, #CHARTNAME is not.
+        {
+            auto p = parse_ssc("#VERSION:0.83;\n" + ssc_header +
+                               block("#CHARTNAME:Chart Title;\n#DESCRIPTION:My Edit;\n"));
+            TEST_CHECK(p.charts().size() == 1);
+            TEST_CHECK(p.charts()[0].difficulty == "Edit");
+            TEST_CHECK(p.charts()[0].description == "My Edit");
+            TEST_CHECK(p.charts()[0].meter == 12);
+        }
+        // Tag order reversed: the old last-wins bug would give "Chart Title".
+        {
+            auto p = parse_ssc("#VERSION:0.83;\n" + ssc_header +
+                               block("#DESCRIPTION:My Edit;\n#CHARTNAME:Chart Title;\n"));
+            TEST_CHECK(p.charts().size() == 1);
+            TEST_CHECK(p.charts()[0].description == "My Edit");
+        }
+        // CHARTNAME only: never the description.
+        {
+            auto p = parse_ssc("#VERSION:0.83;\n" + ssc_header +
+                               block("#CHARTNAME:Chart Title;\n"));
+            TEST_CHECK(p.charts().size() == 1);
+            TEST_CHECK(p.charts()[0].description.empty());
+        }
+        // No #VERSION at all: defaults to 0.83 (SM5 Song.h:25).
+        {
+            auto p = parse_ssc(ssc_header + block("#DESCRIPTION:My Edit;\n"));
+            TEST_CHECK(p.charts().size() == 1);
+            TEST_CHECK(p.charts()[0].description == "My Edit");
+        }
+        // Pre-0.74: #DESCRIPTION is the chart name, so the description stays empty.
+        {
+            auto p = parse_ssc("#VERSION:0.70;\n" + ssc_header +
+                               block("#DESCRIPTION:Old Name;\n"));
+            TEST_CHECK(p.charts().size() == 1);
+            TEST_CHECK(p.charts()[0].description.empty());
+        }
+        // Exactly 0.74 is modern.
+        {
+            auto p = parse_ssc("#VERSION:0.74;\n" + ssc_header +
+                               block("#DESCRIPTION:New Name;\n"));
+            TEST_CHECK(p.charts().size() == 1);
+            TEST_CHECK(p.charts()[0].description == "New Name");
+        }
+        // Unparsable / non-finite / out-of-range version -> 0.0 (strtof parity): old.
+        for (const char* junk : {"garbage", "inf", "nan", "1e999", ""}) {
+            auto p = parse_ssc(std::string("#VERSION:") + junk + ";\n" + ssc_header +
+                               block("#DESCRIPTION:Junk Name;\n"));
+            TEST_CHECK(p.charts().size() == 1);
+            TEST_CHECK(p.charts()[0].description.empty());
+        }
+        // Float parity with SM5 strtof: "0.73999999" rounds to 0.74f (modern),
+        // "1e39" overflows float to inf -> 0 (old), though both are finite doubles.
+        {
+            auto p = parse_ssc("#VERSION:0.73999999;\n" + ssc_header +
+                               block("#DESCRIPTION:Rounded Up;\n"));
+            TEST_CHECK(p.charts().size() == 1);
+            TEST_CHECK(p.charts()[0].description == "Rounded Up");
+        }
+        {
+            auto p = parse_ssc("#VERSION:1e39;\n" + ssc_header +
+                               block("#DESCRIPTION:Float Overflow;\n"));
+            TEST_CHECK(p.charts().size() == 1);
+            TEST_CHECK(p.charts()[0].description.empty());
+        }
+        // A later #VERSION (steps-level) applies to the blocks after it, in file order.
+        {
+            auto p = parse_ssc("#VERSION:0.83;\n" + ssc_header +
+                               block("#DESCRIPTION:First;\n") +
+                               "#NOTEDATA:;\n#VERSION:0.70;\n#STEPSTYPE:dance-single;\n"
+                               "#DESCRIPTION:Second;\n#DIFFICULTY:Edit;\n#METER:5;\n"
+                               "#NOTES:\n" + rows + ";\n");
+            TEST_CHECK(p.charts().size() == 2);
+            TEST_CHECK(p.charts()[0].description == "First");
+            TEST_CHECK(p.charts()[1].description.empty());
+        }
+        // Two NOTEDATA blocks: the description resets per block (no leak).
+        {
+            auto p = parse_ssc("#VERSION:0.83;\n" + ssc_header +
+                               block("#DESCRIPTION:First;\n") + block(""));
+            TEST_CHECK(p.charts().size() == 2);
+            TEST_CHECK(p.charts()[0].description == "First");
+            TEST_CHECK(p.charts()[1].description.empty());
+        }
+    }
+    std::cout << "  - Named Edit charts: SM description and SSC #DESCRIPTION/#CHARTNAME/#VERSION precedence verified.\n";
+
     std::cout << "[parser_test] All parser and timing tests passed successfully!\n";
     return 0;
 }
