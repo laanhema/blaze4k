@@ -26,7 +26,7 @@ Numbers marked **estimate** were not measured here and must not be treated as ve
 - **Decision.** Per-output-device saved offsets keyed by a stable backend device ID, falling back to
   the global offset (option A). Querying OS latency at runtime is rejected for v1 (option B).
 - **Secondary finding (measured).** The cursor advances once per audio callback, about 18.75 ms at a
-  time here. That adds up to about ±9 ms of judgment jitter and a small per-device bias. Spike #71
+  time here. That adds judgment jitter (rms 6.2 ms, peaks up to about 14.6 ms) and a small per-device bias. Spike #71
   measured it, compared it with the reference engines, and the owner approved a smaller period plus
   callback-anchored interpolation (B + C, see [Clock granularity](#clock-granularity)).
 - **Wizard headroom (code finding).** The Bluetooth calibration is within 28 ms of the wizard's
@@ -42,7 +42,7 @@ Numbers marked **estimate** were not measured here and must not be treated as ve
 | Step | Code | Effect |
 | ---- | ---- | ------ |
 | Song audio is fully decoded on load | `src/audio/sound_stream.cpp:55-62` (`MA_SOUND_FLAG_DECODE`) | No streaming-decoder delay. The cursor is a read position in an in-memory PCM buffer |
-| Clock source | `src/audio/sound_stream.cpp:138-154` → `ma_sound_get_cursor_in_pcm_frames` | Frames the engine has pulled into the current device callback. The cursor moves when miniaudio *writes* audio, not when it is *heard* |
+| Clock source | `src/audio/sound_stream.cpp:138-153` → `ma_sound_get_cursor_in_pcm_frames` | Frames the engine has pulled into the current device callback. The cursor moves when miniaudio *writes* audio, not when it is *heard* |
 | Gameplay binding | `src/gameplay/gameplay_view.cpp:111-124`, offset applied at `:70` | `SamplePosition{audio_.get_position_frames(), audio_.get_sample_rate()}` |
 | Formula | `src/timing/music_clock.hpp:14-21`, `src/timing/music_clock.cpp:53-60` | `time = frames / rate + global_offset_seconds`. Positive offset = clock reads later |
 | Offset storage | `src/data/config.hpp:37-39`, loader `src/data/config_loader.cpp:203-210`, writer `:393` | One `offset.global_offset_seconds`, clamped to ±3600 s |
@@ -144,7 +144,7 @@ machine.
 
 - **Judgment.** `reference_music` is up to one callback **behind** the true position, so aged hit
   times read early by `U(0, step)`. The mean bias is about `step / 2` (around 9 ms), which calibration
-  absorbs. The jitter of up to ±9 ms around that mean (rms 6.2 ms, measured below) is **not**
+  absorbs. The jitter around that mean (rms 6.2 ms, peaks up to about 14.6 ms, measured below) is **not**
   absorbed, and it is a large share of the ±21.5 ms Fantastic window.
 - **Per device.** The callback size depends on device and backend, so this is a second, smaller
   reason the optimal offset shifts per device.
@@ -292,7 +292,7 @@ is driven by the music clock (audio stream position), never wall-clock or frame 
 | --- | --- | --- | --- | --- | --- |
 | **A** | Status quo, document only | Nothing | Fully compliant | Raw rms 6.2 ms, max ±14.6 ms, visual judder at about 53 Hz | No work. The ±21.5 ms Fantastic window keeps losing a large share to clock noise |
 | **B** | Smaller device period | `ma_engine_config.periodSizeInFrames` (e.g. 480 = 10 ms, or 256 ≈ 5.3 ms), with a config override | Compliant. Still a pure audio-position clock | 480: step 10 ms, raw rms 3.3 ms. 256 (graph quantum floor): raw rms 1.5 ms | Underrun/crackle risk (miniaudio's own PipeWire warning, `miniaudio.h:30254-30258`), more wake-ups and CPU, Bluetooth sinks may force a larger quantum anyway. **Shifts output latency**, so saved offsets move by several ms and users should recalibrate. Needs a full-song underrun check on wired and Bluetooth |
-| **C** | Callback-anchored interpolation | Capture `(cursor, monotonic ns)` per audio update, then estimate `cursor + (now − t_anchor) × rate`, clamped to at most one period ahead and never decreasing | **Touches principle 1.** A monotonic clock fills the gap between audio updates. Bounded by one period and re-anchored at every update, so it cannot drift. Same idea as SM5 CoreAudio and libpulse `INTERPOLATE_TIMING` (above) | Default period: rms 6.2 → 2.9 ms; at 480: 3.3 → 1.5 ms. Smooth arrows | Anchor jitter (one 18.8 ms outlier measured) needs clamping or smoothing. Thread safety (audio-thread anchor). Keep the monotonic guard (`src/audio/sound_stream.cpp:146-148`). The anchor must use the SDL event timebase (`SDL_GetTicksNS`). Mean bias moves by about half a step, so recalibration is advised |
+| **C** | Callback-anchored interpolation | Capture `(cursor, monotonic ns)` per audio update, then estimate `cursor + (now − t_anchor) × rate`, clamped to at most one device period ahead of the latest anchor (the device-callback interval; engine updates that burst within one device callback collapse to the last anchor) and never decreasing | **Touches principle 1.** A monotonic clock fills the gap between audio updates. Bounded by one device period and re-anchored at every update, so it cannot drift. Same idea as SM5 CoreAudio and libpulse `INTERPOLATE_TIMING` (above) | Default period: rms 6.2 → 2.9 ms; at 480: 3.3 → 1.5 ms. Smooth arrows | Anchor jitter (one 18.8 ms outlier measured) needs clamping or smoothing. Thread safety (audio-thread anchor). Keep the monotonic guard (`src/audio/sound_stream.cpp:146-148`). The anchor must use the SDL event timebase (`SDL_GetTicksNS`). Mean bias moves by about half a step, so recalibration is advised |
 | **D** | Judgment-only consistent pairing | Rendering stays on the raw cursor. Input events are aged against the callback anchor `(cursor_cb, t_cb)` instead of `(cursor_now, input_reference_ns_)` | Touches principle 1, more narrowly: extends the existing wall-clock aging (`music_time_for_event`, OpenITG `Player.cpp:918-926`) to a consistent pair | Judgment jitter close to C. No change in visual judder | Same anchor-jitter risk as C. Two clocks (render vs judgment) that can disagree by up to one period |
 | **E** | Query the backend's playback position | Per-backend native code: `pa_stream_get_time` + `INTERPOLATE_TIMING`, WASAPI `IAudioClock::GetPosition`, CoreAudio timestamps. What the reference drivers do | Compliant in spirit (it *is* the audio position), though libpulse's interpolation is itself system-clock extrapolation | Best fidelity, and the clock would also include the client buffer | Not exposed by miniaudio 0.11.21. Needs a miniaudio patch or our own libpulse/WASAPI/CoreAudio code, which breaks the thin-wrapper and lean-scope principles (same reasons #58 option B was rejected for v1) |
 | B + C / B + D | Smaller period plus interpolation | Both | As C / D | Smallest jitter (480 + anchored estimate: rms 1.5 ms, max < 3 ms) | Sum of both risk sets |
@@ -306,8 +306,9 @@ cross-platform behavior, underrun risk, recalibration impact and code size.
   10 ms), with a safe default and a config override for systems that crackle or underrun.
 - **C:** callback-anchored interpolation. Capture `(cursor, monotonic ns in the SDL_GetTicksNS
   timebase)` at each audio update. Between updates, estimate `cursor + elapsed × rate`, clamped to at
-  most one period ahead, re-anchored at every update and never decreasing. Anchor outliers are
-  smoothed or clamped.
+  most one device period ahead of the latest anchor (the device-callback interval, not the engine
+  update size; engine updates that burst within one device callback collapse to the last anchor),
+  re-anchored at every update and never decreasing. Anchor outliers are smoothed or clamped.
 - **Rationale (owner, paraphrased):** the owner wants absolute precision, butter-smooth arrow
   scrolling and audio perfectly in sync. The reference engines (SM5 CoreAudio host clock, SM5
   5_1-new PulseAudio via libpulse `INTERPOLATE_TIMING`) fill the gaps with a monotonic clock anchored
@@ -413,10 +414,10 @@ quantum for every app while the probe runs, so other apps may glitch for those f
    reported device period stays at the requested size or is forced larger.
 3. **Windows / macOS.** No host or toolchain is available to the agent. Build with the
    `windows-msvc-release` or `macos-clang-release` preset, then run
-   `ctest --preset <os>-release -R audio_test -V` and copy the
+   `ctest --preset windows-msvc-release -R audio_test -V` (or `macos-clang-release`) and copy the
    `[AudioEngine] Output device: … period N frames` line. This is a **proxy**: with fixed-size
-   callbacks (`miniaudio.h:7048`) the period is about the upper bound of the cursor step. For the real
-   step, port `gran2.c` (it only needs a monotonic clock in place of `clock_gettime`).
+   callbacks (`miniaudio.h:7048`) the period is about the upper bound of the cursor step. Unlike
+   `gran2`, `audio_test` plays a short audible test tone. For the real step, port `gran2.c` (it only needs a monotonic clock in place of `clock_gettime`).
 
 ### Reproducing the probes (silent, scratch only)
 
