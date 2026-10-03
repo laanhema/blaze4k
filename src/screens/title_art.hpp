@@ -5,9 +5,9 @@
 //  - Pure layout helpers: reference-space (1280x720) positions mapped to window
 //    pixels with theme::layout_scale (#91). GL-free, so title_screen_test pins
 //    them headless.
-//  - Thin draw helpers over ThemeTextures (#89) and NoteSkin sprites. Each one is
-//    a no-op on an uninitialised GlQuadRenderer, and draw_skin_sprite skips an
-//    invalid texture (the renderer would otherwise draw a solid white quad).
+//  - Thin draw helpers over ThemeTextures (#89). Each one is a no-op on an
+//    uninitialised GlQuadRenderer. NoteSkin sprites go through the shared
+//    draw_skin_sprite (gameplay/noteskin.hpp), which skips an invalid texture.
 //
 // Presentation only: nothing here reads the music clock; animation runs on the
 // screens' fixed `dt`.
@@ -22,7 +22,6 @@ namespace blaze4k {
 
 class GlQuadRenderer;
 class ThemeTextures;
-struct SkinSprite;
 
 namespace title_art {
 
@@ -61,9 +60,6 @@ inline constexpr double kArrowBeat = 0.0;
 // Footer text top: the line box centred in the bottom kFooterHeight band.
 [[nodiscard]] float footer_text_top(const theme::LayoutScale& L, float line_height);
 
-// True when the sprite has a texture that was actually uploaded.
-[[nodiscard]] bool skin_sprite_drawable(const SkinSprite& sprite);
-
 // bg_title stretched over the whole window {0, 0, w, h} (manifest: "stretched to
 // the window").
 void draw_backdrop(const ThemeTextures& theme, GlQuadRenderer& renderer, int w, int h);
@@ -72,10 +68,6 @@ void draw_backdrop(const ThemeTextures& theme, GlQuadRenderer& renderer, int w, 
 void draw_centred_sprite(const ThemeTextures& theme, GlQuadRenderer& renderer,
                          std::string_view name, const theme::LayoutScale& L, float ref_top,
                          Color tint = Color{});
-
-// `sprite` in a square of `box * sprite.scale` centred on `centre`; nothing when
-// the sprite is not drawable.
-void draw_skin_sprite(GlQuadRenderer& renderer, const SkinSprite& sprite, Vec2 centre, float box);
 
 // The scanlines tile over the whole window (one texel per screen pixel).
 void draw_scanlines(const ThemeTextures& theme, GlQuadRenderer& renderer, int w, int h, float s);

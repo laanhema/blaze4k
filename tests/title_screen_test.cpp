@@ -228,13 +228,14 @@ void test_skin_sprite_guard() {
     for (int c = 0; c < 4; ++c) {
         const auto head = skin.head(blaze4k::NoteType::Tap, c, title_art::arrow_quantization(c),
                                     title_art::kArrowBeat);
-        TEST_CHECK(!title_art::skin_sprite_drawable(head));
-        TEST_CHECK(!title_art::skin_sprite_drawable(skin.receptor(c, 0.0)));
+        TEST_CHECK(!blaze4k::skin_sprite_drawable(head));
+        TEST_CHECK(!blaze4k::skin_sprite_drawable(skin.receptor(c, 0.0)));
     }
-    TEST_CHECK(!title_art::skin_sprite_drawable(blaze4k::SkinSprite{}));
+    TEST_CHECK(!blaze4k::skin_sprite_drawable(blaze4k::SkinSprite{}));
 
     blaze4k::GlQuadRenderer renderer; // uninitialised: draws are no-ops
-    title_art::draw_skin_sprite(renderer, blaze4k::SkinSprite{}, {100, 100}, 96.0f);
+    TEST_CHECK(blaze4k::draw_skin_sprite(renderer, blaze4k::SkinSprite{}, 100.0, 100.0, 96.0) ==
+               0);
     std::cout << "  - invalid skin textures are never drawn ok.\n";
 }
 

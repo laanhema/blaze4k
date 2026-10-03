@@ -47,11 +47,12 @@ void TitleScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, in
     if (ctx.noteskin != nullptr) {
         const float box = title_art::arrow_box(L);
         for (int column = 0; column < 4; ++column) {
-            title_art::draw_skin_sprite(
+            const Vec2 centre = title_art::arrow_centre(L, column);
+            draw_skin_sprite(
                 renderer,
                 ctx.noteskin->head(NoteType::Tap, column, title_art::arrow_quantization(column),
                                    title_art::kArrowBeat),
-                title_art::arrow_centre(L, column), box);
+                centre.x, centre.y, box);
         }
     }
 

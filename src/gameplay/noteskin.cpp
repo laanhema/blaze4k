@@ -9,6 +9,7 @@
 #include <glad/glad.h>
 
 #include "data/data_paths.hpp"
+#include "render/gl_quad_renderer.hpp"
 #include "render/note_art.hpp"
 
 namespace blaze4k {
@@ -116,6 +117,25 @@ Color procedural_receptor_tint(int column) {
 }
 
 } // namespace
+
+bool skin_sprite_drawable(const SkinSprite& sprite) {
+    return sprite.texture != nullptr && sprite.texture->valid();
+}
+
+int draw_skin_sprite(GlQuadRenderer& renderer, const SkinSprite& sprite, double x, double y,
+                     double box) {
+    if (!skin_sprite_drawable(sprite)) {
+        return 0;
+    }
+    const double size = box * sprite.scale;
+    renderer.set_blend_mode(sprite.blend);
+    renderer.draw_textured_quad(
+        Rect{static_cast<float>(x - size * 0.5), static_cast<float>(y - size * 0.5),
+             static_cast<float>(size), static_cast<float>(size)},
+        *sprite.texture, sprite.uv, sprite.tint, sprite.rotation);
+    renderer.set_blend_mode(BlendMode::Alpha);
+    return 1;
+}
 
 UVRect cel_tap_frame(NoteQuantization quantization, double beat) {
     const int band = std::clamp(static_cast<int>(quantization), 0, kCelColorBands - 1);

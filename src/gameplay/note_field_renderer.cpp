@@ -7,31 +7,8 @@ namespace blaze4k {
 
 namespace {
 
-Rect centered_quad(double center_x, double center_y, double width, double height) {
-    return Rect{
-        static_cast<float>(center_x - width * 0.5),
-        static_cast<float>(center_y - height * 0.5),
-        static_cast<float>(width),
-        static_cast<float>(height),
-    };
-}
-
 NoteQuantization quantization_of(const NoteRenderItem& item) {
     return item.note != nullptr ? item.note->quantization : NoteQuantization::Fourth;
-}
-
-// Draws `sprite` in a square of `box * sprite.scale` centered on (x, y).
-int draw_sprite(GlQuadRenderer& renderer, const SkinSprite& sprite, double x, double y,
-                double box) {
-    if (sprite.texture == nullptr) {
-        return 0;
-    }
-    const double size = box * sprite.scale;
-    renderer.set_blend_mode(sprite.blend);
-    renderer.draw_textured_quad(centered_quad(x, y, size, size), *sprite.texture, sprite.uv,
-                                sprite.tint, sprite.rotation);
-    renderer.set_blend_mode(BlendMode::Alpha);
-    return 1;
 }
 
 // Draws a hold/roll body from `head_y` toward the tail; the body stops
@@ -149,9 +126,9 @@ void NoteFieldRenderer::render(const NoteField& field,
     // 1. Receptor row.
     for (int column = 0; column < 4; ++column) {
         const double zoom = frame.receptor_zoom[static_cast<std::size_t>(column)];
-        last_drawn_quads_ += draw_sprite(renderer, skin.receptor(column, frame.beat),
-                                         field.column_x(column, field_left), receptor_y,
-                                         note_size * zoom);
+        last_drawn_quads_ += draw_skin_sprite(renderer, skin.receptor(column, frame.beat),
+                                              field.column_x(column, field_left), receptor_y,
+                                              note_size * zoom);
     }
 
     // 2. Hold/roll bodies and end caps.
@@ -183,7 +160,7 @@ void NoteFieldRenderer::render(const NoteField& field,
             continue;
         }
         const double y = item.held ? receptor_y : field.screen_y(item.head_offset);
-        last_drawn_quads_ += draw_sprite(
+        last_drawn_quads_ += draw_skin_sprite(
             renderer, skin.head(item.type, item.column, quantization_of(item), frame.beat),
             field.column_x(item.column, field_left), y, note_size);
     }
@@ -195,8 +172,9 @@ void NoteFieldRenderer::render(const NoteField& field,
             if (item.type != NoteType::Mine) {
                 continue;
             }
-            last_drawn_quads_ += draw_sprite(renderer, layer, field.column_x(item.column, field_left),
-                                             field.screen_y(item.head_offset), note_size);
+            last_drawn_quads_ +=
+                draw_skin_sprite(renderer, layer, field.column_x(item.column, field_left),
+                                 field.screen_y(item.head_offset), note_size);
         }
     }
 
@@ -207,13 +185,13 @@ void NoteFieldRenderer::render(const NoteField& field,
         const double x = field.column_x(column, field_left);
         if (frame.hold_explosion[index]) {
             last_drawn_quads_ +=
-                draw_sprite(renderer, skin.hold_explosion(column), x, receptor_y, note_size);
+                draw_skin_sprite(renderer, skin.hold_explosion(column), x, receptor_y, note_size);
         }
         const TapExplosionState& tap = frame.tap_explosion[index];
-        last_drawn_quads_ += draw_sprite(
+        last_drawn_quads_ += draw_skin_sprite(
             renderer, skin.tap_explosion(column, tap.window, tap.elapsed, tap.duration), x,
             receptor_y, note_size);
-        last_drawn_quads_ += draw_sprite(
+        last_drawn_quads_ += draw_skin_sprite(
             renderer, skin.mine_explosion(frame.mine_explosion_elapsed[index]), x, receptor_y,
             note_size);
     }

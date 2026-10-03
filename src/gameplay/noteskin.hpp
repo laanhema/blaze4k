@@ -10,6 +10,8 @@
 
 namespace blaze4k {
 
+class GlQuadRenderer;
+
 // One drawable piece of skin art, drawn in a square box of `scale * note_size`
 // centered on its screen position.
 struct SkinSprite {
@@ -20,6 +22,15 @@ struct SkinSprite {
     Color tint{};
     BlendMode blend = BlendMode::Alpha;
 };
+
+// True when the sprite has a texture that was actually uploaded.
+[[nodiscard]] bool skin_sprite_drawable(const SkinSprite& sprite);
+
+// Draws `sprite` in a square of `box * sprite.scale` centered on (x, y) and
+// returns the quads drawn. Nothing (0) when the sprite is not drawable: the
+// renderer would otherwise substitute a solid white quad.
+int draw_skin_sprite(GlQuadRenderer& renderer, const SkinSprite& sprite, double x, double y,
+                     double box);
 
 // Cel metrics.ini StopDrawingHoldBodyOffsetFromTail=-32 (of a 64-unit arrow): the hold/roll
 // body stops half a note before the tail and the 64x64 end cap starts there, so the cap is

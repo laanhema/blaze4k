@@ -41,13 +41,22 @@ void AttractScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, 
 
     // Four Cel receptors lighting in sequence: the lit one gets the on-beat
     // flash brightness and a 1.15x zoom, the others rest at the settled grey.
+    // The procedural fallback ignores the beat, so dim its tint the same way.
     if (ctx.noteskin != nullptr) {
         const float box = title_art::arrow_box(L);
         for (int column = 0; column < 4; ++column) {
             const bool lit = column == active;
-            SkinSprite sprite = ctx.noteskin->receptor(column, lit ? 0.0 : 0.5);
+            const double beat = lit ? 0.0 : 0.5;
+            SkinSprite sprite = ctx.noteskin->receptor(column, beat);
             sprite.scale = lit ? 1.15f : 1.0f;
-            title_art::draw_skin_sprite(renderer, sprite, title_art::arrow_centre(L, column), box);
+            if (!ctx.noteskin->using_cel()) {
+                const float brightness = cel_receptor_brightness(beat);
+                sprite.tint.r *= brightness;
+                sprite.tint.g *= brightness;
+                sprite.tint.b *= brightness;
+            }
+            const Vec2 centre = title_art::arrow_centre(L, column);
+            draw_skin_sprite(renderer, sprite, centre.x, centre.y, box);
         }
     }
 

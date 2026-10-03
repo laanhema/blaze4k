@@ -69,10 +69,6 @@ float footer_text_top(const theme::LayoutScale& L, float line_height) {
     return L.y(kRefHeight - kFooterHeight) + (L.px(kFooterHeight) - line_height) * 0.5f;
 }
 
-bool skin_sprite_drawable(const SkinSprite& sprite) {
-    return sprite.texture != nullptr && sprite.texture->valid();
-}
-
 void draw_backdrop(const ThemeTextures& theme, GlQuadRenderer& renderer, int w, int h) {
     theme.draw_stretch(renderer, "bg_title",
                        Rect{0.0f, 0.0f, static_cast<float>(w), static_cast<float>(h)});
@@ -83,17 +79,6 @@ void draw_centred_sprite(const ThemeTextures& theme, GlQuadRenderer& renderer,
                          Color tint) {
     const Vec2 size = theme.content_size(name, L.s);
     theme.draw_sprite(renderer, name, centred_sprite_pos(L, ref_top, size), L.s, tint);
-}
-
-void draw_skin_sprite(GlQuadRenderer& renderer, const SkinSprite& sprite, Vec2 centre, float box) {
-    if (!skin_sprite_drawable(sprite)) {
-        return;
-    }
-    const float size = box * sprite.scale;
-    renderer.set_blend_mode(sprite.blend);
-    renderer.draw_textured_quad(Rect{centre.x - size * 0.5f, centre.y - size * 0.5f, size, size},
-                                *sprite.texture, sprite.uv, sprite.tint, sprite.rotation);
-    renderer.set_blend_mode(BlendMode::Alpha);
 }
 
 void draw_scanlines(const ThemeTextures& theme, GlQuadRenderer& renderer, int w, int h, float s) {
