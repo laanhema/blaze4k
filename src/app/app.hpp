@@ -4,6 +4,7 @@
 #include <functional>
 #include "app/frame_stats.hpp"
 #include "app/window.hpp"
+#include "gameplay/noteskin.hpp"
 #include "input/input_manager.hpp"
 #include "render/theme_textures.hpp"
 #include "render/ttf_font.hpp"
@@ -43,6 +44,9 @@ public:
     // #90: TrueType text (theme fonts + per-size atlases), loaded in init() and
     // re-baked from run() when the window height changes. Non-const: lazy bakes.
     [[nodiscard]] TextRenderer& text_renderer() { return text_renderer_; }
+    // #92: the Cel noteskin for the title/attract art, loaded once in init()
+    // (skipped headless). Gameplay still owns its own instance.
+    [[nodiscard]] const NoteSkin& noteskin() const { return noteskin_; }
     [[nodiscard]] uint64_t input_reference_ns() const { return input_reference_ns_; }
     [[nodiscard]] const FrameStats& frame_stats() const { return frame_stats_; }
 
@@ -70,6 +74,7 @@ private:
     JudgmentConstants judgment_constants_;
     ThemeTextures theme_textures_;
     TextRenderer text_renderer_;
+    NoteSkin noteskin_;
     FrameStats frame_stats_;
     bool is_running_ = false;
     uint64_t perf_frequency_ = 0;

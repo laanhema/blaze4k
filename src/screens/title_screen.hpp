@@ -4,7 +4,8 @@
 
 namespace blaze4k {
 
-// Title screen: logo + blinking "PRESS START". Confirm advances toward Select.
+// Title screen (Cabinet v3, #92): bg_title, logo, subtitle, four Cel tap notes,
+// blinking PRESS START plate, footer, scanlines. Confirm advances toward Select.
 class TitleScreen : public Screen {
 public:
     [[nodiscard]] ScreenId id() const override { return ScreenId::Title; }

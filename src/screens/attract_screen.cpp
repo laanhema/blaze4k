@@ -1,26 +1,14 @@
 #include "screens/attract_screen.hpp"
 
-#include <algorithm>
-#include <cmath>
 #include <iostream>
 
-#include "render/bitmap_font.hpp"
+#include "gameplay/noteskin.hpp"
 #include "render/gl_quad_renderer.hpp"
+#include "render/theme_layout.hpp"
+#include "render/theme_textures.hpp"
+#include "screens/title_art.hpp"
 
 namespace blaze4k {
-
-namespace {
-
-constexpr Color kBackdropColor{0.03f, 0.04f, 0.08f, 1.0f};
-constexpr Color kLogoColor{0.80f, 0.90f, 1.00f, 1.0f};
-constexpr Color kReceptorColor{0.35f, 0.42f, 0.55f, 1.0f};
-constexpr Color kActiveReceptorColor{1.00f, 0.85f, 0.30f, 1.0f};
-
-[[nodiscard]] Color scale_rgb(Color color, float factor) {
-    return Color{color.r * factor, color.g * factor, color.b * factor, color.a};
-}
-
-} // namespace
 
 void AttractScreen::enter(ScreenContext& /*ctx*/) {
     phase_seconds_ = 0.0;
@@ -34,40 +22,40 @@ void AttractScreen::update(ScreenContext& /*ctx*/, double fixed_dt,
     phase_seconds_ += fixed_dt;
 }
 
-void AttractScreen::render(ScreenContext& /*ctx*/, GlQuadRenderer& renderer, int w, int h) {
+void AttractScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, int h) {
     if (w <= 0 || h <= 0) {
         return;
     }
 
-    const float width = static_cast<float>(w);
-    const float height = static_cast<float>(h);
+    namespace layout = theme::layout;
+    const theme::LayoutScale L = theme::layout_scale(w, h);
+    // Brightness pulse and receptor blink, deterministic in the injected fixed_dt.
+    const float pulse = title_art::attract_pulse(phase_seconds_);
+    const int active = title_art::attract_active_receptor(phase_seconds_);
 
-    renderer.draw_quad(Rect{0.0f, 0.0f, width, height}, kBackdropColor);
-
-    // Brightness-pulsed logo (deterministic in the injected fixed_dt).
-    const float pulse = 0.65f + 0.35f * static_cast<float>(std::sin(phase_seconds_ * 2.0));
-    const float logo_pixel = std::max(2.0f, width * 0.0055f);
-    draw_text_centered(renderer, "BLAZE 4K", width * 0.5f, height * 0.30f, logo_pixel,
-                       scale_rgb(kLogoColor, pulse));
-
-    // Four receptors blinking in sequence.
-    const int active = static_cast<int>(phase_seconds_ * 4.0) % 4;
-    const float receptor = logo_pixel * 7.0f;
-    const float gap = logo_pixel * 3.0f;
-    const float row_w = receptor * 4.0f + gap * 3.0f;
-    float x = (width - row_w) * 0.5f;
-    const float y = height * 0.58f;
-    for (int i = 0; i < 4; ++i) {
-        const bool lit = i == active;
-        const float size = lit ? receptor * 1.15f : receptor;
-        const float offset = (size - receptor) * 0.5f;
-        const Color color = lit ? kActiveReceptorColor : kReceptorColor;
-        renderer.draw_quad(Rect{x - offset, y - offset, size, size}, color);
-        x += receptor + gap;
+    if (ctx.theme != nullptr) {
+        title_art::draw_backdrop(*ctx.theme, renderer, w, h);
+        title_art::draw_centred_sprite(*ctx.theme, renderer, "logo", L, layout::kLogoTop,
+                                       Color{pulse, pulse, pulse, 1.0f});
     }
 
-    draw_text_centered(renderer, "PRESS START", width * 0.5f, height * 0.78f, 3.0f,
-                       scale_rgb(kLogoColor, pulse));
+    // Four Cel receptors lighting in sequence: the lit one gets the on-beat
+    // flash brightness and a 1.15x zoom, the others rest at the settled grey.
+    if (ctx.noteskin != nullptr) {
+        const float box = title_art::arrow_box(L);
+        for (int column = 0; column < 4; ++column) {
+            const bool lit = column == active;
+            SkinSprite sprite = ctx.noteskin->receptor(column, lit ? 0.0 : 0.5);
+            sprite.scale = lit ? 1.15f : 1.0f;
+            title_art::draw_skin_sprite(renderer, sprite, title_art::arrow_centre(L, column), box);
+        }
+    }
+
+    if (ctx.theme != nullptr) {
+        title_art::draw_centred_sprite(*ctx.theme, renderer, "press_start", L,
+                                       layout::kPressStartTop, Color{1.0f, 1.0f, 1.0f, pulse});
+        title_art::draw_scanlines(*ctx.theme, renderer, w, h, L.s);
+    }
 }
 
 } // namespace blaze4k

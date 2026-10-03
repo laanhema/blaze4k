@@ -21,6 +21,7 @@ struct ResultsSummary;
 class IUiSoundSink;
 class ThemeTextures;
 class TextRenderer;
+class NoteSkin;
 
 // Stable identity of every arcade screen (PRD section 6/7.3). C1 implements
 // Title/Attract and a Select placeholder; C3/C4/C5/C7 replace/extend the rest.
@@ -71,6 +72,11 @@ struct ScreenContext {
     // App; null in headless/unit tests (screens must null-check). Non-const
     // because a size missing from theme::text::kAllStyles bakes lazily.
     TextRenderer* text = nullptr;
+
+    // #92: the Cel noteskin (title tap notes, attract receptors), owned by App
+    // and loaded once at init; null in headless/unit tests (screens must
+    // null-check). Gameplay still owns its own instance (GameplayView::skin_).
+    const NoteSkin* noteskin = nullptr;
 };
 
 // A screen is an object with explicit enter/update/render/exit (PRD section 6

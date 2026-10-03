@@ -126,6 +126,7 @@ add_library(blaze4k_core STATIC
     src/screens/screen_manager.cpp
     src/screens/title_screen.cpp
     src/screens/attract_screen.cpp
+    src/screens/title_art.cpp
     src/screens/select_screen.cpp
     src/screens/options_menu.cpp
     src/screens/gameplay_screen.cpp
@@ -142,6 +143,9 @@ add_library(blaze4k_core STATIC
 target_include_directories(blaze4k_core PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
+
+# #92: title footer version ("BLAZE 4K v<version>"), from project(VERSION ...).
+target_compile_definitions(blaze4k_core PUBLIC BLAZE4K_VERSION="${PROJECT_VERSION}")
 
 target_link_libraries(blaze4k_core PUBLIC
     SDL3::SDL3-static
