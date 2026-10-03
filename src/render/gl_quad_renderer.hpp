@@ -1,10 +1,35 @@
 #pragma once
 
+#include <array>
 #include <vector>
 #include "render/geometry.hpp"
 #include "render/texture.hpp"
 
 namespace blaze4k {
+
+// One vertex of the quad batch: position (pixels), texture coordinate, and
+// premultiplied RGBA colour. The field order is the GL attribute layout.
+struct QuadVertex {
+    float x;
+    float y;
+    float u;
+    float v;
+    float r;
+    float g;
+    float b;
+    float a;
+};
+static_assert(sizeof(QuadVertex) == 8 * sizeof(float), "QuadVertex must stay 8 tightly packed floats");
+
+// Builds the six vertices (two triangles: TL,TR,BR and TL,BR,BL) of a general
+// quad. `corners` and `colours` are in TL, TR, BR, BL order; UVs map
+// TL=(u0,v0), TR=(u1,v0), BR=(u1,v1), BL=(u0,v1) and are passed through
+// unclamped (a Repeat-wrapped texture tiles when the range exceeds 1).
+// Colours are straight alpha and are premultiplied per vertex (#59), exactly
+// like append_quad. Pure (no GL).
+[[nodiscard]] std::array<QuadVertex, 6> quad_vertices(const std::array<Vec2, 4>& corners,
+                                                      const UVRect& uv,
+                                                      const std::array<Color, 4>& colours);
 
 // Batched 2D textured-quad renderer for OpenGL 3.3 core.
 //
@@ -16,6 +41,10 @@ namespace blaze4k {
 // are premultiplied (see `premultiply`, `premultiply_alpha`) and the blend
 // functions are the premultiplied equivalents, so filtered edges never pick up
 // the hidden RGB of transparent texels (#59).
+//
+// `draw_quad_points` is the general-quad path (arbitrary corners, per-corner
+// colour); it shares the vertex layout and premultiplication with the
+// axis-aligned calls via `quad_vertices`.
 class GlQuadRenderer {
 public:
     GlQuadRenderer() = default;
@@ -42,6 +71,17 @@ public:
     void draw_textured_quad(const Rect& rect, const Texture& texture, const UVRect& uv, Color color,
                             float radians);
 
+    // General quad from four corners (TL, TR, BR, BL; any convex quad, e.g. a
+    // parallelogram from a theme::skew), each with its own straight-alpha colour.
+    // An invalid `texture` draws solid (the white texture), like draw_textured_quad.
+    // Colour and UV are interpolated per triangle (split along TL-BR): a linear
+    // gradient (TL==TR and BL==BR, or TL==BL and TR==BR) is exact only when its two
+    // constant-colour edges are parallel (rects, parallelograms); on a general
+    // convex quad, with four distinct colours, or a non-parallelogram with texture,
+    // the TL-BR diagonal shows.
+    void draw_quad_points(const std::array<Vec2, 4>& corners, const Texture& texture,
+                          const UVRect& uv, const std::array<Color, 4>& colours);
+
     // Blend mode for subsequent quads; flushes the batch when it changes.
     // `begin` resets it to `BlendMode::Alpha`.
     void set_blend_mode(BlendMode mode);
@@ -50,16 +90,7 @@ public:
     void end();
 
 private:
-    struct Vertex {
-        float x;
-        float y;
-        float u;
-        float v;
-        float r;
-        float g;
-        float b;
-        float a;
-    };
+    using Vertex = QuadVertex;
 
     void flush();
     void append_quad(const Rect& rect, const UVRect& uv, Color color, float radians = 0.0f);

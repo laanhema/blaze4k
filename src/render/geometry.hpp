@@ -19,6 +19,12 @@ struct Rect {
     float h = 0.0f;
 };
 
+// Pixel-space point with a top-left origin (y grows downward).
+struct Vec2 {
+    float x = 0.0f;
+    float y = 0.0f;
+};
+
 // Normalized texture coordinates. (0,0) is top-left of the texture.
 struct UVRect {
     float u0 = 0.0f;
