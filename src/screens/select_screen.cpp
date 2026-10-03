@@ -610,7 +610,8 @@ void SelectScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, i
     if (song != nullptr) {
         const float info_x = width * 0.04f;
         float info_y = banner_rect.y + banner_rect.h + height * 0.03f;
-        draw_text(renderer, song_display_title(song->metadata), info_x, info_y, 3.0f, kSelectedColor);
+        draw_text(renderer, song_display_title(song->metadata), info_x, info_y, 3.0f,
+                  kSelectedColor);
         info_y += height * 0.045f;
         draw_text(renderer, song_display_artist(song->metadata), info_x, info_y, 2.5f, kTextColor);
         info_y += height * 0.04f;

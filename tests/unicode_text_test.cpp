@@ -145,6 +145,27 @@ void test_zero_width() {
     TEST_CHECK(is_zero_width(0xFEFF));
     TEST_CHECK(is_zero_width(0x200B));
     TEST_CHECK(is_zero_width(0x2060));
+    TEST_CHECK(is_zero_width(0x3099)); // combining kana voiced mark (NFD Japanese)
+    TEST_CHECK(is_zero_width(0x309A)); // combining kana semi-voiced mark
+    TEST_CHECK(is_zero_width(0x20D0)); // combining marks for symbols: range ends
+    TEST_CHECK(is_zero_width(0x20FF));
+    TEST_CHECK(is_zero_width(0xFE20)); // combining half marks: range ends
+    TEST_CHECK(is_zero_width(0xFE2F));
+    TEST_CHECK(is_zero_width(0x1F3FB)); // emoji skin-tone modifiers: range ends
+    TEST_CHECK(is_zero_width(0x1F3FF));
+    TEST_CHECK(is_zero_width(0xE0020)); // tag characters: range ends
+    TEST_CHECK(is_zero_width(0xE007F));
+    // Neighbours just outside the new ranges still take a cell.
+    TEST_CHECK(!is_zero_width(0x20CF));
+    TEST_CHECK(!is_zero_width(0x2100));
+    TEST_CHECK(!is_zero_width(0x3098));
+    TEST_CHECK(!is_zero_width(0x309B)); // spacing voiced mark
+    TEST_CHECK(!is_zero_width(0xFE1F));
+    TEST_CHECK(!is_zero_width(0xFE30));
+    TEST_CHECK(!is_zero_width(0x1F3FA));
+    TEST_CHECK(!is_zero_width(0x1F400));
+    TEST_CHECK(!is_zero_width(0xE001F));
+    TEST_CHECK(!is_zero_width(0xE0080));
     TEST_CHECK(!is_zero_width(U'a'));
     TEST_CHECK(!is_zero_width(0x00E9));
     TEST_CHECK(!is_zero_width(0x263A));

@@ -19,7 +19,8 @@ inline constexpr char32_t kReplacementChar = 0xFFFD;
 [[nodiscard]] char32_t next_code_point(std::string_view text, std::size_t& pos);
 
 // True for code points that draw nothing and take no cell (combining marks,
-// zero-width joiners/spaces, variation selectors, BOM).
+// zero-width joiners/spaces, variation selectors, BOM, emoji skin-tone
+// modifiers, tag characters).
 [[nodiscard]] bool is_zero_width(char32_t cp);
 
 // One-to-one ASCII stand-in for a non-ASCII (or TAB) code point, or '\0' when

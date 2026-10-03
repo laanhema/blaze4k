@@ -101,11 +101,16 @@ char32_t next_code_point(std::string_view text, std::size_t& pos) {
 }
 
 bool is_zero_width(char32_t cp) {
-    return (cp >= 0x0300 && cp <= 0x036F) || // combining diacritical marks
-           (cp >= 0x200B && cp <= 0x200F) || // ZWSP, ZWNJ, ZWJ, LRM, RLM
-           cp == 0x2060 ||                   // word joiner
-           (cp >= 0xFE00 && cp <= 0xFE0F) || // variation selectors
-           cp == 0xFEFF;                     // BOM / ZWNBSP
+    return (cp >= 0x0300 && cp <= 0x036F) ||   // combining diacritical marks
+           (cp >= 0x200B && cp <= 0x200F) ||   // ZWSP, ZWNJ, ZWJ, LRM, RLM
+           cp == 0x2060 ||                     // word joiner
+           (cp >= 0x20D0 && cp <= 0x20FF) ||   // combining marks for symbols
+           cp == 0x3099 || cp == 0x309A ||     // combining kana (semi-)voiced marks
+           (cp >= 0xFE00 && cp <= 0xFE0F) ||   // variation selectors
+           (cp >= 0xFE20 && cp <= 0xFE2F) ||   // combining half marks
+           cp == 0xFEFF ||                     // BOM / ZWNBSP
+           (cp >= 0x1F3FB && cp <= 0x1F3FF) || // emoji skin-tone modifiers
+           (cp >= 0xE0020 && cp <= 0xE007F);   // tag characters
 }
 
 char fold_to_ascii(char32_t cp) {
