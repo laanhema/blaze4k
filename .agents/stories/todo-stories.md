@@ -1,12 +1,12 @@
 # TODO Stories
 
-**Source**: `TODO.md` · **Generated**: 2026-10-02 · **Updated**: 2026-10-02 (TODO-10 – TODO-12 added)
+**Source**: `TODO.md` · **Generated**: 2026-10-02 · **Updated**: 2026-10-03 (TODO-13 – TODO-14 added)
 
 ## Skipped
 
 - **Done (`[x]`)** — 28 items: `TODO.md` lines 1–15, 18–30 (font capitals bug, song-select audio, difficulty order, tab legend, key-repeat scrolling, song list room, attract timeout, legend overlap, song list rendering, results delay, disappearing holds, ITG arrow colors ×2, Cel noteskin, hold-end artifact, colored difficulties, receptor/hit effects, options SFX, assist-tick toggle, calibrate → Esc, auto `songs/` folder, remap background music, white high-score flash, best % in song select, assist-tick timing, options room, remap table layout, bigger receptors).
-- **Already tracked** — none on the first run. Second run: `TODO.md:16` (#55, TODO-1), `TODO.md:35` (#60, TODO-7); lines 31–34, 36, 37 are now marked done.
-- **Deferred by user** — `TODO.md:17` "Something Blaze themed visuals would be cool" (too vague for now; ID TODO-2 left unused). Still deferred on the second run.
+- **Already tracked** — none on the first run. Second run: `TODO.md:16` (#55, TODO-1), `TODO.md:35` (#60, TODO-7); lines 31–34, 36, 37 are now marked done. Third run: `TODO.md:16` (#55), `:35` (#60), `:40` (#78); lines 36–39 are now marked done.
+- **Deferred by user** — `TODO.md:17` "Something Blaze themed visuals would be cool" (too vague for now; ID TODO-2 left unused). Still deferred on the second and third runs.
 - **Non-tasks** — none.
 
 ---
@@ -402,6 +402,79 @@ Question: what should the Blaze 4k splash/title screen look like? Right now it i
 - Rendering is limited to textured quads through `GlQuadRenderer` (`src/render/gl_quad_renderer.hpp`). Logo art would load like other textures via `src/render/texture.cpp` / `texture_cache.cpp` from a new `assets/` subfolder.
 - Related: #55 (TODO-1, TrueType font) affects how the logotype and "PRESS START" can be styled. `TODO.md:17` ("Blaze themed visuals", deferred) may share the same visual direction.
 - Assumption: "splash screen" means the title screen ("BLAZE 4K" / "PRESS START"), not a separate startup/loading splash.
+
+### Dependencies
+
+- Blocked by: None
+- Blocks: None
+
+---
+
+## [TODO-13] Remove the live grade from the bottom of the gameplay screen
+
+**Type**: Enhancement
+**GitHub Label**: enhancement
+**Priority**: Medium
+**Complexity**: Small
+**Phase**: Backlog
+**Labels**: `gameplay`, `render`
+**Source**: `TODO.md:41` — "Get rid of the grade located at the bottom of the screen when playing a song."
+**GitHub**: #83
+
+### Description
+
+During a song the HUD draws the current live grade (e.g. "A-", "**") at the bottom centre of the screen. Remove it so the bottom of the playfield is free; the grade still appears on the results screen.
+
+### Acceptance Criteria
+
+- [ ] No grade text is drawn anywhere on the gameplay screen during play
+- [ ] Percent, combo, judgment-count chips, and the life bar still render where they do today
+- [ ] The results screen still shows the final grade unchanged
+- [ ] Tests that check the bottom-centre grade layout are removed or updated, and the build and `ctest` pass
+
+### Technical Notes
+
+- The grade is drawn in `src/gameplay/hud_renderer.cpp:180-185` ("Bottom-centre: live grade"), positioned by `grade_text_rect` (`:50`).
+- `grade_text_rect` is declared in `src/gameplay/hud_renderer.hpp:29-33` and checked by `test_grade_text_clear` in `tests/hud_renderer_test.cpp:152`. Drop both if nothing else uses them.
+- Keep `format_grade` (`hud_renderer.cpp:84`) if the results screen or tests still use it. Keep `state.grade` in the HUD state if other code reads it.
+- Assumption: remove the grade outright. A toggle in Options wasn't asked for.
+
+### Dependencies
+
+- Blocked by: None
+- Blocks: None
+
+---
+
+## [TODO-14] Show the chart name for Edit difficulty charts
+
+**Type**: Enhancement
+**GitHub Label**: enhancement
+**Priority**: Medium
+**Complexity**: Small
+**Phase**: Backlog
+**Labels**: `screens`, `chart`
+**Source**: `TODO.md:42` — "When a simfile has "Edit" type difficulty charts, I would prefer it would show the name of the chart. Currently it just shows "Edit" but I know these custom charts have a custom name aswell."
+**GitHub**: #84
+
+### Description
+
+Edit charts carry a custom name in the simfile, but song select and results only show the label "Edit". A song with several edits shows them as identical rows. Show the chart's own name for Edit charts, and fall back to "Edit" when the name is empty.
+
+### Acceptance Criteria
+
+- [ ] In song select, an Edit chart's row shows its chart name (with meter and best % as today) instead of "Edit"
+- [ ] The results screen difficulty line shows the same name for Edit charts
+- [ ] An Edit chart with an empty name still shows "Edit"; non-Edit difficulties (Beginner…Challenge) display exactly as before
+- [ ] A long name is shortened so it doesn't overlap the meter or best-% columns
+- [ ] Parser/select tests cover an `.sm` and an `.ssc` fixture with a named Edit chart
+
+### Technical Notes
+
+- The name is already parsed into `Chart::description` (`src/chart/chart.hpp:79`). SM: the 2nd `#NOTES` field (`src/chart/simfile_parser.cpp:170`). SSC: `#CHARTNAME` / `#DESCRIPTION` (`simfile_parser.cpp:136`). Both SSC tags currently write the same variable, so whichever appears last wins. Check StepMania 5 source (`NotesLoaderSSC.cpp`, how `Steps` description vs. chart name is shown for edits) for which field is the edit name before changing that precedence.
+- Display sites: `src/screens/select_screen.cpp:675` (difficulty row) and `src/screens/results_screen.cpp:153-156` (difficulty line). A small shared helper (e.g. next to `song_display_title` in `src/screens/song_display_text.cpp`) avoids duplicating the fallback logic. Run names through the same UTF-8 text handling as song titles (#77).
+- Keep `difficulty_color` keyed on `chart.difficulty` ("Edit") so edits keep their color.
+- High-score keys (`src/data/high_scores.cpp:150`) already include a note-data hash, so separate Edit charts don't share scores. No change needed there.
 
 ### Dependencies
 
