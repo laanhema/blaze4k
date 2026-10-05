@@ -83,6 +83,7 @@ void ResultsScreen::enter(ScreenContext& ctx) {
 void ResultsScreen::clear_cached_text() {
     badge_ = DifficultyBadge{};
     title_.clear();
+    subtitle_.clear();
     artist_.clear();
     grade_texture_.clear();
     grade_fallback_text_.clear();
@@ -101,6 +102,8 @@ void ResultsScreen::clear_cached_text() {
     hold_cols_ = {};
     fitted_badge_.clear();
     fitted_title_.clear();
+    fitted_subtitle_.clear();
+    subtitle_x_ = 0.0f;
     fitted_artist_.clear();
 }
 
@@ -110,6 +113,14 @@ void ResultsScreen::build_cached_text(const ScreenContext& ctx) {
                  ? song_display_title(summary_.song->metadata, ctx.text,
                                       theme::text::kBarSongTitle.font)
                  : std::string{"UNKNOWN"};
+    subtitle_ = summary_.song != nullptr
+                    ? song_display_subtitle(summary_.song->metadata, ctx.text,
+                                            theme::text::kBarSongSubtitle.font)
+                    : std::string{};
+    // An empty title gives its place to the subtitle (title_subtitle_text, as on select).
+    if (title_.empty()) {
+        title_.swap(subtitle_);
+    }
     artist_ = summary_.song != nullptr
                   ? song_display_artist(summary_.song->metadata, ctx.text,
                                         theme::text::kBarArtist.font)
@@ -155,6 +166,8 @@ void ResultsScreen::refit_bar_text(const TextRenderer* text, const ThemeTextures
         bar_layout_ = art::top_bar_layout(0.0f, 0.0f, 0.0f);
         fitted_badge_.clear();
         fitted_title_.clear();
+        fitted_subtitle_.clear();
+        subtitle_x_ = 0.0f;
         fitted_artist_.clear();
         fitted_scale_ = -1.0f;
         fit_hold_columns();
@@ -170,14 +183,25 @@ void ResultsScreen::refit_bar_text(const TextRenderer* text, const ThemeTextures
         return text->measure(s, theme::text::kBarBadge);
     };
     const float badge_w = badge_text_width(badge_, measure_badge) / scale;
+    const float subtitle_w =
+        subtitle_.empty() ? 0.0f : ref_measure(*text, subtitle_, theme::text::kBarSongSubtitle);
     bar_layout_ = art::top_bar_layout(badge_w,
                                       ref_measure(*text, title_, theme::text::kBarSongTitle),
-                                      ref_measure(*text, artist_, theme::text::kBarArtist));
+                                      ref_measure(*text, artist_, theme::text::kBarArtist),
+                                      subtitle_w);
     fitted_badge_ = bar_layout_.plate.w > 0.0f
                         ? fit_badge_text(badge_, bar_layout_.badge_text_max_w * scale, measure_badge)
                         : std::string{};
     fitted_title_ =
         text->truncate(title_, theme::text::kBarSongTitle, bar_layout_.title_max_w * scale);
+    // The subtitle follows the measured fitted title, so the gap stays tight after truncation.
+    fitted_subtitle_ = bar_layout_.subtitle_max_w > 0.0f
+                           ? text->truncate(subtitle_, theme::text::kBarSongSubtitle,
+                                            bar_layout_.subtitle_max_w * scale)
+                           : std::string{};
+    subtitle_x_ = bar_layout_.title_x +
+                  ref_measure(*text, fitted_title_, theme::text::kBarSongTitle) +
+                  art::kBarSubtitleGap;
     fitted_artist_ =
         text->truncate(artist_, theme::text::kBarArtist, bar_layout_.artist_max_w * scale);
 }
@@ -358,6 +382,14 @@ void ResultsScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, 
             text->draw(renderer, fitted_title_, L.x(bar.title_x),
                        baseline_top(*text, L, bar.baseline, title_style), title_style,
                        TextAlign::Left);
+            if (!fitted_subtitle_.empty()) {
+                const theme::TextStyle sub_style =
+                    with_color(theme::text::kBarSongSubtitle,
+                               with_alpha(theme::text::kBarSongSubtitle.color, title_alpha));
+                text->draw(renderer, fitted_subtitle_, L.x(subtitle_x_),
+                           baseline_top(*text, L, bar.baseline, sub_style), sub_style,
+                           TextAlign::Left);
+            }
             const theme::TextStyle artist_style = with_color(
                 theme::text::kBarArtist, with_alpha(theme::text::kBarArtist.color, title_alpha));
             text->draw(renderer, fitted_artist_, L.x(art::kBarRight),

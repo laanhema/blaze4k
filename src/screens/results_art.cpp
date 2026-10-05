@@ -9,6 +9,7 @@
 #include "render/ttf_font.hpp"
 #include "screens/results.hpp"
 #include "screens/select_art.hpp"
+#include "screens/song_display_text.hpp"
 #include "screens/title_art.hpp"
 
 namespace blaze4k::results_art {
@@ -52,10 +53,14 @@ std::size_t row_index(int i) {
 // Pure layout
 // ---------------------------------------------------------------------------------------------
 
-TopBarLayout top_bar_layout(float badge_text_w, float title_w, float artist_w) {
+TopBarLayout top_bar_layout(float badge_text_w, float title_w, float artist_w, float subtitle_w) {
     badge_text_w = finite_or_zero(badge_text_w);
     title_w = finite_or_zero(title_w);
     artist_w = finite_or_zero(artist_w);
+    subtitle_w = finite_or_zero(subtitle_w);
+    // A subtitle needs a title to follow: the screen moves a subtitle with no title into
+    // the title place (title_subtitle_text), and "UNKNOWN" stands in when there is no song.
+    const bool has_subtitle = subtitle_w > 0.0f && title_w > 0.0f;
 
     TopBarLayout out;
     const bool has_artist = artist_w > 0.0f;
@@ -70,10 +75,21 @@ TopBarLayout top_bar_layout(float badge_text_w, float title_w, float artist_w) {
 
     const float title_right = out.artist_x - artist_gap;
     const float title_max = std::max(0.0f, title_right - kBarLeftLimit - plate_w - plate_gap);
-    out.title_max_w = title_w > 0.0f ? std::min(title_w, title_max) : 0.0f;
-    out.title_x = title_right - out.title_max_w;
+    // The title slot: the title alone, or title + gap + subtitle when there is one.
+    const float slot_need = has_subtitle ? title_w + kBarSubtitleGap + subtitle_w : title_w;
+    const float slot_w = slot_need > 0.0f ? std::min(slot_need, title_max) : 0.0f;
+    out.title_x = title_right - slot_w;
+    if (has_subtitle) {
+        const TitleSubtitleFit fit = fit_title_subtitle(title_w, subtitle_w, kBarSubtitleGap, slot_w);
+        out.title_max_w = fit.title_max_w;
+        out.subtitle_max_w = fit.subtitle_max_w;
+        out.subtitle_x =
+            fit.subtitle_max_w > 0.0f ? out.title_x + fit.title_max_w + kBarSubtitleGap : 0.0f;
+    } else {
+        out.title_max_w = slot_w;
+    }
 
-    const float title_gap = out.title_max_w > 0.0f ? kBarGap : 0.0f;
+    const float title_gap = slot_w > 0.0f ? kBarGap : 0.0f;
     out.plate = Rect{out.title_x - (has_plate ? title_gap : 0.0f) - plate_w, kBarBadgeTop, plate_w,
                      kBarBadgeHeight};
     out.badge_text_x = out.plate.x + kBarBadgePadX;

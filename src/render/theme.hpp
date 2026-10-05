@@ -123,6 +123,11 @@ constexpr TextStyle kBpm{Font::SairaExtraBold, 24, 2, true, color::kGold};
 constexpr TextStyle kWheelRow{Font::SairaBold, 28, 0, false, color::kWheelText};
 constexpr TextStyle kWheelSelected{Font::SairaExtraBold, 40, 0, true, color::kSelectedInk};
 constexpr TextStyle kWheelPack{Font::SairaExtraBold, 28, 3, false, color::kPackInk};
+// Subtitles drawn after the title on its baseline (#110); each reuses an existing
+// (font, size) atlas: SairaBold 28 (kWheelRow) and SairaBold 20 (kDiffBest).
+constexpr TextStyle kSongSubtitle{Font::SairaBold, 28, 0, true, color::kIce};
+constexpr TextStyle kWheelSubtitle{Font::SairaBold, 20, 0, false, color::kIce};
+constexpr TextStyle kWheelSelectedSubtitle{Font::SairaBold, 28, 0, true, color::kSelectedInk};
 constexpr TextStyle kDiffName{Font::SairaExtraBold, 20, 2, false, color::kWhite};   // colour = DifficultyColors::ink
 constexpr TextStyle kDiffMeter{Font::SairaExtraBold, 28, 0, false, color::kWhite};
 constexpr TextStyle kDiffBest{Font::SairaBold, 20, 0, false, color::kSteel};
@@ -140,6 +145,7 @@ constexpr float kComboGroupShear = 0.176f; // the judgment + combo group is also
 // Score screen
 constexpr TextStyle kBarSongTitle{Font::SairaExtraBold, 24, 0, true, color::kWhite, Shadow::Hard2};
 constexpr TextStyle kBarArtist{Font::SairaBold, 18, 0, false, color::kArtistOnBar};
+constexpr TextStyle kBarSongSubtitle{Font::SairaBold, 18, 0, true, color::kIce}; // kBarArtist atlas
 constexpr TextStyle kBarBadge{Font::SairaExtraBold, 18, 2, false, color::kWhite}; // colour = ink
 constexpr TextStyle kStatLabel{Font::SairaBold, 18, 4, false, color::kIce};
 constexpr TextStyle kTierLabel{Font::SairaExtraBold, 20, 6, false, color::kGold};
@@ -157,7 +163,8 @@ constexpr std::array kAllStyles = {
     kDiffNameSelected, kDiffMeterSelected, kDiffBestSelected, kChip,         kHintWord,
     kHintKey,          kBadge,             kComboNumber,     kComboLabel,    kBarSongTitle,
     kBarArtist,        kBarBadge,          kStatLabel,       kTierLabel,     kJudgmentLabel,
-    kJudgmentCount,
+    kJudgmentCount,    kSongSubtitle,      kWheelSubtitle,   kWheelSelectedSubtitle,
+    kBarSongSubtitle,
 };
 } // namespace text
 

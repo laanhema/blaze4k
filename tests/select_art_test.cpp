@@ -8,6 +8,9 @@
 // #96: the options overlay in the Cabinet look (options_art): the panel and row
 // layout and room budget, text fit with the real fonts, the options legend, the
 // pre-baked styles, and a render walk over every overlay row.
+// #110: subtitle display choice (TrueType coverage), the real-font title/subtitle
+// fit for same-title songs, and subtitled songs (one with an empty title) in the
+// render smoke.
 
 #include <algorithm>
 #include <array>
@@ -406,7 +409,94 @@ void test_display_text_coverage() {
     TEST_CHECK(&blaze4k::song_display_artist(cafe, nullptr, font) == &cafe.artist_translit);
     TEST_CHECK(&blaze4k::song_display_title(cjk, nullptr, font) == &cjk.title_translit);
     TEST_CHECK(&blaze4k::song_display_title(bare, nullptr, font) == &bare.title);
+
+    // #110: the subtitle follows the same rule, on its own fields.
+    const theme::Font sub_font = theme::text::kSongSubtitle.font;
+    TEST_CHECK(text.font_available(sub_font));
+    blaze4k::SongMetadata cafe_mix;
+    cafe_mix.title = "Plain";
+    cafe_mix.subtitle = "Caf\xC3\xA9 Mix";
+    cafe_mix.subtitle_translit = "Cafe Mix";
+    TEST_CHECK(&blaze4k::song_display_subtitle(cafe_mix, &text, sub_font) == &cafe_mix.subtitle);
+    TEST_CHECK(&blaze4k::song_display_subtitle(cafe_mix) == &cafe_mix.subtitle_translit);
+    TEST_CHECK(&blaze4k::song_display_subtitle(cafe_mix, nullptr, sub_font) ==
+               &cafe_mix.subtitle_translit);
+    blaze4k::SongMetadata cjk_sub;
+    cjk_sub.title = "Plain";
+    cjk_sub.subtitle = cjk.title;
+    cjk_sub.subtitle_translit = "Aishite Mix";
+    TEST_CHECK(&blaze4k::song_display_subtitle(cjk_sub, &text, sub_font) ==
+               &cjk_sub.subtitle_translit);
+    // Chosen independently of the title: the ASCII title stays native.
+    TEST_CHECK(&blaze4k::song_display_title(cjk_sub, &text, font) == &cjk_sub.title);
+    blaze4k::SongMetadata cjk_bare_sub;
+    cjk_bare_sub.subtitle = cjk.title;
+    TEST_CHECK(&blaze4k::song_display_subtitle(cjk_bare_sub, &text, sub_font) ==
+               &cjk_bare_sub.subtitle);
     std::cout << "  - TrueType-coverage display text ok.\n";
+}
+
+// #110: the three ITG "Disconnected" songs fit whole (title and subtitle) at every
+// wheel and info-panel budget with the real fonts, so the rows read differently;
+// an overflowing title + subtitle truncates without overlap and the subtitle
+// keeps >= 40% of the budget.
+void test_disconnected_subtitles_fit() {
+    blaze4k::TextRenderer& text = loaded_text(); // 1280x720: window px == reference px
+    TEST_CHECK(approx(text.scale(), 1.0f));
+    const float gap = art::kSubtitleGap;
+    struct Site {
+        const theme::TextStyle* title;
+        const theme::TextStyle* sub;
+        float budget;
+    };
+    // Worst wheel budgets: a plain row at the deepest indent, and the selected bar.
+    const Rect deep = art::wheel_row_rect(3, 0);
+    const Rect sel = art::wheel_row_rect(3, 3);
+    TEST_CHECK(deep.x > sel.x);
+    const Site sites[] = {
+        {&theme::text::kWheelRow, &theme::text::kWheelSubtitle,
+         art::kWheelTextRight - (deep.x + art::kWheelSongTextX)},
+        {&theme::text::kWheelSelected, &theme::text::kWheelSelectedSubtitle,
+         art::kWheelTextRight - (sel.x + art::kWheelSelectedTextX)},
+        {&theme::text::kSongTitle, &theme::text::kSongSubtitle, art::kInfoWidth},
+    };
+    for (const Site& site : sites) {
+        TEST_CHECK(site.budget > 0.0f);
+        const float title_w = text.measure("Disconnected", *site.title);
+        std::vector<std::string> fitted;
+        for (const char* sub : {"-Hyper-", "-Mobius-", "-Hardkore-"}) {
+            const float sub_w = text.measure(sub, *site.sub);
+            const blaze4k::TitleSubtitleFit fit =
+                blaze4k::fit_title_subtitle(title_w, sub_w, gap, site.budget);
+            TEST_CHECK(approx(fit.title_max_w, title_w));
+            TEST_CHECK(approx(fit.subtitle_max_w, sub_w));
+            TEST_CHECK(text.truncate("Disconnected", *site.title, fit.title_max_w) ==
+                       "Disconnected");
+            fitted.push_back(text.truncate(sub, *site.sub, fit.subtitle_max_w));
+            TEST_CHECK(fitted.back() == sub);
+        }
+        TEST_CHECK(fitted[0] != fitted[1] && fitted[1] != fitted[2] && fitted[0] != fitted[2]);
+
+        // Overflow: a long title + the pack's longest subtitle.
+        const std::string long_title =
+            "A Song With Many Charts And A Very Long Title That Will Not Fit";
+        const std::string long_sub = "(Two Gees Radio Edit)";
+        const float lt_w = text.measure(long_title, *site.title);
+        const float ls_w = text.measure(long_sub, *site.sub);
+        TEST_CHECK(lt_w + gap + ls_w > site.budget);
+        const blaze4k::TitleSubtitleFit fit =
+            blaze4k::fit_title_subtitle(lt_w, ls_w, gap, site.budget);
+        TEST_CHECK(fit.subtitle_max_w >=
+                   std::min(ls_w, (site.budget - gap) * blaze4k::kSubtitleMinShare) - 1e-3f);
+        const std::string t = text.truncate(long_title, *site.title, fit.title_max_w);
+        const std::string sub = text.truncate(long_sub, *site.sub, fit.subtitle_max_w);
+        TEST_CHECK(t.size() >= 3 && t.compare(t.size() - 3, 3, "...") == 0);
+        TEST_CHECK(!sub.empty());
+        // The subtitle starts after the measured fitted title + gap and ends inside the budget.
+        TEST_CHECK(text.measure(t, *site.title) + gap + text.measure(sub, *site.sub) <=
+                   site.budget + 1e-3f);
+    }
+    std::cout << "  - Disconnected -Hyper-/-Mobius-/-Hardkore- fit whole; overflow truncates ok.\n";
 }
 
 void test_row_style() {
@@ -859,10 +949,12 @@ void test_options_styles_prebaked() {
     };
     for (const theme::TextStyle& style :
          {opt::kTitleStyle, theme::text::kWheelRow, theme::text::kWheelPack,
-          theme::text::kWheelSelected, theme::text::kHintKey, theme::text::kHintWord}) {
+          theme::text::kWheelSelected, theme::text::kHintKey, theme::text::kHintWord,
+          theme::text::kSongSubtitle, theme::text::kWheelSubtitle,
+          theme::text::kWheelSelectedSubtitle, theme::text::kBarSongSubtitle}) {
         TEST_CHECK(prebaked(style));
     }
-    TEST_CHECK(theme::text::kAllStyles.size() == 26);
+    TEST_CHECK(theme::text::kAllStyles.size() == 30);
     std::cout << "  - options styles share pre-baked atlases ok.\n";
 }
 
@@ -873,9 +965,13 @@ void write_file(const fs::path& path, const std::string& content) {
 }
 
 std::string make_sm(const std::string& title, const std::vector<std::pair<std::string, int>>& charts,
-                    const std::string& description = "") {
+                    const std::string& description = "", const std::string& subtitle = "") {
     std::ostringstream out;
-    out << "#TITLE:" << title << ";\n#ARTIST:Some Artist With A Rather Long Name;\n"
+    out << "#TITLE:" << title << ";\n";
+    if (!subtitle.empty()) {
+        out << "#SUBTITLE:" << subtitle << ";\n";
+    }
+    out << "#ARTIST:Some Artist With A Rather Long Name;\n"
         << "#MUSIC:audio.ogg;\n#BPMS:0.0=140.0,32.0=175.0;\n";
     for (const auto& [difficulty, meter] : charts) {
         out << "#NOTES:dance-single:" << (difficulty == "Edit" ? description : "") << ":"
@@ -892,9 +988,20 @@ void test_render_smoke() {
                make_sm("A Song With Many Charts And A Very Long Title That Will Not Fit",
                        {{"Beginner", 1}, {"Easy", 3}, {"Medium", 6}, {"Hard", 9}, {"Challenge", 12},
                         {"Edit", 13}, {"Edit", 15}},
-                       "An Extremely Long Custom Edit Chart Name"));
+                       "An Extremely Long Custom Edit Chart Name", "(Two Gees Radio Edit)"));
     write_file(root / "Pack A" / "Single" / "audio.ogg", "fake");
     write_file(root / "Pack A" / "Single" / "Single.sm", make_sm("Single", {{"Novice", 1}}));
+    // Two same-title songs told apart by their subtitles (#110).
+    for (const char* sub : {"-Hyper-", "-Mobius-"}) {
+        const std::string dir = std::string{"Disconnected "} + sub;
+        write_file(root / "Pack A" / dir / "audio.ogg", "fake");
+        write_file(root / "Pack A" / dir / "Disconnected.sm",
+                   make_sm("Disconnected", {{"Hard", 9}}, "", sub));
+    }
+    // An empty #TITLE with a subtitle: the subtitle takes the title's place (#110 review).
+    write_file(root / "Pack A" / "Untitled" / "audio.ogg", "fake");
+    write_file(root / "Pack A" / "Untitled" / "Untitled.sm",
+               make_sm("", {{"Easy", 2}}, "", "-Subtitle Only-"));
     for (int i = 0; i < 9; ++i) {
         const std::string name = "Filler " + std::to_string(i);
         write_file(root / "Pack B" / name / "audio.ogg", "fake");
@@ -936,8 +1043,9 @@ void test_render_smoke() {
             manager.context().text = &text;
         }
         manager.start(ScreenId::Select);
-        TEST_CHECK(select->song_count() == 11);
-        TEST_CHECK(select->wheel_row_count() == 13);
+        // Pack A: 5 songs (2 subtitled "Disconnected", 1 untitled), Pack B: 9; + 2 pack headers.
+        TEST_CHECK(select->song_count() == 14);
+        TEST_CHECK(select->wheel_row_count() == 16);
 
         // Every song, every chart (the 7-chart song scrolls its difficulty list),
         // mid-slide and at rest.
@@ -996,6 +1104,7 @@ int main() {
     test_scroll_easing();
     test_wheel_slide_stays_in_column();
     test_display_text_coverage();
+    test_disconnected_subtitles_fit();
     test_row_style();
     test_labels();
     test_ticks();

@@ -29,6 +29,7 @@
 #include "screens/results_art.hpp"
 #include "screens/results_screen.hpp"
 #include "screens/screen.hpp"
+#include "screens/song_display_text.hpp"
 #include "screens/screen_manager.hpp"
 #include "timing/judgment_constants.hpp"
 
@@ -509,6 +510,58 @@ void test_top_bar_layout() {
                           bad.artist_max_w, bad.badge_text_x, bad.badge_text_max_w}) {
         TEST_CHECK(std::isfinite(v));
     }
+
+    // #110: no subtitle (0, negative or non-finite) -> field-identical to the 3-width layout.
+    const auto same_layout = [](const art::TopBarLayout& a, const art::TopBarLayout& b) {
+        return a.plate.x == b.plate.x && a.plate.y == b.plate.y && a.plate.w == b.plate.w &&
+               a.plate.h == b.plate.h && a.badge_text_x == b.badge_text_x &&
+               a.badge_text_max_w == b.badge_text_max_w && a.title_x == b.title_x &&
+               a.title_max_w == b.title_max_w && a.artist_x == b.artist_x &&
+               a.artist_max_w == b.artist_max_w && a.baseline == b.baseline &&
+               a.subtitle_x == b.subtitle_x && a.subtitle_max_w == b.subtitle_max_w;
+    };
+    for (const float none : {0.0f, -5.0f, nan, inf}) {
+        const art::TopBarLayout same = art::top_bar_layout(59.0f, 118.0f, 50.0f, none);
+        TEST_CHECK(same_layout(same, mock));
+        TEST_CHECK(same.subtitle_max_w == 0.0f && same.subtitle_x == 0.0f);
+        TEST_CHECK(same_layout(art::top_bar_layout(59.0f, 2000.0f, 50.0f, none), long_title));
+    }
+    TEST_CHECK(near(art::kBarSubtitleGap, 8.0f));
+
+    // A subtitle: title + 8 + subtitle as one group ending at artist_x - kBarGap.
+    const art::TopBarLayout sub = art::top_bar_layout(59.0f, 118.0f, 50.0f, 60.0f);
+    TEST_CHECK(near(sub.title_max_w, 118.0f));
+    TEST_CHECK(near(sub.subtitle_max_w, 60.0f));
+    TEST_CHECK(near(sub.subtitle_x, sub.title_x + 118.0f + art::kBarSubtitleGap));
+    TEST_CHECK(near(sub.subtitle_x + 60.0f, sub.artist_x - art::kBarGap));
+    TEST_CHECK(near(sub.artist_x, mock.artist_x) && near(sub.artist_max_w, mock.artist_max_w));
+    TEST_CHECK(near(sub.title_x, mock.title_x - 68.0f));
+    TEST_CHECK(near(sub.plate.x + sub.plate.w, sub.title_x - art::kBarGap));
+    TEST_CHECK(near(sub.plate.w, mock.plate.w) && near(sub.baseline, 40.0f));
+
+    // A long title + subtitle: the plate stays clear of the sprite and the subtitle
+    // keeps >= 40% of the slot (after the gap).
+    const art::TopBarLayout long_sub = art::top_bar_layout(59.0f, 2000.0f, 50.0f, 300.0f);
+    const float slot = (long_sub.artist_x - art::kBarGap) - long_sub.title_x;
+    TEST_CHECK(long_sub.plate.x >= art::kBarLeftLimit - 1e-3f);
+    TEST_CHECK(long_sub.subtitle_max_w >=
+               blaze4k::kSubtitleMinShare * (slot - art::kBarSubtitleGap) - 1e-3f);
+    TEST_CHECK(long_sub.title_max_w < 2000.0f);
+    TEST_CHECK(near(long_sub.subtitle_x,
+                    long_sub.title_x + long_sub.title_max_w + art::kBarSubtitleGap));
+    TEST_CHECK(long_sub.subtitle_x + long_sub.subtitle_max_w <=
+               long_sub.artist_x - art::kBarGap + 1e-3f);
+
+    // No title: the subtitle is treated as absent.
+    const art::TopBarLayout no_title = art::top_bar_layout(59.0f, 0.0f, 50.0f, 60.0f);
+    TEST_CHECK(same_layout(no_title, art::top_bar_layout(59.0f, 0.0f, 50.0f)));
+
+    // Non-finite title/badge with a subtitle never produces NaN.
+    const art::TopBarLayout bad_sub = art::top_bar_layout(nan, inf, 50.0f, 60.0f);
+    for (const float v : {bad_sub.plate.x, bad_sub.title_x, bad_sub.title_max_w,
+                          bad_sub.subtitle_x, bad_sub.subtitle_max_w}) {
+        TEST_CHECK(std::isfinite(v));
+    }
     std::cout << "  - top bar layout ok.\n";
 }
 
@@ -602,6 +655,7 @@ void test_enter_caches_badge() {
     TEST_CHECK(same_color(fx.results->badge().colors.ink, blaze4k::theme::difficulty::kHard.ink));
     TEST_CHECK(fx.results->display_title() == "Blaze Anthem");
     TEST_CHECK(fx.results->display_artist() == "Test Artist");
+    TEST_CHECK(fx.results->display_subtitle().empty());
     TEST_CHECK(fx.results->grade_texture() == "grade_S_plus");
     TEST_CHECK(fx.results->tier_text() == "GRADE S+");
     TEST_CHECK(fx.results->dp_text() == "40");
@@ -621,6 +675,21 @@ void test_enter_caches_badge() {
     TEST_CHECK(edit.results->grade_texture() == "grade_single_star");
     TEST_CHECK(edit.results->tier_text() == "ONE STAR");
 
+    // #110: the subtitle is cached on its own; the title is unchanged.
+    ResultsFixture subtitled;
+    subtitled.song.metadata.subtitle = "-Hyper-";
+    subtitled.start();
+    TEST_CHECK(subtitled.results->display_subtitle() == "-Hyper-");
+    TEST_CHECK(subtitled.results->display_title() == "Blaze Anthem");
+
+    // An empty title gives its place to the subtitle (same rule as song select).
+    ResultsFixture untitled;
+    untitled.song.metadata.title.clear();
+    untitled.song.metadata.subtitle = "-Hyper-";
+    untitled.start();
+    TEST_CHECK(untitled.results->display_title() == "-Hyper-");
+    TEST_CHECK(untitled.results->display_subtitle().empty());
+
     // No chart / song: no badge, "UNKNOWN" title.
     ResultsFixture bare;
     bare.summary.chart = nullptr;
@@ -629,10 +698,13 @@ void test_enter_caches_badge() {
     TEST_CHECK(bare.results->badge().label.empty() && bare.results->badge().meter.empty());
     TEST_CHECK(bare.results->display_title() == "UNKNOWN");
     TEST_CHECK(bare.results->display_artist().empty());
+    TEST_CHECK(bare.results->display_subtitle().empty());
 
     // An invalid summary clears every cached string.
     ResultsFixture invalid;
+    invalid.song.metadata.subtitle = "-Hyper-";
     invalid.start(false);
+    TEST_CHECK(invalid.results->display_subtitle().empty());
     TEST_CHECK(invalid.results->dp_text().empty());
     TEST_CHECK(invalid.results->tier_text().empty());
     TEST_CHECK(invalid.results->badge().label.empty());
@@ -647,7 +719,7 @@ void test_enter_caches_badge() {
 }
 
 // 6j. Headless Cabinet render with the real theme and fonts at several window
-//     sizes for every state (clear, NEW RECORD, failed, named Edit, NO RESULT).
+//     sizes for every state (clear, NEW RECORD, failed, named Edit, subtitled, NO RESULT).
 void render_all_sizes(ResultsFixture& fx, blaze4k::GlQuadRenderer& renderer) {
     blaze4k::TextRenderer& text = loaded_text();
     const std::array<std::array<int, 2>, 6> sizes = {
@@ -718,6 +790,29 @@ void test_render_cabinet_headless() {
         TEST_CHECK(fx.results->valid());
         TEST_CHECK(fx.results->summary().chart == &fx.chart);
     }
+    // A subtitled song (#110): fitted with the text service, empty without.
+    for (const bool services : {true, false}) {
+        ResultsFixture fx;
+        fx.song.metadata.title = "Disconnected";
+        fx.song.metadata.subtitle = "-Hyper-";
+        if (services) {
+            attach(fx);
+        }
+        fx.start();
+        TEST_CHECK(fx.results->display_subtitle() == "-Hyper-");
+        if (services) {
+            render_all_sizes(fx, renderer);
+            fx.manager.render(renderer, 1280, 720);
+            TEST_CHECK(fx.results->fitted_subtitle() == "-Hyper-");
+        } else {
+            for (int i = 0; i < 30; ++i) {
+                fx.manager.update(0.1, {});
+                fx.manager.render(renderer, 1280, 720);
+            }
+            TEST_CHECK(fx.results->fitted_subtitle().empty());
+        }
+        TEST_CHECK(fx.results->valid());
+    }
     // NO RESULT.
     {
         ResultsFixture fx;
@@ -727,7 +822,7 @@ void test_render_cabinet_headless() {
         TEST_CHECK(!fx.results->valid());
         TEST_CHECK(!fx.results->shows_record_finale());
     }
-    std::cout << "  - headless Cabinet render (real theme + fonts, 6 sizes, 5 states) ok.\n";
+    std::cout << "  - headless Cabinet render (real theme + fonts, 6 sizes, 6 states) ok.\n";
 }
 
 // 6c. Headless render of a results summary for a named Edit chart.

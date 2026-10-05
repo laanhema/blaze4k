@@ -101,6 +101,8 @@ inline constexpr float kChipRight = theme::layout::kRefWidth - theme::layout::kT
 inline constexpr float kInfoWidth = theme::layout::kBanner.w;                       // title/artist budget
 inline constexpr float kBpmRight = theme::layout::kBanner.x + theme::layout::kBanner.w - 4.0f; // 604, mock
 inline constexpr float kArtistBpmGap = 16.0f;
+// Gap between a title and the subtitle drawn after it (wheel rows and info panel, #110).
+inline constexpr float kSubtitleGap = 10.0f;
 
 // Hint line (measured from the mock): key -> word gaps, arrow cells.
 inline constexpr float kHintCentreX = theme::layout::kRefWidth * 0.5f;
@@ -299,10 +301,15 @@ void draw_hint_bar(const ThemeTextures* theme, TextRenderer* text, GlQuadRendere
 void draw_banner(const ThemeTextures* theme, GlQuadRenderer& renderer, const theme::LayoutScale& L,
                  const Texture* banner);
 
-// Title (truncated to 560), artist (truncated to leave room for the BPM) and
-// "BPM <range>" right-aligned at x 604.
+// Title + subtitle on one line, sharing the 560 budget via fit_title_subtitle
+// (the subtitle in kSongSubtitle on the title's baseline, kSubtitleGap after the
+// fitted title; an empty subtitle draws the title alone, truncated to 560, and an
+// empty title draws the subtitle alone in its place and style),
+// artist (truncated to leave room for the BPM) and "BPM <range>" right-aligned
+// at x 604.
 void draw_song_info(TextRenderer& text, GlQuadRenderer& renderer, const theme::LayoutScale& L,
-                    std::string_view title, std::string_view artist, std::string_view bpm);
+                    std::string_view title, std::string_view subtitle, std::string_view artist,
+                    std::string_view bpm);
 
 // One difficulty row's art: the baked slice3, or the code-drawn Edit row.
 void draw_difficulty_row_art(const ThemeTextures& theme, GlQuadRenderer& renderer,
@@ -334,6 +341,11 @@ struct WheelRowView {
     WheelArt art = WheelArt::Song;
     int slot = 0;
     std::string_view label;
+    // Song/Selected rows only (Pack rows ignore it): drawn after the label on its
+    // baseline in kWheelSubtitle / kWheelSelectedSubtitle, sharing the row's
+    // budget via fit_title_subtitle. Empty = the label alone, exactly as before.
+    // An empty label draws the subtitle in its place (label style, no gap).
+    std::string_view subtitle;
 };
 void draw_wheel(const ThemeTextures* theme, TextRenderer* text, GlQuadRenderer& renderer,
                 const theme::LayoutScale& L, int w, std::span<const WheelRowView> rows,
