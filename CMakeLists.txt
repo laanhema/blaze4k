@@ -133,6 +133,7 @@ add_library(blaze4k_core STATIC
     src/screens/gameplay_screen.cpp
     src/screens/results.cpp
     src/screens/results_screen.cpp
+    src/screens/results_art.cpp
     src/screens/song_display_text.cpp
     src/screens/results_anim.cpp
     src/screens/calibration_screen.cpp

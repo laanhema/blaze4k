@@ -48,7 +48,7 @@ Settings, high scores, and the calibrated global offset persist as JSON files ne
 - Taps, holds, rolls, and mines
 - Upscroll default (downscroll option)
 - Gameplay HUD: difficulty badge, life bar, judgment pops and combo
-- Results screen: grade, %, DP, judgment breakdown, max combo, "NEW RECORD" flag
+- Score screen: grade medallion, chrome percentage, dance points, judgment bars, max combo, holds and mines, NEW RECORD / FAILED ribbon
 
 ## Out of Scope (v1)
 

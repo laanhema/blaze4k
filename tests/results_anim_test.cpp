@@ -168,10 +168,26 @@ void test_invalid_reset_is_safe() {
     std::cout << "  - invalid reset safe ok.\n";
 }
 
+// Score screen reveal order (#95): the bar text first, then the grade slam on the
+// medallion, the percent count-up, the stats and finally the NEW RECORD ribbon;
+// everything has settled by kRevealSeconds.
+void test_reveal_order() {
+    TEST_CHECK(ResultsAnimator::title_alpha(0.05) > 0.0f);
+    TEST_CHECK(ResultsAnimator::grade_alpha(0.05) == 0.0f);
+    TEST_CHECK(ResultsAnimator::kGradeDelay < ResultsAnimator::kPercentDelay);
+    TEST_CHECK(ResultsAnimator::kPercentDelay < ResultsAnimator::kStatsDelay);
+    TEST_CHECK(ResultsAnimator::kStatsDelay < ResultsAnimator::kRecordDelay);
+    TEST_CHECK(ResultsAnimator::kGradeDelay + ResultsAnimator::kGradePopSeconds <=
+               ResultsAnimator::kRecordDelay);
+    TEST_CHECK(ResultsAnimator::kRecordDelay + ResultsAnimator::kRecordSeconds <= kReveal);
+    TEST_CHECK(ResultsAnimator::kPercentDelay + ResultsAnimator::kPercentCountSeconds <= kReveal);
+    std::cout << "  - score screen reveal order ok.\n";
+}
+
 } // namespace
 
 int main() {
-    std::cout << "[results_anim_test] Running ResultsAnimator tests...\n";
+    std::cout << "[results_anim_test] Running ResultsAnimator (score screen reveal) tests...\n";
     test_initial_state();
     test_grade_slam();
     test_percent_count_up();
@@ -179,6 +195,7 @@ int main() {
     test_new_record_finale();
     test_skip_and_finished();
     test_invalid_reset_is_safe();
+    test_reveal_order();
     std::cout << "[results_anim_test] All tests passed!\n";
     return 0;
 }
