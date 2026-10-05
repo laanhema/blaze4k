@@ -171,6 +171,10 @@ bool Metronome::prepare(const std::filesystem::path& wav_path, const MetronomeCo
     }
 
     const bool ok = stream().load(wav_path.string());
+    if (ok && override_ == nullptr) {
+        // #81: the owned stream drives the calibration clock; interpolate it.
+        (void)owned_.enable_clock_interpolation();
+    }
     prepared_ = ok;
     using_stub_ = !ok;
     return ok;
@@ -200,7 +204,8 @@ MusicClock::Source Metronome::clock_source() {
         };
     }
     return [this] {
-        return SamplePosition{owned_.get_position_frames(), owned_.get_sample_rate()};
+        const TimedFrames position = owned_.get_timed_position_frames();
+        return SamplePosition{position.frames, owned_.get_sample_rate(), position.timestamp_ns};
     };
 }
 

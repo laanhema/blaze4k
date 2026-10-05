@@ -141,6 +141,7 @@ private:
     unsigned int stub_sample_rate_ = 48000;
     bool use_stub_ = false;
     bool audio_started_ = false;
+    bool clock_interpolation_ = false; // #81: callback-anchored interpolation active
     bool assist_tick_ = false; // option on and the tick voices loaded
     bool exited_ = false; // fail transition already taken (gameplay ended)
     bool final_combo_celebrated_ = false; // final combo pop armed once

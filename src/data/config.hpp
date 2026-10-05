@@ -27,11 +27,22 @@ struct VideoSettings {
     bool fullscreen = false;
 };
 
+// #81: audio engine period request (`audio.period_size_frames`). Mirrors
+// blaze4k::kDefaultAudioPeriodFrames in src/audio/audio_engine.hpp (tied by a
+// static_assert in src/main.cpp; this header stays audio-free).
+inline constexpr int kDefaultAudioPeriodFramesConfig = 480;
+inline constexpr int kMinAudioPeriodFrames = 128;
+inline constexpr int kMaxAudioPeriodFrames = 4096;
+
 struct AudioSettings {
     double master_volume = 1.0;
     double music_volume = 1.0;
     double preview_volume = 0.8;
     double ui_volume = 1.0;
+    // 0 = miniaudio/backend default; otherwise clamped to [128, 4096] frames.
+    // Raise this (e.g. 960, or 0) if you hear crackles or underruns; applies on
+    // next start.
+    int period_size_frames = kDefaultAudioPeriodFramesConfig;
 };
 
 struct OffsetSettings {

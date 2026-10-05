@@ -49,3 +49,43 @@ inline void write_test_wav(const std::string& path, double duration_sec, double 
         out.write(reinterpret_cast<const char*>(&sample_int16), 2);
     }
 }
+
+// #81: an all-zero 16-bit PCM WAV at an arbitrary rate/channel count (silent
+// fixtures for the clock-tap test and the clock probe).
+inline bool write_silent_wav(const std::string& path, double duration_sec, uint32_t sample_rate,
+                             uint16_t num_channels) {
+    const uint16_t bits_per_sample = 16;
+    const auto num_frames = static_cast<uint32_t>(duration_sec * sample_rate);
+    const uint16_t block_align = num_channels * (bits_per_sample / 8);
+    const uint32_t data_size = num_frames * block_align;
+    const uint32_t chunk_size = 36 + data_size;
+    const uint32_t byte_rate = sample_rate * block_align;
+    const uint32_t subchunk1_size = 16;
+    const uint16_t audio_format = 1; // PCM
+
+    std::ofstream out(path, std::ios::binary);
+    if (!out.is_open()) {
+        return false;
+    }
+    out.write("RIFF", 4);
+    out.write(reinterpret_cast<const char*>(&chunk_size), 4);
+    out.write("WAVE", 4);
+    out.write("fmt ", 4);
+    out.write(reinterpret_cast<const char*>(&subchunk1_size), 4);
+    out.write(reinterpret_cast<const char*>(&audio_format), 2);
+    out.write(reinterpret_cast<const char*>(&num_channels), 2);
+    out.write(reinterpret_cast<const char*>(&sample_rate), 4);
+    out.write(reinterpret_cast<const char*>(&byte_rate), 4);
+    out.write(reinterpret_cast<const char*>(&block_align), 2);
+    out.write(reinterpret_cast<const char*>(&bits_per_sample), 2);
+    out.write("data", 4);
+    out.write(reinterpret_cast<const char*>(&data_size), 4);
+    const char zeros[4096] = {};
+    uint32_t remaining = data_size;
+    while (remaining > 0) {
+        const uint32_t chunk = remaining < sizeof(zeros) ? remaining : static_cast<uint32_t>(sizeof(zeros));
+        out.write(zeros, chunk);
+        remaining -= chunk;
+    }
+    return static_cast<bool>(out);
+}

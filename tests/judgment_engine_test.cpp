@@ -519,6 +519,13 @@ int main() {
         TEST_CHECK(approx(blaze4k::music_time_for_event(990000000ULL, 1000000000ULL, 5.0), 4.99));
         TEST_CHECK(approx(blaze4k::music_time_for_event(0, 1000, 5.0), 5.0));
         TEST_CHECK(approx(blaze4k::music_time_for_event(2000, 1000, 5.0), 5.0));
+        // #81: aging reference prefers the clock's own estimate timestamp.
+        TEST_CHECK(blaze4k::aging_reference_ns(0, 1234) == 1234);
+        TEST_CHECK(blaze4k::aging_reference_ns(5678, 1234) == 5678);
+        TEST_CHECK(approx(blaze4k::music_time_for_event(
+                              997'000'000ULL, blaze4k::aging_reference_ns(1'000'000'000ULL, 2'000'000'000ULL),
+                              5.0),
+                          4.997));
         std::cout << "  - Input timestamp conversion is pure and correct.\n";
     }
 

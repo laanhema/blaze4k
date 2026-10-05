@@ -5,6 +5,7 @@
 #include <iomanip>
 #include <iostream>
 
+#include "audio/audio_engine.hpp"
 #include "gameplay/judgment_input.hpp"
 
 namespace blaze4k {
@@ -75,8 +76,14 @@ bool GameplayView::init(const Chart& chart, const JudgmentConstants& constants,
         assist_tick_ = assist_player_.init(assist_tick_path_);
     }
 
+    clock_interpolation_ = false;
     if (!audio_path.empty() && audio_.load(audio_path)) {
+        // #81: interpolate the music clock from audio-thread callback anchors.
+        clock_interpolation_ = audio_.enable_clock_interpolation();
         audio_started_ = audio_.play();
+        if (audio_started_) {
+            AudioEngine::instance().reset_callback_stats(); // logged per song at shutdown
+        }
     }
 
     if (!audio_started_) {
@@ -105,6 +112,7 @@ bool GameplayView::init(const Chart& chart, const JudgmentConstants& constants,
               << ", time source " << (use_stub_ ? "stub" : "audio")
               << ", fail " << (options.fail_enabled ? "enabled" : "off")
               << ", assist tick " << (assist_tick_ ? "on" : "off")
+              << ", clock interpolation " << (clock_interpolation_ ? "on" : "off")
               << ", merciful beginner "
               << (constants.merciful_beginner_applies(chart_.is_beginner()) ? "on" : "off") << "\n";
     return true;
@@ -120,7 +128,8 @@ void GameplayView::bind_clock_source() {
         });
     } else {
         clock_.set_source([this] {
-            return SamplePosition{audio_.get_position_frames(), audio_.get_sample_rate()};
+            const TimedFrames position = audio_.get_timed_position_frames();
+            return SamplePosition{position.frames, audio_.get_sample_rate(), position.timestamp_ns};
         });
     }
 }
@@ -134,7 +143,10 @@ void GameplayView::handle_input_events(const std::vector<InputEvent>& events, ui
 
     // Sample the music time once, age each SDL-timestamped event against it, and
     // hand the engine an absolute music time (no frame/wall-clock enters here).
-    const double reference_music = clock_.time_seconds();
+    // #81: the music time and its estimate timestamp are one consistent pair;
+    // sources without a timestamp fall back to App's post-drain reference.
+    const TimedMusicTime reference = clock_.timed_time_seconds();
+    const uint64_t aging_ns = aging_reference_ns(reference.timestamp_ns, reference_ns);
     for (const InputEvent& event : events) {
         if (!event.pressed) {
             continue;
@@ -153,7 +165,7 @@ void GameplayView::handle_input_events(const std::vector<InputEvent>& events, ui
         }
 
         judge_.handle_step(column,
-                           music_time_for_event(event.timestamp_ns, reference_ns, reference_music));
+                           music_time_for_event(event.timestamp_ns, aging_ns, reference.seconds));
     }
 }
 
@@ -168,6 +180,7 @@ void GameplayView::update(double fixed_dt, const std::array<bool, 4>& held_colum
         // source so gameplay time always follows whichever source drives update.
         if (!audio_started_ && audio_.is_loaded() && audio_.play()) {
             audio_started_ = true;
+            AudioEngine::instance().reset_callback_stats();
             use_stub_ = false;
             bind_clock_source();
             std::cout << "[GameplayView] Audio started; switched clock source from stub to audio\n";
@@ -342,8 +355,10 @@ void GameplayView::schedule_assist_ticks() {
     // clock instead delays the tick by -offset (a -0.2 s offset = 200 ms late).
     // The stream cursor advances in lockstep with the engine clock the tick is
     // scheduled on, so remaining stream time maps 1:1 onto engine time (no rate
-    // mods in scope).
-    const double now = clock_.sample_time_seconds();
+    // mods in scope). #81: that lockstep holds for the RAW cursor, not for the
+    // interpolated clock (which leads it by up to one device period), so ticks
+    // are scheduled from the raw cursor.
+    const double now = audio_.get_raw_position_seconds();
     due_ticks_.clear();
     assist_schedule_.collect_due(now + kAssistTickLookaheadSeconds, due_ticks_);
     for (const double tick_time : due_ticks_) {
@@ -404,6 +419,9 @@ void GameplayView::shutdown() {
                   << " | events " << judge_.events().size()
                   << " | life " << std::fixed << std::setprecision(3) << life_.life()
                   << (life_.has_failed() ? " FAILED" : " alive") << "\n";
+        if (audio_started_) {
+            AudioEngine::instance().log_callback_stats("gameplay");
+        }
         audio_.stop();
         audio_.unload();
         assist_player_.shutdown();

@@ -83,6 +83,7 @@ add_library(blaze4k_core STATIC
     src/audio/miniaudio_impl.cpp
     src/audio/audio_engine.cpp
     src/audio/sound_stream.cpp
+    src/audio/clock_anchor.cpp
     src/input/input_manager.cpp
     src/chart/msd_file.cpp
     src/chart/timing_data.cpp
@@ -90,6 +91,7 @@ add_library(blaze4k_core STATIC
     src/chart/note_parser.cpp
     src/chart/song_library.cpp
     src/timing/music_clock.cpp
+    src/timing/clock_interpolator.cpp
     src/timing/judgment_constants.cpp
     src/timing/offset_calibration.cpp
     src/render/texture.cpp

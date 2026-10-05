@@ -94,8 +94,11 @@ void CalibrationScreen::update(ScreenContext& ctx, double fixed_dt,
         stub_frames_ += fixed_dt * static_cast<double>(stub_rate_);
     }
 
-    const double reference_music = clock_.time_seconds();
-    if (phase_ == CalibrationPhase::CountIn && reference_music >= config_.lead_in_seconds) {
+    // #81: one consistent (music time, timestamp) pair; sources without a
+    // timestamp (synthetic/injected) age against App's post-drain reference.
+    const TimedMusicTime reference = clock_.timed_time_seconds();
+    const uint64_t aging_ns = aging_reference_ns(reference.timestamp_ns, ctx.input_reference_ns);
+    if (phase_ == CalibrationPhase::CountIn && reference.seconds >= config_.lead_in_seconds) {
         phase_ = CalibrationPhase::Sampling;
     }
 
@@ -106,7 +109,7 @@ void CalibrationScreen::update(ScreenContext& ctx, double fixed_dt,
 
         if (is_panel_action(event.action) && phase_ != CalibrationPhase::CountIn) {
             const double hit =
-                music_time_for_event(event.timestamp_ns, ctx.input_reference_ns, reference_music);
+                music_time_for_event(event.timestamp_ns, aging_ns, reference.seconds);
             const int index = config_.nearest_beat_index(hit);
             calib_.add_sample(config_.beat_time(index), hit);
         }

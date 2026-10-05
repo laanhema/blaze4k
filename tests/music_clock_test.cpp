@@ -98,6 +98,45 @@ int main() {
     TEST_CHECK(ns_clock.time_nanoseconds() == 1500000000LL);
     std::cout << "  - Nanosecond conversion correct.\n";
 
+    // 7a. #81: timed_time_seconds samples the source ONCE and returns the
+    //     offset-applied time together with that sample's timestamp_ns.
+    {
+        int calls = 0;
+        blaze4k::MusicClock timed_clock([&calls] {
+            ++calls;
+            return blaze4k::SamplePosition{48000 + static_cast<uint64_t>(calls) * 480, 48000,
+                                           7'000'000'000ULL + static_cast<uint64_t>(calls)};
+        });
+        timed_clock.set_global_offset_seconds(0.25);
+        const blaze4k::TimedMusicTime t = timed_clock.timed_time_seconds();
+        TEST_CHECK(calls == 1);
+        TEST_CHECK(std::abs(t.seconds - (1.0 + 0.01 + 0.25)) < 1e-12);
+        TEST_CHECK(t.timestamp_ns == 7'000'000'001ULL);
+
+        // A legacy 2-field SamplePosition has no timestamp.
+        const blaze4k::SamplePosition legacy{48000, 48000};
+        TEST_CHECK(legacy.timestamp_ns == 0);
+        blaze4k::MusicClock legacy_clock([] { return blaze4k::SamplePosition{96000, 48000}; });
+        const blaze4k::TimedMusicTime lt = legacy_clock.timed_time_seconds();
+        TEST_CHECK(lt.timestamp_ns == 0);
+        TEST_CHECK(std::abs(lt.seconds - 2.0) < 1e-12);
+        // No source: zero pair.
+        blaze4k::MusicClock empty_clock;
+        TEST_CHECK(empty_clock.timed_time_seconds().timestamp_ns == 0);
+
+        // Consistent-pair aging: an event 3 ms before the clock's own timestamp
+        // maps to m - 0.003, regardless of the (later) fallback reference.
+        const uint64_t fallback = t.timestamp_ns + 9'000'000ULL;
+        const uint64_t ref = blaze4k::aging_reference_ns(t.timestamp_ns, fallback);
+        TEST_CHECK(ref == t.timestamp_ns);
+        TEST_CHECK(std::abs(blaze4k::music_time_for_event(t.timestamp_ns - 3'000'000ULL, ref,
+                                                          t.seconds) -
+                            (t.seconds - 0.003)) < 1e-12);
+        // Without a clock timestamp the fallback reference is used (today's path).
+        TEST_CHECK(blaze4k::aging_reference_ns(lt.timestamp_ns, fallback) == fallback);
+        std::cout << "  - Timed (seconds, timestamp_ns) pair from one source sample; aging uses it.\n";
+    }
+
     // 7b. Global offset is applied exactly once, with OpenITG's sign, through the
     //     real chain GameplayView uses (gameplay_view.cpp:70,135,153-154,187):
     //     MusicClock -> music_time_for_event -> JudgmentEngine. OpenITG applies

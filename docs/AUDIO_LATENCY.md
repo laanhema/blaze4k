@@ -28,7 +28,9 @@ Numbers marked **estimate** were not measured here and must not be treated as ve
 - **Secondary finding (measured).** The cursor advances once per audio callback, about 18.75 ms at a
   time here. That adds judgment jitter (rms 6.2 ms, peaks up to about 14.6 ms) and a small per-device bias. Spike #71
   measured it, compared it with the reference engines, and the owner approved a smaller period plus
-  callback-anchored interpolation (B + C, see [Clock granularity](#clock-granularity)).
+  callback-anchored interpolation (B + C, see [Clock granularity](#clock-granularity)). **#81
+  implemented B + C**: see [Clock interpolation](#clock-interpolation-81-implemented). Re-run the
+  calibration wizard after upgrading.
 - **Wizard headroom (code finding).** The Bluetooth calibration is within 28 ms of the wizard's
   250 ms tap limit. A slower Bluetooth path saves a wrong, positive offset (see
   [Wizard headroom](#wizard-headroom)).
@@ -42,18 +44,26 @@ Numbers marked **estimate** were not measured here and must not be treated as ve
 | Step | Code | Effect |
 | ---- | ---- | ------ |
 | Song audio is fully decoded on load | `src/audio/sound_stream.cpp:55-62` (`MA_SOUND_FLAG_DECODE`) | No streaming-decoder delay. The cursor is a read position in an in-memory PCM buffer |
-| Clock source | `src/audio/sound_stream.cpp:138-153` → `ma_sound_get_cursor_in_pcm_frames` | Frames the engine has pulled into the current device callback. The cursor moves when miniaudio *writes* audio, not when it is *heard* |
-| Gameplay binding | `src/gameplay/gameplay_view.cpp:111-124`, offset applied at `:70` | `SamplePosition{audio_.get_position_frames(), audio_.get_sample_rate()}` |
+| Clock source | `src/audio/sound_stream.cpp:211-236` (`get_timed_position_frames`), raw cursor `:238-253` → `ma_sound_get_cursor_in_pcm_frames` | Since #81: the raw cursor (frames the engine has pulled into the current device callback; it moves when miniaudio *writes* audio, not when it is *heard*) **interpolated** from an audio-thread `(cursor, ns)` anchor, at most one device-callback interval ahead, never decreasing. See [Clock interpolation](#clock-interpolation-81-implemented) |
+| Gameplay binding | `src/gameplay/gameplay_view.cpp:121-135`, offset applied at `:70` | `SamplePosition{p.frames, rate, p.timestamp_ns}` from `audio_.get_timed_position_frames()` |
 | Formula | `src/timing/music_clock.hpp:14-21`, `src/timing/music_clock.cpp:53-60` | `time = frames / rate + global_offset_seconds`. Positive offset = clock reads later |
 | Offset storage | `src/data/config.hpp:37-39`, loader `src/data/config_loader.cpp:203-210`, writer `:393` | One `offset.global_offset_seconds`, clamped to ±3600 s |
 | Calibration | `src/screens/calibration_screen.cpp:63` (clock offset forced to 0), `:98-121`; math `src/timing/offset_calibration.cpp:62-120`, sign `src/timing/offset_calibration.hpp:16-18` | The player taps to clicks played through the *same* output path. `offset = -mean(hit - beat)` (after outlier rejection), so it absorbs **output latency + input latency + player bias**. It does not include display latency, because the wizard is audio-only |
-| Input aging | `src/gameplay/judgment_input.hpp:11-19`, reference taken at `src/app/app.cpp:152` | `hit = reference_music - (reference_ns - event_ns)`. `reference_music` is read once per frame from the stepped cursor |
-| Engine init | `src/audio/audio_engine.cpp:19-52` | `ma_engine_config_init()` defaults: OS default playback device, low-latency performance profile. No device ID, no notification callback. Since #58 it logs the device name, backend and client buffer (diagnostic only) |
+| Input aging | `src/gameplay/judgment_input.hpp:8-27`, `src/gameplay/gameplay_view.cpp:148-149`, `src/screens/calibration_screen.cpp:99-100` | Since #81: `hit = music - (clock_ns - event_ns)`, where `(music, clock_ns)` is one consistent pair from `MusicClock::timed_time_seconds()` (the interpolated estimate and the ns it was estimated at). Sources without a timestamp (stub, injected) fall back to `App::input_reference_ns_` (`src/app/app.cpp:176`) |
+| Engine init | `src/audio/audio_engine.cpp:34-111` | `ma_engine_config_init()` defaults (OS default playback device, low-latency profile, no device ID, no notification callback) plus, since #81, `periodSizeInFrames` (default 480, `audio.period_size_frames`) and an `onProcess` hook for the clock anchor. `configure()` runs from `src/main.cpp:273` before any audio init. Logs the device name, backend, requested and negotiated period (diagnostic only) |
 
 The diagnostic line looks like this (measured, dev machine):
 
 ```
 [AudioEngine] Output device: 'Ryzen HD Audio Controller Speaker' via PulseAudio, period 900 frames x 4 @ 48000 Hz (18.75 ms/period; excludes OS mixer and Bluetooth latency)
+```
+
+Since #81 the line also shows the requested period, and gameplay logs the measured callback interval
+when it ends (measured 2026-10-05 on the WH-1000XM4 default sink, `clock_probe 480`):
+
+```
+[AudioEngine] Output device: 'WH-1000XM4' via PulseAudio, requested period 480 frames (0 = backend default), period 1440 frames x 1 @ 48000 Hz (30 ms/period; excludes OS mixer and Bluetooth latency)
+[AudioEngine] Device callback interval (gameplay): min A / max B frames over N callbacks @ 48000 Hz
 ```
 
 Read `period × periods` with care on PulseAudio: miniaudio reports `maxlength` split into periods
@@ -191,6 +201,47 @@ Readings (all **measured** on this one machine and sink):
 - Wired 3.5 mm, Bluetooth, Windows and macOS: **not measured**. See
   [Owner procedure: measuring the callback step](#owner-procedure-measuring-the-callback-step).
 
+### Clock interpolation (#81, implemented)
+
+B + C from the #71 decision. Code: `src/audio/clock_anchor.{hpp,cpp}`,
+`src/timing/clock_interpolator.{hpp,cpp}`, `src/audio/audio_engine.cpp:169-194` (`on_process`),
+`src/audio/sound_stream.cpp:127-152, 211-236`.
+
+- **Smaller period (B).** `ma_engine_config.periodSizeInFrames = 480` (10 ms @ 48 kHz) by default.
+  Config key `audio.period_size_frames`: `0` = miniaudio/backend default, any other value is clamped
+  to `[128, 4096]` with a warning (a negative typo clamps to 128, never to 0). It applies on the next
+  start. **This is the fix for crackles or underruns**: raise it (for example to `960`), or set `0`
+  for the backend default, then restart the game.
+- **Anchor capture (C).** `ma_engine_config.onProcess` fires on the audio thread at the end of every
+  engine read. It reads the injected monotonic clock (`SDL_GetTicksNS` from `src/main.cpp`; a plain
+  function pointer keeps `src/audio` SDL-free) **before** the clock sound's cursor, and publishes
+  `(cursor, ns, device period)` through a lock-free seqlock of atomics (`AnchorSlot`). No locks,
+  allocation or logging on the audio thread. A Dekker-style handshake in
+  `AudioEngine::detach_clock_tap` (and in `attach_clock_tap` when it replaces another tap) runs
+  before `ma_sound_uninit`, so the audio thread never touches a freed sound.
+- **Burst grouping.** `CallbackGrouper` merges engine updates that arrive back to back (closer than
+  half their own duration) into one device callback. The cap is therefore the **device-callback
+  interval**, measured, not the engine update size or `internalPeriodSizeInFrames` (which on
+  PulseAudio is not the callback step: 480 requested → `1440 × 1` reported, step 480).
+- **Clamps (no smoothing filter).** On the game thread `ClockInterpolator` estimates
+  `cursor + (now − anchor_ns) × rate`, then: at most one device period ahead of the latest anchor;
+  never below the raw cursor; never past the song length; never decreasing while playing. A stall or
+  underrun freezes the clock at `anchor + period`. Seek, stop, play, resume and load reset it, and
+  anchors captured before the reset are ignored (so a backward seek works). Paused or stopped, the
+  clock is the raw cursor (today's behavior).
+- **Timed pair.** `SamplePosition` carries `timestamp_ns` (the `now` of the estimate), and
+  gameplay/calibration age input against that pair (`aging_reference_ns`).
+- **Assist ticks stay on the raw cursor.** They are scheduled on engine time, which moves in
+  lockstep with the raw cursor, not with the interpolated one (`src/gameplay/gameplay_view.cpp:361`).
+- **Diagnostics.** The `Output device` line shows the requested and negotiated period. Gameplay logs
+  `[AudioEngine] Device callback interval (gameplay): min / max … frames over N callbacks` at the end.
+  The stats are reset when the song starts, so they cover that song only.
+- **Recalibrate after upgrading.** The smaller period and the interpolated clock's lead over the old
+  stepped cursor (about half a step) move the mean bias, so saved offsets shift by several ms
+  (**estimate**: about 5 ms at 480; measured mean lead +5.12 ms on the WH-1000XM4 sink). Re-run the
+  calibration wizard after upgrading, and again after changing `audio.period_size_frames`. #70
+  (per-device offsets) is not implemented yet, so there is only the global offset.
+
 ### Why the error happens
 
 The judgment path pairs two values from different moments:
@@ -203,9 +254,11 @@ The judgment path pairs two values from different moments:
 
 The aging itself mirrors OpenITG (below). The difference is that OpenITG's pair is consistent.
 
-Code finding: the comment at `src/gameplay/judgment_input.hpp:10` cites OpenITG
-`src/Player.cpp:908-919`, but at `f2c129fe` the computation is at `:918-926`. Left unchanged in this
-docs-only spike, and fixed in the follow-up issue #81.
+Code finding: the comment in `src/gameplay/judgment_input.hpp` cited the wrong OpenITG line range;
+at `f2c129fe` the computation is at `src/Player.cpp:918-926`. Fixed in #81.
+
+Since #81 both values come from one `MusicClock::timed_time_seconds()` call, so the pair is
+consistent, like OpenITG's (see [Clock interpolation](#clock-interpolation-81-implemented)).
 
 ### How StepMania and OpenITG get the music position
 
@@ -315,7 +368,7 @@ cross-platform behavior, underrun risk, recalibration impact and code size.
   to audio updates, and AGENTS.md principle 2 (faithful to the reference) supports doing the same.
   Principle 1 was amended in `AGENTS.md` to record this bounded exception.
 - **Not chosen:** A and D. **E** is noted as a possible future upgrade and is not approved now.
-- Implementation: follow-up issue #81. Decision comment on #71: <https://github.com/laanhema/blaze4k/issues/71#issuecomment-5968315939>.
+- Implementation: #81 (implemented, see [Clock interpolation](#clock-interpolation-81-implemented)). Decision comment on #71: <https://github.com/laanhema/blaze4k/issues/71#issuecomment-5968315939>.
 
 ## What miniaudio 0.11.21 exposes
 
@@ -352,7 +405,8 @@ Line numbers refer to `build/_deps/miniaudio-src/miniaudio.h` (`GIT_TAG 0.11.21`
 - `MusicClock` stays unchanged for #58. Compensation for output latency stays in the offset only.
 - The OBS desync is handled by documentation (Sync Offset), not code.
 - Clock granularity is a separate spike (#71). Owner decision 2026-10-03: B + C (smaller period plus
-  callback-anchored interpolation), to be implemented in #81. See
+  callback-anchored interpolation), implemented in #81
+  ([Clock interpolation](#clock-interpolation-81-implemented)). See
   [Approaches evaluated against principle 1](#approaches-evaluated-against-principle-1).
 
 ## Measurements
@@ -370,11 +424,25 @@ backend.
 | Cursor step, `periodSizeInFrames = 480` (#71) | device 1440 × 1; every step 480 frames (10.00 ms); raw residual rms 3.26–3.27 ms, max 7.46–7.64 ms | `gran2 480`, three runs, 2026-10-03 (measured) |
 | Cursor step, `periodSizeInFrames = 256` (#71) | device 768 × 1; every step 256 frames (5.33 ms); raw residual rms 1.54 ms, max 2.81–3.18 ms | `gran2 256`, three runs, 2026-10-03 (measured) |
 | Callback-anchored estimate (#71) | residual rms 2.83–2.86 ms (default), 1.44–1.46 ms (480), 0.08–0.13 ms (256); one 18.79 ms outlier in a planning run at the default period | `gran2`, same runs (measured; scratch probe only) |
-| Callback step: wired 3.5 mm, Bluetooth, Windows, macOS | **not measured** | See [owner procedure](#owner-procedure-measuring-the-callback-step) |
+| `clock_probe 480` re-measure (#81), Bluetooth default sink `bluez_output.88_C9_E8_25_D5_B1.1` ("WH-1000XM4") | device 1440 × 1; every raw step 480 frames; engine callback interval min 480 / max 480 over 299 callbacks; raw residual rms 3.26 ms, max 7.37 ms; **interpolated** residual rms 1.46 ms, max 2.79 ms (target ≤ 2 ms: met); mean lead over raw +5.12 ms | `./build/tests/clock_probe 480`, **one run** (agent, silent, outside the sandbox), 2026-10-05; `pactl get-default-sink` same before and after (measured) |
+| `clock_probe 480 --null` (null backend, sandbox) | raw step 480 / 486.5 / 960; raw rms 3.99 ms; interpolated rms 2.70 ms, max 5.25 ms | One run, 2026-10-05. The null device's own thread wakes unevenly (groups of 960), so its residuals are **not** near zero; it only proves the path works |
+| Callback step: wired 3.5 mm, Windows, macOS; more Bluetooth runs and `clock_probe 0` | **owner: not yet measured** | See [owner procedure](#owner-procedure-measuring-the-callback-step) |
 | `pactl` latency fields | `Latency: 0 usec` | pipewire-pulse does not fill these; use `pw-top`/`pw-dump` |
 | Saved offset | `global_offset_seconds = -0.02204` (−22 ms) in `build/data/config.json` | Wired/speaker calibration; the owner reports −0.023 s on both (measured) |
 | Wired end-to-end latency | ≈ 25–40 ms | **Estimate** from client buffer + quantum + typical ALSA buffer |
 | Bluetooth (WH-1000XM4) calibration | about −0.222 s (wizard), so `L_bt − L_wired ≈ 200 ms` | Owner (measured); codec not recorded |
+
+### Negotiated period per device (#81)
+
+Filled from the gameplay log after a full song at the default period (owner listening check). The
+WH-1000XM4 probe row above is a 3 s silent probe, not a listening check.
+
+| Device | Requested period | `Output device` line (period × periods) | Measured callback interval min / max | Crackles at default? | Clean value if not 480 |
+| --- | --- | --- | --- | --- | --- |
+| Wired (speaker or 3.5 mm) | 480 | **owner: not yet measured** | **owner: not yet measured** | **owner: not yet measured** | — |
+| Bluetooth WH-1000XM4 | 480 | `1440 × 1 @ 48000 Hz` (agent probe, 2026-10-05) | 480 / 480 (agent probe, 2026-10-05) | **owner: not yet measured** | — |
+| Windows (WASAPI) | 480 | **owner: not yet measured** | **owner: not yet measured** | **owner: not yet measured** | — |
+| macOS (CoreAudio) | 480 | **owner: not yet measured** | **owner: not yet measured** | **owner: not yet measured** | — |
 
 ### Owner procedure: measuring Bluetooth
 
@@ -395,29 +463,32 @@ PipeWire-reported latency. To run them, with the headset connected **as the defa
 ### Owner procedure: measuring the callback step
 
 **Not measured** by the agent: the spike only measured the current default sink and must not change
-the default device or routing. The owner runs these steps on their own setup. Build `gran2` first (see
-[Reproducing the probes](#reproducing-the-probes-silent-scratch-only)). Each run is about 3 s and
-silent (all-zero buffer at volume 0). A small requested period briefly lowers the PipeWire graph
+the default device or routing. The owner runs these steps on their own setup. Since #81 the probe is
+committed: `cmake --build build --target clock_probe`, then run `./build/tests/clock_probe` **outside**
+any test sandbox (see [Reproducing the probes](#reproducing-the-probes-silent-scratch-only)). Each
+run is about 3 s and silent (all-zero buffer at volume 0). A small requested period briefly lowers the PipeWire graph
 quantum for every app while the probe runs, so other apps may glitch for those few seconds.
 
 1. **Wired 3.5 mm (Linux).** Plug the headphones in. With UCM split sinks the headphone sink only
    exists while a plug is inserted. If it does not become the default automatically, select it
    yourself. Then:
    - `pactl get-default-sink` (note the name);
-   - `./gran2 0` three times, then `./gran2 480` three times;
-   - record the `internalPeriod` line, the step min/mean/max and both residual lines in
-     [Measurements](#measurements).
+   - `./build/tests/clock_probe 0` three times, then `./build/tests/clock_probe 480` three times;
+   - record the `Output device` line, the step min/mean/max, the callback interval and both residual
+     lines in [Measurements](#measurements) and the
+     [Negotiated period per device](#negotiated-period-per-device-81) table.
 2. **Bluetooth (Linux, WH-1000XM4).** Connect the headset and make it the default sink
    (`pactl get-default-sink` shows a `bluez_output.` prefix). Note the codec if known
-   (`pactl list sinks | grep -E 'Name:|api.bluez5.codec'`). Run `./gran2 0` and `./gran2 480` three
-   times each. Listen for glitches in other apps during the `480` runs, and note whether the
+   (`pactl list sinks | grep -E 'Name:|api.bluez5.codec'`). Run `./build/tests/clock_probe 0` and
+   `./build/tests/clock_probe 480` three times each. Listen for glitches in other apps during the `480` runs, and note whether the
    reported device period stays at the requested size or is forced larger.
 3. **Windows / macOS.** No host or toolchain is available to the agent. Build with the
    `windows-msvc-release` or `macos-clang-release` preset, then run
    `ctest --preset windows-msvc-release -R audio_test -V` (or `macos-clang-release`) and copy the
    `[AudioEngine] Output device: … period N frames` line. This is a **proxy**: with fixed-size
    callbacks (`miniaudio.h:7048`) the period is about the upper bound of the cursor step. Unlike
-   `gran2`, `audio_test` plays a short audible test tone. For the real step, port `gran2.c` (it only needs a monotonic clock in place of `clock_gettime`).
+   `clock_probe`, `audio_test` plays a short audible test tone. For the real step run
+   `clock_probe` (portable C++, `std::chrono::steady_clock`) from the build's `tests/` directory.
 
 ### Reproducing the probes (silent, scratch only)
 
@@ -432,6 +503,14 @@ any sound.
 - **Granularity probe:** a 5 s all-zero `ma_audio_buffer` (f32, 2 ch, engine rate) →
   `ma_sound_init_from_data_source`, volume 0, `ma_sound_start`, then poll
   `ma_sound_get_cursor_in_pcm_frames` every 1 ms for 2 s and print min, mean and max step.
+- **`clock_probe` (committed, #81):** `tests/clock_probe.cpp`, built as `build/tests/clock_probe`,
+  not registered with ctest. `clock_probe [period_frames=480] [--null] [--seconds 3]`. Same method as
+  `gran2` below, but through the real `AudioEngine`/`SoundStream` path: it writes a 5 s all-zero WAV
+  (engine rate, 2 ch) to the temp dir, loads it at volume 0, enables clock interpolation, polls every
+  1 ms and prints the `Output device` line, raw step min/mean/max, the engine callback interval, the
+  bias-removed rms/max residual of the raw and the interpolated cursor (least-squares line of the raw
+  cursor, first and last 0.3 s skipped) and the interpolated mean lead. `--null` uses miniaudio's
+  null backend (sandbox-safe). Run it outside the test sandbox to measure a real device.
 - **`gran2` (callback step and residuals, #71):** `gran2 [periodSizeInFrames]`. Sets
   `ma_engine_config.periodSizeInFrames` (0 = default) and `onProcess`, prints backend, device name,
   rate and `internalPeriodSizeInFrames × internalPeriods`, then plays a 5 s all-zero
@@ -452,4 +531,4 @@ device.
 - #71 — Investigate music-clock granularity (decoder cursor advances in ~19 ms audio-callback steps).
   Spike done; owner decision B + C (2026-10-03)
 - #81 — Implement smaller audio period + callback-anchored music-clock interpolation (B + C from
-  #71)
+  #71). Implemented; owner listening checks (wired, Bluetooth, Windows, macOS) pending

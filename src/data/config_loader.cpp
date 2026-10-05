@@ -198,6 +198,16 @@ void read_audio(const json& document, AudioSettings& target, std::string& warnin
     read_double_field(*node, "music_volume", 0.0, 1.0, target.music_volume, warnings, "audio");
     read_double_field(*node, "preview_volume", 0.0, 1.0, target.preview_volume, warnings, "audio");
     read_double_field(*node, "ui_volume", 0.0, 1.0, target.ui_volume, warnings, "audio");
+    // 0 keeps the backend default; any other value below the minimum (including
+    // a negative typo) clamps to the minimum rather than silently selecting 0.
+    int period = target.period_size_frames;
+    read_int_field(*node, "period_size_frames", -1'000'000, kMaxAudioPeriodFrames, period, warnings,
+                   "audio");
+    if (period != 0 && period < kMinAudioPeriodFrames) {
+        append_warning(warnings, "audio.period_size_frames out of range; clamped");
+        period = kMinAudioPeriodFrames;
+    }
+    target.period_size_frames = period;
 }
 
 void read_offset(const json& document, OffsetSettings& target, std::string& warnings) {
@@ -298,6 +308,11 @@ bool validate_game_config(const GameConfig& config, std::string* error) {
     if (!(config.audio.ui_volume >= 0.0 && config.audio.ui_volume <= 1.0)) {
         return fail("audio.ui_volume out of range");
     }
+    if (!(config.audio.period_size_frames == 0 ||
+          (config.audio.period_size_frames >= kMinAudioPeriodFrames &&
+           config.audio.period_size_frames <= kMaxAudioPeriodFrames))) {
+        return fail("audio.period_size_frames out of range");
+    }
     if (!std::isfinite(config.offset.global_offset_seconds)) {
         return fail("offset.global_offset_seconds is not finite");
     }
@@ -389,6 +404,7 @@ bool save_config(const std::filesystem::path& path, const GameConfig& config,
         {"music_volume", config.audio.music_volume},
         {"preview_volume", config.audio.preview_volume},
         {"ui_volume", config.audio.ui_volume},
+        {"period_size_frames", config.audio.period_size_frames},
     };
     document["offset"] = {{"global_offset_seconds", config.offset.global_offset_seconds}};
     document["gameplay"] = {

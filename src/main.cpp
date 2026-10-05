@@ -7,7 +7,9 @@
 #include <cmath>
 #include <exception>
 #include <filesystem>
+#include <SDL3/SDL_timer.h>
 #include "app/app.hpp"
+#include "audio/audio_engine.hpp"
 #include "audio/ui_sounds.hpp"
 #include "chart/simfile_parser.hpp"
 #include "chart/song_library.hpp"
@@ -259,6 +261,18 @@ int main(int argc, char* argv[]) {
         std::cerr << "Failed to initialize application.\n";
         return 1;
     }
+
+    // #81: configure the audio engine before anything can initialize it (the
+    // gameplay demo, UI sounds, previews). The period request comes from
+    // config (0 = backend default) and the anchor clock is SDL's monotonic
+    // ticks, the same timebase as input event timestamps. A captureless lambda
+    // (not &SDL_GetTicksNS) avoids SDLCALL calling-convention mismatches.
+    static_assert(blaze4k::kDefaultAudioPeriodFrames ==
+                      static_cast<uint32_t>(blaze4k::kDefaultAudioPeriodFramesConfig),
+                  "config and audio default periods must match");
+    blaze4k::AudioEngine::instance().configure(
+        {static_cast<uint32_t>(game_config.audio.period_size_frames),
+         +[]() -> uint64_t { return SDL_GetTicksNS(); }});
 
     // C6: honor a saved remap from boot. Safe when the config was missing (the
     // defaults are applied). Reserved Escape/pad-Back are always re-installed.
