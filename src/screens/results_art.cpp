@@ -22,22 +22,10 @@ float finite_or_zero(float v) {
     return std::isfinite(v) ? v : 0.0f;
 }
 
-// Reference-px width of `text` in `style` (TextRenderer measures at its scale).
-float ref_measure(const TextRenderer& text, std::string_view s, const theme::TextStyle& style) {
-    const float scale = text.scale();
-    const float w = text.measure(s, style);
-    return scale > 0.0f ? w / scale : w;
-}
-
 // Line-box top that centres `style`'s line in a reference band [ref_top, ref_top + ref_h].
 float centred_top(const TextRenderer& text, const theme::LayoutScale& L, float ref_top, float ref_h,
                   const theme::TextStyle& style) {
     return L.y(ref_top) + (L.px(ref_h) - text.line_height(style)) * 0.5f;
-}
-
-theme::TextStyle with_color(theme::TextStyle style, Color color) {
-    style.color = color;
-    return style;
 }
 
 // A solid quad from reference-space corners.

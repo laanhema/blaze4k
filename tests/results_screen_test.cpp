@@ -341,6 +341,31 @@ void test_invalid_summary_exits_immediately() {
     std::cout << "  - invalid summary exits on first press ok.\n";
 }
 
+// 4e. The hint word (owner decision 6): ENTER SKIP while the reveal runs, ENTER
+//     CONTINUE once it settles (skipped or played out) and on a NO RESULT screen.
+void test_hint_word() {
+    ResultsFixture skipped;
+    skipped.start();
+    TEST_CHECK(skipped.results->hint_word() == "SKIP");
+    skipped.manager.update(kDt, {press(GameAction::Confirm)});
+    TEST_CHECK(skipped.manager.active_id() == ScreenId::Results);
+    TEST_CHECK(skipped.results->hint_word() == "CONTINUE");
+
+    ResultsFixture played;
+    played.start();
+    for (int i = 0; i < 1000 && !played.results->reveal_finished(); ++i) {
+        played.manager.update(0.1, {});
+    }
+    TEST_CHECK(played.results->reveal_finished());
+    TEST_CHECK(played.results->hint_word() == "CONTINUE");
+
+    ResultsFixture empty;
+    empty.start(false);
+    TEST_CHECK(!empty.results->reveal_finished());
+    TEST_CHECK(empty.results->hint_word() == "CONTINUE");
+    std::cout << "  - hint word SKIP -> CONTINUE ok.\n";
+}
+
 // 5. Back goes through the manager default to the wheel (AC3, no dead end).
 void test_back_returns_to_wheel() {
     ResultsFixture fx;
@@ -813,6 +838,7 @@ int main() {
     test_reveal_gating_skip_presses();
     test_new_record_finale_flag();
     test_invalid_summary_exits_immediately();
+    test_hint_word();
     test_back_returns_to_wheel();
     test_render_and_reenter();
     test_screen_title_text();

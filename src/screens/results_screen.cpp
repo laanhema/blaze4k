@@ -1,11 +1,13 @@
 #include "screens/results_screen.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstddef>
 #include <ctime>
 #include <iostream>
 #include <string>
+#include <string_view>
 
 #include "chart/chart.hpp"
 #include "chart/song.hpp"
@@ -25,17 +27,8 @@ namespace {
 namespace layout = theme::layout;
 namespace art = results_art;
 
-theme::TextStyle with_color(theme::TextStyle style, Color color) {
-    style.color = color;
-    return style;
-}
-
-// Reference-px width of `s` in `style` (TextRenderer measures at its scale).
-float ref_measure(const TextRenderer& text, std::string_view s, const theme::TextStyle& style) {
-    const float scale = text.scale();
-    const float w = text.measure(s, style);
-    return scale > 0.0f ? w / scale : w;
-}
+// Holds panel labels: HOLDS OK, NG, MINES.
+constexpr std::array<std::string_view, 3> kHoldLabels = {"HOLDS OK", "NG", "MINES"};
 
 // Line-box top for a reference baseline.
 float baseline_top(const TextRenderer& text, const theme::LayoutScale& L, float ref_baseline,
@@ -105,6 +98,7 @@ void ResultsScreen::clear_cached_text() {
     }
     fitted_scale_ = -1.0f;
     bar_layout_ = art::TopBarLayout{};
+    hold_cols_ = {};
     fitted_badge_.clear();
     fitted_title_.clear();
     fitted_artist_.clear();
@@ -141,7 +135,21 @@ void ResultsScreen::build_cached_text(const ScreenContext& ctx) {
     fitted_scale_ = -1.0f;
 }
 
-void ResultsScreen::refit_bar_text(const TextRenderer* text) {
+void ResultsScreen::refit_bar_text(const TextRenderer* text, const ThemeTextures* theme) {
+    // Holds panel column offsets (reference px) from the label and value widths.
+    const auto fit_hold_columns = [this, text, theme]() {
+        std::array<float, 3> label_w{};
+        std::array<float, 3> value_w{};
+        for (std::size_t i = 0; i < 3; ++i) {
+            if (text != nullptr) {
+                label_w[i] = ref_measure(*text, kHoldLabels[i], theme::text::kStatLabel);
+            }
+            if (theme != nullptr) {
+                value_w[i] = theme->digits_white().measure(hold_texts_[i], art::kHoldScale);
+            }
+        }
+        hold_cols_ = art::hold_columns(label_w, value_w);
+    };
     if (text == nullptr) {
         // No text service: no widths, so no plate and no text.
         bar_layout_ = art::top_bar_layout(0.0f, 0.0f, 0.0f);
@@ -149,12 +157,14 @@ void ResultsScreen::refit_bar_text(const TextRenderer* text) {
         fitted_title_.clear();
         fitted_artist_.clear();
         fitted_scale_ = -1.0f;
+        fit_hold_columns();
         return;
     }
     if (text->scale() == fitted_scale_) {
         return;
     }
     fitted_scale_ = text->scale();
+    fit_hold_columns();
     const float scale = fitted_scale_ > 0.0f ? fitted_scale_ : 1.0f;
     const auto measure_badge = [text](std::string_view s) {
         return text->measure(s, theme::text::kBarBadge);
@@ -231,7 +241,7 @@ void ResultsScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, 
         if (text != nullptr) {
             text->draw(renderer, "NO RESULT", L.x(art::kHintCentreX), L.y(art::kEmptyMessageTop),
                        theme::text::kWheelRow, TextAlign::Centre);
-            art::draw_hint_text(*text, renderer, L, "CONTINUE");
+            art::draw_hint_text(*text, renderer, L, hint_word());
         }
         if (theme != nullptr) {
             art::draw_scanlines(*theme, renderer, w, h, L);
@@ -239,7 +249,7 @@ void ResultsScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, 
         return;
     }
 
-    refit_bar_text(text);
+    refit_bar_text(text, theme);
 
     const float title_alpha = ResultsAnimator::title_alpha(elapsed);
     const float grade_alpha = ResultsAnimator::grade_alpha(elapsed);
@@ -290,19 +300,7 @@ void ResultsScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, 
         }
     }
 
-    // Holds panel column offsets (reference px) from the label and value widths.
-    const std::array<std::string_view, 3> hold_labels = {"HOLDS OK", "NG", "MINES"};
-    std::array<float, 3> hold_label_w{};
-    std::array<float, 3> hold_value_w{};
-    for (std::size_t i = 0; i < 3; ++i) {
-        if (text != nullptr) {
-            hold_label_w[i] = ref_measure(*text, hold_labels[i], theme::text::kStatLabel);
-        }
-        if (theme != nullptr) {
-            hold_value_w[i] = theme->digits_white().measure(hold_texts_[i], art::kHoldScale);
-        }
-    }
-    const std::array<float, 3> hold_cols = art::hold_columns(hold_label_w, hold_value_w);
+    const std::array<float, 3>& hold_cols = hold_cols_;
 
     const std::array<Rect, 3> panels = {art::stat_panel_rect(0), art::stat_panel_rect(1),
                                         art::stat_panel_rect(2)};
@@ -385,7 +383,7 @@ void ResultsScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, 
             for (std::size_t i = 0; i < 3; ++i) {
                 const theme::TextStyle style =
                     with_color(theme::text::kStatLabel, with_alpha(hold_colors[i], stats_alpha));
-                text->draw(renderer, hold_labels[i], L.x(holds_x + hold_cols[i]),
+                text->draw(renderer, kHoldLabels[i], L.x(holds_x + hold_cols[i]),
                            L.y(holds.y + art::kStatLabelTop), style, TextAlign::Left);
             }
             art::draw_judgment_text(*text, renderer, L, count_texts_, stats_alpha);
@@ -407,7 +405,7 @@ void ResultsScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, 
                        TextAlign::Centre);
         }
 
-        art::draw_hint_text(*text, renderer, L, animator_.finished() ? "CONTINUE" : "SKIP");
+        art::draw_hint_text(*text, renderer, L, hint_word());
     }
 
     // 8. Overlay.

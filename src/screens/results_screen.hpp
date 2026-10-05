@@ -3,6 +3,7 @@
 #include <array>
 #include <cstddef>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "gameplay/hud_renderer.hpp"
@@ -60,6 +61,11 @@ public:
     [[nodiscard]] bool valid() const { return summary_.valid; }
     [[nodiscard]] const ResultsAnimator& animator() const { return animator_; }
     [[nodiscard]] bool reveal_finished() const { return animator_.finished(); }
+    // The hint-bar word after "ENTER" (owner decision 6): "SKIP" while the reveal
+    // runs, "CONTINUE" once it has settled or on a NO RESULT screen (no reveal).
+    [[nodiscard]] std::string_view hint_word() const {
+        return has_reveal() && !animator_.finished() ? "SKIP" : "CONTINUE";
+    }
     // Test accessor: the single predicate render() uses to gate every NEW RECORD
     // draw (accent flash + banner); false for a normal clear, a sub-best run, a
     // failed run, or an invalid summary.
@@ -92,8 +98,9 @@ private:
 
     void clear_cached_text();
     void build_cached_text(const ScreenContext& ctx);
-    // Re-fits the badge / title / artist to the bar when the text scale changed.
-    void refit_bar_text(const TextRenderer* text);
+    // Re-fits the badge / title / artist to the bar, and the holds panel
+    // columns, when the text scale changed (every call without a text service).
+    void refit_bar_text(const TextRenderer* text, const ThemeTextures* theme);
 
     ResultsSummary summary_{};
     bool new_record_ = false;
@@ -117,6 +124,7 @@ private:
     // forces a refit after enter()).
     float fitted_scale_ = -1.0f;
     results_art::TopBarLayout bar_layout_{};
+    std::array<float, 3> hold_cols_{}; // holds panel column offsets (reference px)
     std::string fitted_badge_;
     std::string fitted_title_;
     std::string fitted_artist_;
