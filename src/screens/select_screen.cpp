@@ -14,11 +14,11 @@
 #include "data/config.hpp"
 #include "data/high_scores.hpp"
 #include "gameplay/hud_renderer.hpp"
-#include "render/bitmap_font.hpp"
 #include "render/gl_quad_renderer.hpp"
 #include "render/theme.hpp"
 #include "render/theme_layout.hpp"
 #include "render/ttf_font.hpp"
+#include "screens/options_art.hpp"
 #include "screens/play_request.hpp"
 #include "screens/screen_manager.hpp"
 #include "screens/song_display_text.hpp"
@@ -38,13 +38,6 @@ constexpr double kRepeatDelaySeconds = 0.35;
 constexpr double kRepeatInitialIntervalSeconds = 0.12;
 constexpr double kRepeatMinIntervalSeconds = 0.04;
 constexpr double kRepeatAccelFactor = 0.75;
-
-// Options overlay colours (bitmap font; the overlay's Cabinet restyle is #96).
-constexpr Color kTitleColor{0.86f, 0.93f, 1.00f, 1.0f};
-constexpr Color kSelectedColor{1.00f, 0.92f, 0.35f, 1.0f};
-constexpr Color kTextColor{0.82f, 0.87f, 0.95f, 1.0f};
-constexpr Color kHintColor{0.60f, 0.66f, 0.78f, 1.0f};
-constexpr Color kPlaceholderColor{0.16f, 0.20f, 0.30f, 1.0f};
 
 bool iequals(std::string_view a, std::string_view b) {
     if (a.size() != b.size()) {
@@ -225,6 +218,13 @@ void SelectScreen::refresh_chips(const ScreenContext& ctx) {
     chips_valid_ = true;
 }
 
+void SelectScreen::refresh_options_values() {
+    for (int i = 0; i < kOptionsRowCount; ++i) {
+        options_values_[static_cast<std::size_t>(i)] = options_row_value_text(options_, i);
+    }
+    options_values_dirty_ = false;
+}
+
 void SelectScreen::request_preview_for_selected() {
     const Song* song = selected_song();
     if (song == nullptr) {
@@ -256,6 +256,7 @@ void SelectScreen::enter(ScreenContext& ctx) {
         options_ = options_menu_from_config(ctx.config != nullptr ? *ctx.config : GameConfig{});
         options_.row = row;
         options_open_ = true;
+        refresh_options_values();
     }
 
     if (ctx.config != nullptr) {
@@ -357,6 +358,9 @@ void SelectScreen::update(ScreenContext& ctx, double fixed_dt,
         }
 
         if (options_open_) {
+            // Every press may change a value or the row: rebuild the overlay's
+            // value text after the event loop.
+            options_values_dirty_ = true;
             // Modal: the wheel is suspended and every press is routed to the
             // overlay. Changes are applied to the shared config immediately.
             // Back is intentionally not handled here: Screen::handle_back() owns
@@ -467,6 +471,7 @@ void SelectScreen::update(ScreenContext& ctx, double fixed_dt,
                 options_ =
                     options_menu_from_config(ctx.config != nullptr ? *ctx.config : GameConfig{});
                 options_open_ = true;
+                options_values_dirty_ = true;
                 break;
             case GameAction::Up:
                 move_song(-1);
@@ -500,6 +505,10 @@ void SelectScreen::update(ScreenContext& ctx, double fixed_dt,
         }
     }
 
+    // The overlay's value text, rebuilt only when it may have changed.
+    if (options_open_ && options_values_dirty_) {
+        refresh_options_values();
+    }
     // The overlay may have changed the speed/scroll config this tick.
     refresh_chips(ctx);
 
@@ -659,62 +668,14 @@ void SelectScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, i
     if (songs_.empty() && text != nullptr) {
         select_art::draw_empty_message(*text, renderer, L);
     }
+    // Options overlay (#96): scrim, panel, rows and its own legend.
+    if (options_open_) {
+        options_art::draw_overlay(theme, text, renderer, L, w, h, options_values_, options_.row);
+    }
+    // Scanlines last, over the overlay too.
     if (theme != nullptr) {
         select_art::draw_scanlines(*theme, renderer, w, h, L);
     }
-
-    if (!options_open_) {
-        return;
-    }
-    // Options overlay over the Cabinet screen (bitmap font until #96).
-    const float width = static_cast<float>(w);
-    const float height = static_cast<float>(h);
-    const Color kDimOverlay{0.0f, 0.0f, 0.0f, 0.72f};
-    const Color kPanelColor{0.10f, 0.13f, 0.20f, 0.98f};
-    renderer.draw_quad(Rect{0.0f, 0.0f, width, height}, kDimOverlay);
-
-    const float panel_w = width * 0.74f;
-    const float panel_h = height * 0.76f;
-    const float panel_x = (width - panel_w) * 0.5f;
-    const float panel_y = (height - panel_h) * 0.5f;
-    renderer.draw_quad(Rect{panel_x, panel_y, panel_w, panel_h}, kPanelColor);
-
-    const float text_x = panel_x + panel_w * 0.06f;
-    float row_y = panel_y + panel_h * 0.19f;
-    // Rows share the band between the title and the hint line, so adding a
-    // row shrinks the spacing instead of overlapping the hint.
-    const float row_h = panel_h * 0.69f / static_cast<float>(kOptionsRowCount);
-    const float name_pixel = std::max(2.0f, width * 0.0035f);
-    const float value_pixel = std::max(2.0f, width * 0.0032f);
-
-    draw_text(renderer, "OPTIONS", text_x, panel_y + panel_h * 0.05f,
-              std::max(2.5f, width * 0.0045f), kTitleColor);
-
-    // Value column starts after the widest row name, so long names never
-    // run into their values.
-    float name_w = 0.0f;
-    for (int i = 0; i < kOptionsRowCount; ++i) {
-        name_w = std::max(name_w, text_width(options_row_name(i), name_pixel));
-    }
-    const float value_x = text_x + name_w + name_pixel * 12.0f;
-    for (int i = 0; i < kOptionsRowCount; ++i) {
-        const bool selected = i == options_.row;
-        if (selected) {
-            renderer.draw_quad(
-                Rect{text_x - 8.0f, row_y - 4.0f, panel_w * 0.88f + 16.0f, row_h * 0.9f},
-                kPlaceholderColor);
-        }
-        draw_text(renderer, options_row_name(i), text_x, row_y, name_pixel,
-                  selected ? kSelectedColor : kTextColor);
-        draw_text(renderer, options_row_value_text(options_, i), value_x, row_y, value_pixel,
-                  selected ? kSelectedColor : kTextColor);
-        row_y += row_h;
-    }
-
-    draw_text_centered(
-        renderer,
-        "[UP/DOWN] ROW  [LEFT/RIGHT] CHANGE  [ENTER] NEXT  [BACK] CLOSE",
-        width * 0.5f, panel_y + panel_h * 0.93f, 2.0f, kHintColor);
 }
 
 void SelectScreen::exit(ScreenContext& /*ctx*/) {
