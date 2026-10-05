@@ -197,13 +197,13 @@ void test_below_diff_badge() {
 }
 
 void test_judgment_pop_clear() {
-    // Peak pop scale over the whole pop curve.
+    // Peak drawn judgment scale over the whole pop curve.
     const double d = JudgmentAnimator::kJudgmentPopSeconds;
     float peak = 0.0f;
     for (int i = 0; i <= 1000; ++i) {
-        peak = std::max(peak, JudgmentAnimator::pop_scale(d * i / 1000.0, d));
+        peak = std::max(peak, JudgmentAnimator::judgment_draw_scale(d * i / 1000.0));
     }
-    TEST_CHECK(peak > 1.0f);
+    TEST_CHECK(peak > JudgmentAnimator::kJudgmentDisplayScale);
 
     for (const Size s : {Size{640, 480}, Size{500, 400}, Size{400, 400}, Size{1280, 720}}) {
         const blaze4k::theme::LayoutScale L = blaze4k::theme::layout_scale(s.w, s.h);

@@ -104,6 +104,10 @@ bool JudgmentAnimator::pop_active(double elapsed, double duration) {
     return duration > 0.0 && elapsed < duration;
 }
 
+float JudgmentAnimator::judgment_draw_scale(double elapsed) {
+    return kJudgmentDisplayScale * pop_scale(elapsed, kJudgmentPopSeconds);
+}
+
 std::string JudgmentAnimator::judgment_label(const JudgmentEvent& e) {
     switch (e.kind) {
         case JudgmentKind::Tap:
@@ -195,7 +199,7 @@ void JudgmentAnimator::render_judgment(GlQuadRenderer& renderer, int w, int h,
         return;
     }
     const theme::LayoutScale L = theme::layout_scale(w, h);
-    const float scale = pop_scale(pop_elapsed_, kJudgmentPopSeconds);
+    const float scale = judgment_draw_scale(pop_elapsed_);
     const float alpha = pop_alpha(pop_elapsed_, kJudgmentPopSeconds);
 
     if (theme != nullptr && !pop_sprite_.empty() && theme->entry(pop_sprite_) != nullptr) {

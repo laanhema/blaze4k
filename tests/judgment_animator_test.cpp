@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cmath>
 #include <cstdlib>
 #include <filesystem>
@@ -147,7 +148,93 @@ void test_judgment_pop_rect() {
     TEST_CHECK(std::abs(big.x + big.w * 0.5f - 640.0f) < 1e-3f);
     TEST_CHECK(std::abs(big.y + big.h * 0.5f - 329.0f) < 1e-3f);
     TEST_CHECK(std::abs(big.w - 555.0f) < 1e-3f);
+
+    // At rest the drawn pop is half the full-size box, centred on the old box centre.
+    const double d = JudgmentAnimator::kJudgmentPopSeconds;
+    const float rest = JudgmentAnimator::judgment_draw_scale(d);
+    const blaze4k::Rect half =
+        JudgmentAnimator::judgment_pop_rect(L, JudgmentAnimator::kJudgmentContentRef, rest);
+    TEST_CHECK(std::abs(half.x - 529.0f) < 1e-3f && std::abs(half.y - 312.5f) < 1e-3f);
+    TEST_CHECK(std::abs(half.w - 222.0f) < 1e-3f && std::abs(half.h - 33.0f) < 1e-3f);
+    TEST_CHECK(std::abs(half.w - r.w * 0.5f) < 1e-3f && std::abs(half.h - r.h * 0.5f) < 1e-3f);
+    TEST_CHECK(std::abs(half.x + half.w * 0.5f - 640.0f) < 1e-3f);
+    TEST_CHECK(std::abs(half.y + half.h * 0.5f - 329.0f) < 1e-3f);
+
+    const blaze4k::theme::LayoutScale L2 = blaze4k::theme::layout_scale(2560, 1440);
+    const blaze4k::Vec2 ref = JudgmentAnimator::kJudgmentContentRef;
+    const blaze4k::Rect half2 =
+        JudgmentAnimator::judgment_pop_rect(L2, blaze4k::Vec2{ref.x * L2.s, ref.y * L2.s}, rest);
+    TEST_CHECK(std::abs(half2.x - 1058.0f) < 1e-3f && std::abs(half2.y - 625.0f) < 1e-3f);
+    TEST_CHECK(std::abs(half2.w - 444.0f) < 1e-3f && std::abs(half2.h - 66.0f) < 1e-3f);
+    TEST_CHECK(std::abs(half2.x + half2.w * 0.5f - 1280.0f) < 1e-3f);
+    TEST_CHECK(std::abs(half2.y + half2.h * 0.5f - 658.0f) < 1e-3f);
     std::cout << "  - judgment pop rect ok.\n";
+}
+
+// Peak of the drawn judgment scale over the whole pop curve (1001 samples).
+float peak_draw_scale() {
+    const double d = JudgmentAnimator::kJudgmentPopSeconds;
+    float peak = 0.0f;
+    for (int i = 0; i <= 1000; ++i) {
+        peak = std::max(peak, JudgmentAnimator::judgment_draw_scale(d * i / 1000.0));
+    }
+    return peak;
+}
+
+void test_judgment_draw_scale() {
+    const float k = JudgmentAnimator::kJudgmentDisplayScale;
+    TEST_CHECK(k == 0.5f);
+    const double d = JudgmentAnimator::kJudgmentPopSeconds;
+    TEST_CHECK(JudgmentAnimator::judgment_draw_scale(d) == 0.5f);
+    TEST_CHECK(JudgmentAnimator::judgment_draw_scale(d * 3.0) == 0.5f);
+    // Same curve shape, at the display size.
+    for (int i = 0; i <= 1000; ++i) {
+        const double e = d * i / 1000.0;
+        TEST_CHECK(std::abs(JudgmentAnimator::judgment_draw_scale(e) -
+                            k * JudgmentAnimator::pop_scale(e, d)) < 1e-6f);
+    }
+    const float peak = peak_draw_scale();
+    TEST_CHECK(peak > k);
+    TEST_CHECK(std::abs(peak - k * 1.25f) < 1e-3f);
+    std::cout << "  - judgment draw scale (half size, same pop curve) ok.\n";
+}
+
+void test_judgment_clears_combo() {
+    namespace layout = blaze4k::theme::layout;
+    // Glow pad below the content box, reference px, from the real manifest (max over
+    // every judgment_* sprite; 28 today).
+    const blaze4k::ThemeManifest manifest =
+        blaze4k::parse_theme_manifest(read_text(kCabinet / "manifest.json"));
+    float pad = 0.0f;
+    int sprites = 0;
+    for (const auto& [name, entry] : manifest.textures) {
+        if (std::string_view{name}.rfind("judgment_", 0) != 0) {
+            continue;
+        }
+        pad = std::max(pad, static_cast<float>(entry.height - entry.content.y - entry.content.h) /
+                                manifest.texture_scale);
+        ++sprites;
+    }
+    TEST_CHECK(sprites == 9);
+    TEST_CHECK(pad > 0.0f);
+
+    const float peak = peak_draw_scale();
+    const blaze4k::Vec2 ref = JudgmentAnimator::kJudgmentContentRef;
+    struct Size {
+        int w;
+        int h;
+    };
+    for (const Size s : {Size{1280, 720}, Size{2560, 1440}, Size{1920, 1080}, Size{1280, 1024},
+                         Size{2560, 1080}}) {
+        const blaze4k::theme::LayoutScale L = blaze4k::theme::layout_scale(s.w, s.h);
+        const blaze4k::Rect pop =
+            JudgmentAnimator::judgment_pop_rect(L, blaze4k::Vec2{ref.x * L.s, ref.y * L.s}, peak);
+        const float combo_top = L.y(layout::kComboTop);
+        TEST_CHECK(pop.y + pop.h < combo_top);
+        TEST_CHECK(pop.y + pop.h + pad * L.s * peak <= combo_top);
+        TEST_CHECK(std::abs(pop.x + pop.w * 0.5f - L.x(layout::kRefWidth * 0.5f)) < 1e-3f);
+    }
+    std::cout << "  - half-size judgment clears the combo line ok.\n";
 }
 
 void test_combo_visibility() {
@@ -333,6 +420,8 @@ int main() {
     test_label_mapping();
     test_sprite_mapping();
     test_judgment_pop_rect();
+    test_judgment_draw_scale();
+    test_judgment_clears_combo();
     test_combo_visibility();
     test_combo_number_color();
     test_pop_curves();
