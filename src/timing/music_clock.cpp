@@ -59,6 +59,14 @@ double MusicClock::time_seconds() const {
     return apply_offset(sample_time_seconds(), global_offset_seconds_);
 }
 
+TimedMusicTime MusicClock::timed_time_seconds() const {
+    const SamplePosition position = sample_position();
+    return TimedMusicTime{
+        apply_offset(seconds_from_pcm(position.frames, position.sample_rate), global_offset_seconds_),
+        position.timestamp_ns,
+    };
+}
+
 int64_t MusicClock::time_nanoseconds() const {
     return static_cast<int64_t>(std::llround(time_seconds() * 1e9));
 }

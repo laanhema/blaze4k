@@ -118,9 +118,20 @@ target OS and device. miniaudio picks a backend at runtime:
 - **Linux**: PipeWire/PulseAudio via the PulseAudio compatibility layer, or ALSA
   directly. ALSA has the lowest ceiling but bypasses the desktop mixer; the
   Pulse/PipeWire path is the safer default.
+- **Audio period (all OSes, #81)**: the engine requests a 480-frame period
+  (10 ms @ 48 kHz) by default; the `[AudioEngine] Output device` log line shows
+  the requested and negotiated period, and gameplay logs the measured device
+  callback interval when a song ends. If playback crackles or drops out, raise
+  `audio.period_size_frames` in `config.json` (for example to `960`), or set it
+  to `0` for the backend default, then restart. Values other than `0` are
+  clamped to 128–4096. Re-run the offset calibration after any change. Record
+  the negotiated period per device in `docs/AUDIO_LATENCY.md` ("Negotiated
+  period per device"); Windows (WASAPI) and macOS (CoreAudio) are
+  **owner: not yet measured**.
 
-After switching OS, audio device, or backend, re-run the offset calibration
-wizard — the saved `global_offset_seconds` is device/OS-specific. See
+After upgrading to the #81 music clock (smaller period + interpolated clock),
+after changing `audio.period_size_frames`, or after switching OS, audio device,
+or backend, re-run the offset calibration wizard — the saved `global_offset_seconds` is device/OS-specific. See
 `docs/AUDIO_LATENCY.md` for why (Bluetooth adds latency the game clock cannot
 see) and for the OBS recording sync workaround.
 

@@ -43,6 +43,8 @@ Blaze 4k ships engine-only: you import your own song packs. Point the game at a 
 
 Settings, high scores, and the calibrated global offset persist as JSON files next to the binary.
 
+**Upgrading:** this version changes the music clock (a smaller audio period plus a clock that is interpolated between audio callbacks; see [docs/AUDIO_LATENCY.md](docs/AUDIO_LATENCY.md)). A previously saved offset will be off by a few milliseconds, so re-run the offset calibration once after upgrading. If audio crackles or drops out, raise `audio.period_size_frames` in `config.json` (default `480`; for example `960`, or `0` for the audio backend's default), restart the game, and calibrate again.
+
 ## Note Elements & Gameplay
 
 - Taps, holds, rolls, and mines

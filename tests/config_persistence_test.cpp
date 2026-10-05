@@ -83,6 +83,7 @@ int main() {
         TEST_CHECK(defaults.gameplay.scroll == "up");
         TEST_CHECK(defaults.gameplay.fail_enabled);
         TEST_CHECK(!defaults.gameplay.assist_tick);
+        TEST_CHECK(defaults.audio.period_size_frames == 480); // #81
         TEST_CHECK(defaults.input.key_bindings.size() == 7);
         TEST_CHECK(defaults.input.gamepad_bindings.size() == 7);
 
@@ -110,6 +111,19 @@ int main() {
         bad = defaults;
         bad.gameplay.speed_mod.clear();
         TEST_CHECK(!blaze4k::validate_game_config(bad, &error));
+        // #81: audio.period_size_frames is 0 (backend default) or [128, 4096].
+        bad = defaults;
+        bad.audio.period_size_frames = 100;
+        TEST_CHECK(!blaze4k::validate_game_config(bad, &error));
+        TEST_CHECK(error == "audio.period_size_frames out of range");
+        bad.audio.period_size_frames = 4097;
+        TEST_CHECK(!blaze4k::validate_game_config(bad, &error));
+        bad.audio.period_size_frames = -1;
+        TEST_CHECK(!blaze4k::validate_game_config(bad, &error));
+        for (const int ok_period : {0, 128, 4096}) {
+            bad.audio.period_size_frames = ok_period;
+            TEST_CHECK(blaze4k::validate_game_config(bad, &error));
+        }
         std::cout << "  - 1. defaults and validation ok.\n";
     }
 
@@ -125,6 +139,7 @@ int main() {
         config.audio.music_volume = 0.25;
         config.audio.preview_volume = 0.0;
         config.audio.ui_volume = 0.75;
+        config.audio.period_size_frames = 256;
         config.offset.global_offset_seconds = -0.123;
         config.gameplay.speed_mod = "C400";
         config.gameplay.scroll = "down";
@@ -147,6 +162,7 @@ int main() {
         TEST_CHECK(nearly(loaded.audio.music_volume, 0.25));
         TEST_CHECK(nearly(loaded.audio.preview_volume, 0.0));
         TEST_CHECK(nearly(loaded.audio.ui_volume, 0.75));
+        TEST_CHECK(loaded.audio.period_size_frames == 256);
         TEST_CHECK(nearly(loaded.offset.global_offset_seconds, -0.123));
         TEST_CHECK(loaded.gameplay.speed_mod == "C400");
         TEST_CHECK(loaded.gameplay.scroll == "down");
@@ -155,6 +171,51 @@ int main() {
         TEST_CHECK(to_map(loaded.input.key_bindings) == to_map(config.input.key_bindings));
         TEST_CHECK(to_map(loaded.input.gamepad_bindings) == to_map(config.input.gamepad_bindings));
         std::cout << "  - 2. config round-trip ok.\n";
+
+        // #81: 0 (backend default) round-trips as 0 and loads without a warning.
+        config.audio.period_size_frames = 0;
+        TEST_CHECK(blaze4k::save_config(config_path, config, &message));
+        loaded = blaze4k::load_config(config_path, &message, &status);
+        TEST_CHECK(loaded.audio.period_size_frames == 0);
+        TEST_CHECK(message.find("period_size_frames") == std::string::npos);
+        std::cout << "  - 2. period_size_frames round-trip (256, 0) ok.\n";
+    }
+
+    // 2a. #81: audio.period_size_frames load-time clamping and type tolerance.
+    {
+        struct Case {
+            const char* json;
+            int expected;
+            bool warns;
+        };
+        const Case cases[] = {
+            {R"({"audio":{"period_size_frames":64}})", 128, true},
+            {R"({"audio":{"period_size_frames":-5}})", 128, true},
+            {R"({"audio":{"period_size_frames":-5000000}})", 128, true},
+            {R"({"audio":{"period_size_frames":99999}})", 4096, true},
+            {R"({"audio":{"period_size_frames":"abc"}})", 480, true},
+            {R"({"audio":{"period_size_frames":300.5}})", 480, true},
+            {R"({"audio":{"period_size_frames":null}})", 480, false},
+            {R"({"audio":{}})", 480, false},
+            {R"({"audio":{"period_size_frames":0}})", 0, false},
+            {R"({"audio":{"period_size_frames":128}})", 128, false},
+            {R"({"audio":{"period_size_frames":4096}})", 4096, false},
+            {R"({"audio":{"period_size_frames":960}})", 960, false},
+        };
+        const fs::path period_path = temp_dir / "period.json";
+        for (const Case& c : cases) {
+            write_file(period_path, c.json);
+            blaze4k::GameConfig loaded = blaze4k::load_config(period_path, &message, &status);
+            TEST_CHECK(status == blaze4k::ConfigLoadStatus::LoadedFromFile);
+            if (loaded.audio.period_size_frames != c.expected) {
+                std::cerr << "period case " << c.json << " -> " << loaded.audio.period_size_frames << "\n";
+            }
+            TEST_CHECK(loaded.audio.period_size_frames == c.expected);
+            TEST_CHECK((message.find("audio.period_size_frames") != std::string::npos) == c.warns);
+            std::string error;
+            TEST_CHECK(blaze4k::validate_game_config(loaded, &error));
+        }
+        std::cout << "  - 2a. period_size_frames clamp/tolerance ok.\n";
     }
 
     // 2b. A high X-mod chosen in the options menu (#61) survives save/load,

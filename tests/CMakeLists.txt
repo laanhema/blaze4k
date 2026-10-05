@@ -581,3 +581,39 @@ target_compile_definitions(setup_art_test PRIVATE
 )
 
 add_test(NAME setup_art_test COMMAND setup_art_test)
+
+# #81: pure callback-anchored music-clock tests (CallbackGrouper burst collapse,
+# AnchorSlot seqlock incl. a 2-thread stress, ClockInterpolator rules).
+add_executable(clock_interpolation_test
+    clock_interpolation_test.cpp
+)
+
+target_link_libraries(clock_interpolation_test PRIVATE
+    blaze4k_core
+)
+
+add_test(NAME clock_interpolation_test COMMAND clock_interpolation_test)
+
+# #81: real onProcess -> ClockTap -> SoundStream interpolation on miniaudio's
+# null backend (silent, real-time paced; sandbox-safe, no audio device).
+add_executable(clock_tap_test
+    clock_tap_test.cpp
+)
+
+target_link_libraries(clock_tap_test PRIVATE
+    blaze4k_core
+)
+
+add_test(NAME clock_tap_test COMMAND clock_tap_test)
+
+# #81: silent music-clock measurement tool (successor of the #71 scratch `gran2`
+# probe). Built but NOT registered with ctest: it measures a real device and
+# must run outside the test sandbox (docs/AUDIO_LATENCY.md). `--null` runs it on
+# miniaudio's null backend.
+add_executable(clock_probe
+    clock_probe.cpp
+)
+
+target_link_libraries(clock_probe PRIVATE
+    blaze4k_core
+)
