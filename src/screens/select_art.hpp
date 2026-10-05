@@ -244,14 +244,16 @@ using HintMeasure = std::function<float(std::string_view)>;
 // One legend item (shared by select's and the options overlay's legends):
 // VArrows = up/down pair (cell 4, pitch 16), HArrows = left/right pair (cell 14,
 // pitch 24), each followed by kHintArrowKeyGap; Key + kHintTextKeyGap; Word +
-// kHintGap unless it is the last item. `text` is used by Key / Word only.
+// kHintGap. The line's last piece gets no trailing gap, whatever its kind.
+// `text` is used by Key / Word only.
 struct HintItem {
     enum class Kind { VArrows, HArrows, Key, Word };
     Kind kind = Kind::Word;
     std::string_view text;
 };
 // Lays `items` out left to right and centres the line on kHintCentreX. Pieces
-// past kHintPieceCount are dropped (an arrow pair counts as two pieces).
+// past kHintPieceCount are dropped (an arrow pair counts as two pieces); an
+// arrow pair, or a Key and the Word right after it, is kept or dropped whole.
 [[nodiscard]] HintLine layout_hint_items(std::span<const HintItem> items,
                                          const HintMeasure& measure_key,
                                          const HintMeasure& measure_word);

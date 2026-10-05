@@ -248,39 +248,47 @@ std::array<Rect, 2> chip_rects(float speed_text_w, float scroll_text_w) {
 
 HintLine layout_hint_items(std::span<const HintItem> items, const HintMeasure& measure_key,
                            const HintMeasure& measure_word) {
-    // How many items fit in kHintPieceCount pieces (an arrow pair takes two).
+    // How many items fit in kHintPieceCount pieces (an arrow pair takes two). A
+    // Key and the Word right after it fit together or not at all.
     std::size_t fitted = 0;
     std::size_t pieces = 0;
-    for (const HintItem& item : items) {
+    while (fitted < items.size()) {
+        const HintItem& item = items[fitted];
         const bool arrows =
             item.kind == HintItem::Kind::VArrows || item.kind == HintItem::Kind::HArrows;
-        const std::size_t need = arrows ? 2 : 1;
+        const bool key_word = item.kind == HintItem::Kind::Key && fitted + 1 < items.size() &&
+                              items[fitted + 1].kind == HintItem::Kind::Word;
+        const std::size_t need = (arrows || key_word) ? 2 : 1;
         if (pieces + need > kHintPieceCount) {
             break;
         }
         pieces += need;
-        ++fitted;
+        fitted += key_word ? 2 : 1;
     }
 
     HintLine line;
     float x = 0.0f;
+    float gap = 0.0f; // the gap after the piece placed last; dropped at the end
     auto add = [&line](HintPiece piece) {
         line.pieces[static_cast<std::size_t>(line.count++)] = piece;
     };
     auto add_arrows = [&](HintArrow a, HintArrow b, float cell, float pitch) {
         add(HintPiece{HintPiece::Kind::Arrow, a, {}, x, cell});
         add(HintPiece{HintPiece::Kind::Arrow, b, {}, x + pitch, cell});
-        x += pitch + cell + kHintArrowKeyGap;
+        gap = kHintArrowKeyGap;
+        x += pitch + cell + gap;
     };
     auto add_key = [&](std::string_view key) {
         const float w = measure_key ? measure_key(key) : 0.0f;
         add(HintPiece{HintPiece::Kind::Key, HintArrow::Up, key, x, w});
-        x += w + kHintTextKeyGap;
+        gap = kHintTextKeyGap;
+        x += w + gap;
     };
-    auto add_word = [&](std::string_view word, bool last) {
+    auto add_word = [&](std::string_view word) {
         const float w = measure_word ? measure_word(word) : 0.0f;
         add(HintPiece{HintPiece::Kind::Word, HintArrow::Up, word, x, w});
-        x += w + (last ? 0.0f : layout::kHintGap);
+        gap = layout::kHintGap;
+        x += w + gap;
     };
 
     for (std::size_t i = 0; i < fitted; ++i) {
@@ -296,10 +304,11 @@ HintLine layout_hint_items(std::span<const HintItem> items, const HintMeasure& m
             add_key(item.text);
             break;
         case HintItem::Kind::Word:
-            add_word(item.text, i + 1 == fitted);
+            add_word(item.text);
             break;
         }
     }
+    x -= gap; // no trailing gap, whatever kind of piece ends the line
 
     line.width = x;
     const float start = kHintCentreX - x * 0.5f;

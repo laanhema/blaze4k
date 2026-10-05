@@ -10,6 +10,7 @@
 // pre-baked styles, and a render walk over every overlay row.
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdlib>
 #include <filesystem>
@@ -821,6 +822,29 @@ void test_options_hint_layout() {
     arrows.push_back(art::HintItem{art::HintItem::Kind::VArrows, {}});
     const art::HintLine no_split = art::layout_hint_items(arrows, nullptr, nullptr);
     TEST_CHECK(no_split.count == 11);
+    // A line ending on a Key or an arrow pair gets no trailing gap either, so it
+    // is still centred on x 640.
+    const auto ten = [](std::string_view) { return 10.0f; };
+    const std::array<art::HintItem, 2> word_key = {
+        {{art::HintItem::Kind::Word, "W"}, {art::HintItem::Kind::Key, "K"}}};
+    const art::HintLine ends_key = art::layout_hint_items(word_key, ten, ten);
+    TEST_CHECK(ends_key.count == 2);
+    TEST_CHECK(approx(ends_key.width, 10.0f + 34.0f + 10.0f));
+    TEST_CHECK(approx(ends_key.pieces[0].x + ends_key.width * 0.5f, 640.0f));
+    const std::array<art::HintItem, 2> word_arrows = {
+        {{art::HintItem::Kind::Word, "W"}, {art::HintItem::Kind::HArrows, {}}}};
+    const art::HintLine ends_arrows = art::layout_hint_items(word_arrows, ten, ten);
+    TEST_CHECK(ends_arrows.count == 3);
+    TEST_CHECK(approx(ends_arrows.width, 10.0f + 34.0f + 24.0f + 14.0f));
+    TEST_CHECK(approx(ends_arrows.pieces[0].x + ends_arrows.width * 0.5f, 640.0f));
+    // A Key and its Word straddling the cap are dropped together: no orphan Key.
+    std::vector<art::HintItem> pairs(11, art::HintItem{art::HintItem::Kind::Word, "W"});
+    pairs.push_back(art::HintItem{art::HintItem::Kind::Key, "K"});
+    pairs.push_back(art::HintItem{art::HintItem::Kind::Word, "W"});
+    const art::HintLine no_orphan = art::layout_hint_items(pairs, ten, ten);
+    TEST_CHECK(no_orphan.count == 11);
+    TEST_CHECK(no_orphan.pieces[10].kind == art::HintPiece::Kind::Word);
+    TEST_CHECK(approx(no_orphan.width, 11.0f * 10.0f + 10.0f * 34.0f));
     std::cout << "  - options legend ok.\n";
 }
 
