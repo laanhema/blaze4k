@@ -10,7 +10,8 @@
 
 namespace blaze4k {
 
-// The gameplay difficulty badge for `chart` (#93): "<LABEL> <meter>", e.g. "HARD 8".
+// The gameplay difficulty badge for `chart` (#93): label + meter, drawn "<LABEL> <meter>"
+// (e.g. "HARD 8"); only the label is truncated, so the meter always shows.
 // The label follows select_art::difficulty_row_label (an Edit with a description shows
 // the chart's name as written; an empty label shows the resolved difficulty name; else
 // the label in ASCII upper case) and the colours follow difficulty_row_style (Edit and

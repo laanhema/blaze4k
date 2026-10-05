@@ -1,6 +1,8 @@
 #pragma once
 
+#include <functional>
 #include <string>
+#include <string_view>
 
 #include "render/geometry.hpp"
 #include "render/theme.hpp"
@@ -30,8 +32,8 @@ inline constexpr float kLifeBarMinTrack = 6.0f;
 // Difficulty badge text inset from the plate's left edge, reference px (mock: "HARD 8"
 // ink starts 18 px into the plate).
 inline constexpr float kBadgeTextPadX = 18.0f;
-// The badge plate grows with long Edit names up to this width, reference px; longer
-// text is truncated with "...".
+// The badge plate grows with long Edit names up to this width, reference px; a longer
+// label is truncated with "..." (the meter always shows; fit_badge_text).
 inline constexpr float kBadgeMaxWidthRef = 300.0f;
 
 // Cabinet vertical life bar geometry (#93): the life_frame starts at
@@ -51,12 +53,25 @@ struct LifeBarLayout {
 [[nodiscard]] LifeBarLayout layout_life_bar(double life, int screen_w, int screen_h,
                                             double field_left);
 
-// The gameplay difficulty badge content: e.g. "HARD 8" with theme::difficulty::kHard.
-// Built once per song by the screens layer (difficulty_badge_for).
+// The gameplay difficulty badge content: e.g. label "HARD" + meter "8" with
+// theme::difficulty::kHard, drawn as "HARD 8". Built once per song by the screens layer
+// (difficulty_badge_for). Kept apart so only the label is ever truncated.
 struct DifficultyBadge {
-    std::string text;
+    std::string label;
+    std::string meter;
     theme::DifficultyColors colors = theme::difficulty::kEdit;
 };
+
+// Full (untruncated) width of the badge text "<label> <meter>" under `measure`, summed
+// per part so it never allocates. Empty parts (and their separator) count as 0.
+[[nodiscard]] float badge_text_width(const DifficultyBadge& badge,
+                                     const std::function<float(std::string_view)>& measure);
+
+// The badge text as drawn within `max_w`: "<label> <meter>" where only the label is
+// "..."-truncated (truncate_to_width), so the meter always stays visible. A label cut
+// to nothing leaves just the meter. Pure.
+[[nodiscard]] std::string fit_badge_text(const DifficultyBadge& badge, float max_w,
+                                         const std::function<float(std::string_view)>& measure);
 
 // Difficulty badge geometry: the diff_badge plate at theme::layout::kDiffBadge, widened
 // for text of width `text_w` (screen px) up to kBadgeMaxWidthRef, and narrowed to stay
@@ -84,14 +99,15 @@ public:
                        double field_left, const ThemeTextures* theme, const TextRenderer* text,
                        GlQuadRenderer& renderer) const;
 
-    // Badge text in the difficulty ink colour, truncated to the plate. The truncated
-    // label is cached and recomputed only when the text, text scale or width changes.
+    // Badge text in the difficulty ink colour, fitted to the plate (fit_badge_text). The
+    // fitted text is cached and recomputed only when the badge, text scale or width changes.
     void render_text(const DifficultyBadge& badge, int screen_w, int screen_h, double field_left,
                      TextRenderer* text, GlQuadRenderer& renderer);
 
 private:
     std::string cached_text_;
-    std::string cached_source_;
+    std::string cached_label_;
+    std::string cached_meter_;
     float cached_max_w_ = -1.0f;
     float cached_scale_ = -1.0f;
 };

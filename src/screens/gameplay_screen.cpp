@@ -16,7 +16,8 @@ namespace blaze4k {
 
 DifficultyBadge difficulty_badge_for(const Chart& chart) {
     DifficultyBadge badge;
-    badge.text = select_art::difficulty_row_label(chart) + " " + std::to_string(chart.meter);
+    badge.label = select_art::difficulty_row_label(chart);
+    badge.meter = std::to_string(chart.meter);
     badge.colors = select_art::difficulty_row_style(chart).colors;
     return badge;
 }

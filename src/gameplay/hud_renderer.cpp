@@ -2,13 +2,16 @@
 
 #include <algorithm>
 #include <cmath>
+#include <functional>
 #include <optional>
 #include <string>
+#include <string_view>
 
 #include "render/gl_quad_renderer.hpp"
 #include "render/theme_layout.hpp"
 #include "render/theme_textures.hpp"
 #include "render/ttf_font.hpp"
+#include "render/unicode_text.hpp"
 
 namespace blaze4k {
 
@@ -104,6 +107,35 @@ DiffBadgeLayout layout_diff_badge(float text_w, int screen_w, int screen_h, doub
     return layout;
 }
 
+float badge_text_width(const DifficultyBadge& badge,
+                       const std::function<float(std::string_view)>& measure) {
+    float width = measure(badge.label);
+    if (!badge.meter.empty()) {
+        width += measure(badge.meter);
+        if (!badge.label.empty()) {
+            width += measure(" ");
+        }
+    }
+    return width;
+}
+
+std::string fit_badge_text(const DifficultyBadge& badge, float max_w,
+                           const std::function<float(std::string_view)>& measure) {
+    if (badge.meter.empty()) {
+        return truncate_to_width(badge.label, max_w, measure);
+    }
+    // Reserve the meter (and its separator) first; only the label gives way.
+    const float label_max = max_w - measure(" ") - measure(badge.meter);
+    std::string text = badge.label.empty() ? std::string{}
+                                           : truncate_to_width(badge.label, label_max, measure);
+    if (text.empty()) {
+        return badge.meter;
+    }
+    text += ' ';
+    text += badge.meter;
+    return text;
+}
+
 void HudRenderer::render_chrome(const DifficultyBadge& badge, double life, int screen_w,
                                 int screen_h, double field_left, const ThemeTextures* theme,
                                 const TextRenderer* text, GlQuadRenderer& renderer) const {
@@ -112,8 +144,13 @@ void HudRenderer::render_chrome(const DifficultyBadge& badge, double life, int s
     }
     const theme::LayoutScale L = theme::layout_scale(screen_w, screen_h);
 
-    if (!badge.text.empty()) {
-        const float text_w = text != nullptr ? text->measure(badge.text, theme::text::kBadge) : 0.0f;
+    if (!badge.label.empty() || !badge.meter.empty()) {
+        const float text_w =
+            text != nullptr ? badge_text_width(badge,
+                                               [text](std::string_view s) {
+                                                   return text->measure(s, theme::text::kBadge);
+                                               })
+                            : 0.0f;
         const DiffBadgeLayout plate = layout_diff_badge(text_w, screen_w, screen_h, field_left);
         if (plate.visible) {
             theme->draw_slice3(renderer, "diff_badge", plate.plate, badge.colors.fill);
@@ -136,24 +173,26 @@ void HudRenderer::render_chrome(const DifficultyBadge& badge, double life, int s
 
 void HudRenderer::render_text(const DifficultyBadge& badge, int screen_w, int screen_h,
                               double field_left, TextRenderer* text, GlQuadRenderer& renderer) {
-    if (text == nullptr || badge.text.empty() || !renderer.is_initialized() || screen_w <= 0 ||
-        screen_h <= 0) {
+    if (text == nullptr || (badge.label.empty() && badge.meter.empty()) ||
+        !renderer.is_initialized() || screen_w <= 0 || screen_h <= 0) {
         return;
     }
     const theme::TextStyle& base = theme::text::kBadge;
+    const auto measure = [text](std::string_view s) { return text->measure(s, theme::text::kBadge); };
     const DiffBadgeLayout layout =
-        layout_diff_badge(text->measure(badge.text, base), screen_w, screen_h, field_left);
+        layout_diff_badge(badge_text_width(badge, measure), screen_w, screen_h, field_left);
     if (!layout.visible) {
         return;
     }
 
     // Re-truncate only when the input changes, so steady-state frames do not allocate.
-    if (cached_source_ != badge.text || cached_max_w_ != layout.text_max_w ||
-        cached_scale_ != text->scale()) {
-        cached_source_ = badge.text;
+    if (cached_label_ != badge.label || cached_meter_ != badge.meter ||
+        cached_max_w_ != layout.text_max_w || cached_scale_ != text->scale()) {
+        cached_label_ = badge.label;
+        cached_meter_ = badge.meter;
         cached_max_w_ = layout.text_max_w;
         cached_scale_ = text->scale();
-        cached_text_ = text->truncate(badge.text, base, layout.text_max_w);
+        cached_text_ = fit_badge_text(badge, layout.text_max_w, measure);
     }
 
     theme::TextStyle style = base;

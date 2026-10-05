@@ -4,6 +4,8 @@
 #include <iostream>
 #include <optional>
 #include <string>
+#include <string_view>
+#include <utility>
 
 #include "gameplay/hud_renderer.hpp"
 #include "gameplay/judgment_animator.hpp"
@@ -267,6 +269,41 @@ void test_diff_badge_layout() {
     std::cout << "  - difficulty badge layout (mock, growth, cap, scale, hide) ok.\n";
 }
 
+// Review fix (#93): only the label gives way, so a long Edit name keeps its meter.
+// Fake measure: 10 px per byte.
+void test_fit_badge_text() {
+    const auto measure = [](std::string_view s) { return 10.0f * static_cast<float>(s.size()); };
+    const auto badge = [](std::string label, std::string meter) {
+        blaze4k::DifficultyBadge b;
+        b.label = std::move(label);
+        b.meter = std::move(meter);
+        return b;
+    };
+    const auto ends_with = [](const std::string& s, std::string_view tail) {
+        return s.size() >= tail.size() && s.compare(s.size() - tail.size(), tail.size(), tail) == 0;
+    };
+
+    const blaze4k::DifficultyBadge hard = badge("HARD", "8");
+    TEST_CHECK(near(blaze4k::badge_text_width(hard, measure), 60.0)); // "HARD 8"
+    TEST_CHECK(blaze4k::fit_badge_text(hard, 60.0f, measure) == "HARD 8");
+
+    // A 40-character Edit name at the 264 px cap (720p): the label is cut, the meter stays.
+    const blaze4k::DifficultyBadge edit = badge(std::string(40, 'E'), "11");
+    TEST_CHECK(near(blaze4k::badge_text_width(edit, measure), 430.0));
+    const std::string fitted = blaze4k::fit_badge_text(edit, 264.0f, measure);
+    TEST_CHECK(ends_with(fitted, "... 11"));
+    TEST_CHECK(measure(fitted) <= 264.0f);
+    TEST_CHECK(fitted == std::string(20, 'E') + "... 11");
+
+    // No room for any label: just the meter. Meter-only and label-only badges.
+    TEST_CHECK(blaze4k::fit_badge_text(edit, 30.0f, measure) == "11");
+    TEST_CHECK(blaze4k::fit_badge_text(badge("", "5"), 100.0f, measure) == "5");
+    TEST_CHECK(near(blaze4k::badge_text_width(badge("", "5"), measure), 10.0));
+    TEST_CHECK(blaze4k::fit_badge_text(badge("EDIT", ""), 100.0f, measure) == "EDIT");
+    TEST_CHECK(near(blaze4k::badge_text_width(badge("EDIT", ""), measure), 40.0));
+    std::cout << "  - badge text truncates only the label, keeping the meter ok.\n";
+}
+
 void test_combo_line_layout() {
     const float number_w = 46.0f;
     const float label_w = 70.0f;
@@ -312,6 +349,7 @@ int main() {
     test_judgment_pop_clear();
     test_narrow_clamp();
     test_diff_badge_layout();
+    test_fit_badge_text();
     test_combo_line_layout();
     test_degenerate();
     std::cout << "[hud_renderer_test] All Cabinet HUD layout tests passed successfully!\n";
