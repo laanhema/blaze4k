@@ -135,6 +135,8 @@ int main() {
         cursor_window.set_cursor_visible(true);
         TEST_CHECK(!cursor_window.cursor_hidden());
         cursor_window.set_cursor_visible(false);
+        // Headless cursor_hidden_ can never be true, so this only shows that a
+        // headless move doesn't crash; the move carry needs SDL video to test.
         blaze4k::Window moved(std::move(cursor_window));
         TEST_CHECK(!moved.cursor_hidden());
         moved.shutdown();

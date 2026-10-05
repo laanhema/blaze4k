@@ -145,7 +145,7 @@ void test_cursor_hidden_during_gameplay() {
         TEST_CHECK((calls == Calls{false, true}));
     }
 
-    // 3. Back-abort -> Select, then 4. re-entry and leaving again: the calls
+    // 2. Back-abort -> Select, then 3. re-entry and leaving again: the calls
     // strictly alternate, so the hidden state never sticks.
     {
         Calls calls;
@@ -172,7 +172,7 @@ void test_cursor_hidden_during_gameplay() {
         TEST_CHECK((calls == Calls{false, true, false, true}));
     }
 
-    // 5. No play request: the empty screen still hides and Back restores it.
+    // 4. No play request: the empty screen still hides and Back restores it.
     {
         Calls calls;
         blaze4k::ScreenManager manager(0.0);
@@ -189,7 +189,7 @@ void test_cursor_hidden_during_gameplay() {
         TEST_CHECK((calls == Calls{false, true}));
     }
 
-    // 6. Null callback (headless / --gameplay-demo wiring): enter and exit do not crash.
+    // 5. Null callback (headless / --gameplay-demo wiring): enter and exit do not crash.
     {
         blaze4k::ScreenManager manager(0.0);
         manager.add_screen(std::make_unique<blaze4k::GameplayScreen>());
