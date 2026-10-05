@@ -26,6 +26,12 @@ GameplayScreen::GameplayScreen(std::filesystem::path assist_tick_wav_path)
     : assist_tick_path_(std::move(assist_tick_wav_path)) {}
 
 void GameplayScreen::enter(ScreenContext& ctx) {
+    // #112: no OS cursor over the note field. `exit()` always restores it, since
+    // ScreenManager exits before every transition.
+    if (ctx.set_cursor_visible) {
+        ctx.set_cursor_visible(false);
+    }
+
     active_ = false;
     end_reported_ = false;
     end_delay_elapsed_ = 0.0;
@@ -121,7 +127,10 @@ void GameplayScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w,
     view_.render(renderer, w, h, ctx.theme, ctx.text);
 }
 
-void GameplayScreen::exit(ScreenContext& /*ctx*/) {
+void GameplayScreen::exit(ScreenContext& ctx) {
+    if (ctx.set_cursor_visible) {
+        ctx.set_cursor_visible(true);
+    }
     view_.shutdown();
     active_ = false;
 }

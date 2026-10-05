@@ -55,6 +55,11 @@ struct ScreenContext {
     // where callers fall back to event-derived state.
     std::function<bool(GameAction)> action_down;
 
+    // #112: show/hide the OS mouse cursor, wired by main to
+    // Window::set_cursor_visible. Null in headless/unit tests and the
+    // `--gameplay-demo` path (every call is null-guarded).
+    std::function<void(bool)> set_cursor_visible;
+
     // C6: the input layer, wired by main, used by InputRemapScreen to rebuild
     // runtime bindings and toggle raw capture mode. Forward-declared so screens
     // stay free of SDL; null in headless/unit tests.
