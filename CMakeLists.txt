@@ -129,6 +129,7 @@ add_library(blaze4k_core STATIC
     src/screens/title_art.cpp
     src/screens/select_art.cpp
     src/screens/options_art.cpp
+    src/screens/setup_art.cpp
     src/screens/select_screen.cpp
     src/screens/options_menu.cpp
     src/screens/gameplay_screen.cpp
