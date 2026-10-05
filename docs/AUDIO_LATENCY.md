@@ -127,8 +127,10 @@ clock is still its only timing source. Three things changed in how taps are turn
    beats cannot split into two groups and flip the sign.
 3. **Out-of-range results are refused.** The supported total delay `L + L_in` is **−50 ms to
    +420 ms**. A measured delay between 420 ms and about 450 ms, or between about −80 ms and
-   −50 ms, shows `OUT OF RANGE` and a red notice, Enter does not save, and one `[Calibration]` line
-   is logged (`src/timing/offset_calibration.cpp:147-149`).
+   −50 ms, sets the out-of-range flag (`src/timing/offset_calibration.cpp:147-149`) and shows
+   `OUT OF RANGE` and a red notice. Enter does not save
+   (`src/screens/calibration_screen.cpp:129-130`), and one `[Calibration]` line is logged
+   (`src/screens/calibration_screen.cpp:157-164`).
 
 The WH-1000XM4 (about 222 ms) now has about 200 ms of headroom.
 
@@ -136,7 +138,8 @@ The WH-1000XM4 (about 222 ms) now has about 200 ms of headroom.
 `D − 0.5 s`: a tap 480 ms after one click is also 20 ms before the next. So a total delay above about
 450 ms aliases to a small value and is saved as if it were 0.5 s shorter. The wizard cannot detect
 this. If your output is that slow, use wired output or a lower-latency codec/profile. The owner
-accepted this limit for #74.
+accepted this limit for #74. A slower "extended range" calibration (for example 60 BPM, which would
+cover up to about 900 ms) could be added as a follow-up if a device that slow turns up.
 
 **Limit more than about 80 ms early.** The same periodic-click limit applies on the early side. A
 tap 100 ms before a click is also 400 ms after the previous one, so a net delay of −0.10 s looks
@@ -144,8 +147,7 @@ like a late delay of +0.40 s, one beat later, and is saved as an offset of about
 +0.10 s. Any net delay more than about 80 ms early aliases like this and is saved wrong; only the
 band from about −80 to −50 ms is caught as `OUT OF RANGE`. A net early delay needs the player to
 tap well ahead of the click (wired setups measure about +23 ms), so this is rare. The owner kept
-this limit for #74 rather than shrinking the late range. A slower "extended range" calibration (for example 60 BPM, which would
-cover up to about 900 ms) could be added as a follow-up if a device that slow turns up.
+this limit for #74 rather than shrinking the late range.
 
 ## Why OBS recordings are out of sync
 
