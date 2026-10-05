@@ -11,7 +11,9 @@
 
 namespace blaze4k {
 
-enum class CalibrationPhase : int { CountIn = 0, Sampling, Ready };
+// OutOfRange (#74): enough samples, but the measured delay is outside the
+// supported window; never savable.
+enum class CalibrationPhase : int { CountIn = 0, Sampling, Ready, OutOfRange };
 
 // C5 guided tap-to-the-beat calibration wizard (PRD section 7.5). Owns a real
 // MusicClock bound to the metronome stream exactly as GameplayView binds its
@@ -60,6 +62,7 @@ private:
     bool source_injected_ = false;
     bool synthetic_ = false;
     bool saved_ = false;
+    bool out_of_range_logged_ = false;
     CalibrationPhase phase_ = CalibrationPhase::CountIn;
     double stub_frames_ = 0.0;
     uint32_t stub_rate_ = 44100;

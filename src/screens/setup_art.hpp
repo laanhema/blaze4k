@@ -151,6 +151,9 @@ inline constexpr std::string_view kOffsetPending = "---";
 // No-audio notice: a centred red line in the band {450, 44} (its ~44px line box)
 // under the plates.
 inline constexpr std::string_view kNoAudioNotice = "AUDIO UNAVAILABLE - OFFSET WILL NOT BE SAVED";
+// Out-of-range notice (#74): same slot/style as kNoAudioNotice, drawn when the
+// measured delay is outside the supported window (synthetic takes priority).
+inline constexpr std::string_view kOutOfRangeNotice = "DELAY OUT OF RANGE - OFFSET WILL NOT BE SAVED";
 inline constexpr float kNoticeTop = 450.0f;
 inline constexpr float kNoticeHeight = 44.0f;
 inline constexpr theme::TextStyle kNoticeStyle =
@@ -246,13 +249,14 @@ void draw_remap_table(const ThemeTextures* theme, TextRenderer* text, GlQuadRend
                       bool reset_selected);
 
 // Calibration body: the plates, the phase word, the plate labels and values,
-// and the no-audio notice (synthetic only).
+// and the notice (no-audio when synthetic, else out-of-range when flagged).
 struct CalibrationView {
     std::string_view phase_word;
     std::string_view samples;
     std::string_view offset;
     bool offset_ready = false; // false: `offset` drawn in the pending (steel) style
     bool synthetic = false;
+    bool out_of_range = false; // #74: measured delay outside the supported window
 };
 void draw_calibration(const ThemeTextures* theme, TextRenderer* text, GlQuadRenderer& renderer,
                       const theme::LayoutScale& L, const CalibrationView& view);

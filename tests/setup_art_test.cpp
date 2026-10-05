@@ -459,6 +459,8 @@ void test_text_fits() {
     }
     // The notice.
     TEST_CHECK(measure(setup::kNoAudioNotice, setup::kNoticeStyle) < 1280.0f - 2.0f * 40.0f);
+    TEST_CHECK(measure(setup::kOutOfRangeNotice, setup::kNoticeStyle) < 1280.0f - 2.0f * 40.0f);
+    TEST_CHECK(measure("OUT OF RANGE", setup::kPhaseStyle) < 1280.0f - 2.0f * 40.0f);
     // Its line box (~44px) fills the 44px band; centred in the band it clears
     // the plates above and the hint-bar rule below.
     const float notice_top = setup::kNoticeTop +
@@ -629,6 +631,33 @@ void test_render_smoke() {
                 render_all(manager, renderer, services);
             }
             TEST_CHECK(cal->result().ready);
+            render_all(manager, renderer, services);
+        }
+        // Calibration out of range (#74): the phase word and the red notice.
+        {
+            CalibrationConfig ccfg;
+            FakeAudioStream stream;
+            std::uint64_t frames = 0;
+            constexpr std::uint32_t kRate = 48000;
+            blaze4k::GameConfig config;
+            blaze4k::ScreenManager manager(0.0);
+            auto owner = std::make_unique<blaze4k::CalibrationScreen>(
+                stream, [&frames] { return blaze4k::SamplePosition{frames, kRate}; }, ccfg);
+            blaze4k::CalibrationScreen* cal = owner.get();
+            manager.add_screen(std::move(owner));
+            manager.context().config = &config;
+            if (services) {
+                manager.context().theme = &loaded_theme();
+                manager.context().text = &loaded_text();
+            }
+            manager.start(ScreenId::Calibration);
+            for (int i = 0; i < ccfg.min_samples; ++i) {
+                frames = static_cast<std::uint64_t>(
+                    std::llround((ccfg.beat_time(i + 1) + 0.44) * kRate));
+                manager.update(0.0, {press(GameAction::Left)});
+            }
+            TEST_CHECK(cal->phase() == blaze4k::CalibrationPhase::OutOfRange);
+            TEST_CHECK(cal->audio_available() && !cal->result().ready);
             render_all(manager, renderer, services);
         }
     }

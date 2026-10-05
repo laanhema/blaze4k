@@ -354,6 +354,72 @@ void test_click_track_and_metronome() {
     std::cout << "  - click-track synthesis + metronome clock source ok.\n";
 }
 
+// Like collect_eight_late_taps, but `count` taps on beats first..first+count-1.
+void collect_taps(Fixture& fx, int first, int count, double bias) {
+    const uint64_t age_ns = 5'000'000;
+    for (int i = first; i < first + count; ++i) {
+        const double reference =
+            fx.ccfg.beat_time(i) + bias + static_cast<double>(age_ns) / 1e9;
+        fx.tap(reference, kRefNs - age_ns);
+    }
+}
+
+void test_large_delay_saves_negative_offset() {
+    for (const double delay : {0.40, 0.28}) {
+        Fixture fx;
+        fx.start();
+        collect_eight_late_taps(fx, delay);
+        TEST_CHECK(fx.cal->phase() == blaze4k::CalibrationPhase::Ready);
+        TEST_CHECK(!fx.cal->result().out_of_range);
+        TEST_CHECK(near(fx.cal->result().offset_seconds, -delay, 1e-9));
+
+        fx.manager.update(0.0, {press(GameAction::Confirm, kRefNs)});
+        TEST_CHECK(fx.cal->saved());
+        TEST_CHECK(near(fx.config.offset.global_offset_seconds, -delay, 1e-9));
+        TEST_CHECK(fx.manager.active_id() == ScreenId::Select);
+    }
+    std::cout << "  - +0.40 / +0.28 s delays save negative offsets (#74) ok.\n";
+}
+
+void check_out_of_range_refuses(Fixture& fx) {
+    collect_eight_late_taps(fx, 0.44);
+    TEST_CHECK(fx.cal->phase() == blaze4k::CalibrationPhase::OutOfRange);
+    TEST_CHECK(fx.cal->result().out_of_range);
+    TEST_CHECK(!fx.cal->result().ready);
+    TEST_CHECK(fx.cal->sample_count() == 8);
+
+    fx.manager.update(0.0, {press(GameAction::Confirm, kRefNs)});
+    TEST_CHECK(!fx.cal->saved());
+    TEST_CHECK(fx.manager.active_id() == ScreenId::Calibration);
+    TEST_CHECK(near(fx.config.offset.global_offset_seconds, 0.123, 1e-12));
+
+    blaze4k::GlQuadRenderer renderer; // uninitialized: draws are no-ops
+    fx.manager.render(renderer, 1280, 720);
+}
+
+void test_out_of_range_refuses_to_save() {
+    Fixture fx;
+    fx.start(0.123);
+    check_out_of_range_refuses(fx);
+    std::cout << "  - out-of-range delay shows OUT OF RANGE + refuses to save ok.\n";
+}
+
+void test_out_of_range_recovers() {
+    Fixture fx;
+    fx.start(0.123);
+    check_out_of_range_refuses(fx);
+
+    // 24 more taps at +0.03 (cap 32): the 8 x 0.44 taps unwrap to -0.06 and are
+    // MAD-pruned, so the phase is derived back to Ready (not sticky).
+    collect_taps(fx, 8, 24, 0.030);
+    TEST_CHECK(fx.cal->sample_count() == 32);
+    TEST_CHECK(fx.cal->phase() == blaze4k::CalibrationPhase::Ready);
+    TEST_CHECK(!fx.cal->result().out_of_range);
+    TEST_CHECK(near(fx.cal->result().offset_seconds, -0.030, 1e-9));
+    TEST_CHECK(fx.cal->result().rejected_outlier == 8);
+    std::cout << "  - out of range is not sticky (recovers to Ready) ok.\n";
+}
+
 } // namespace
 
 int main() {
@@ -367,6 +433,9 @@ int main() {
     test_zero_and_future_timestamps_are_safe();
     test_render_and_reenter_reset();
     test_click_track_and_metronome();
+    test_large_delay_saves_negative_offset();
+    test_out_of_range_refuses_to_save();
+    test_out_of_range_recovers();
     std::cout << "[calibration_screen_test] All tests passed!\n";
     return 0;
 }

@@ -22,6 +22,12 @@ namespace {
 
 constexpr double kFallbackBpm = 120.0;
 
+// Signed whole milliseconds for the out-of-range log line, e.g. "+440", "-50".
+[[nodiscard]] std::string format_delay_ms(double seconds) {
+    const long ms = std::lround(seconds * 1000.0);
+    return (ms > 0 ? "+" : "") + std::to_string(ms);
+}
+
 [[nodiscard]] bool is_panel_action(GameAction action) {
     switch (action) {
         case GameAction::Left:
@@ -56,6 +62,7 @@ void CalibrationScreen::enter(ScreenContext& /*ctx*/) {
     calib_ = OffsetCalibration(config_);
     result_ = CalibrationResult{};
     saved_ = false;
+    out_of_range_logged_ = false;
     synthetic_ = false;
     stub_frames_ = 0.0;
     phase_ = CalibrationPhase::CountIn;
@@ -102,6 +109,7 @@ void CalibrationScreen::update(ScreenContext& ctx, double fixed_dt,
         phase_ = CalibrationPhase::Sampling;
     }
 
+    CalibrationResult current = calib_.result();
     for (const InputEvent& event : events) {
         if (!event.pressed) {
             continue;
@@ -110,17 +118,21 @@ void CalibrationScreen::update(ScreenContext& ctx, double fixed_dt,
         if (is_panel_action(event.action) && phase_ != CalibrationPhase::CountIn) {
             const double hit =
                 music_time_for_event(event.timestamp_ns, aging_ns, reference.seconds);
-            const int index = config_.nearest_beat_index(hit);
-            calib_.add_sample(config_.beat_time(index), hit);
+            const int index = config_.matching_beat_index(hit);
+            if (calib_.add_sample(config_.beat_time(index), hit)) {
+                current = calib_.result();
+            }
         }
 
-        if (event.action == GameAction::Confirm && calib_.ready()) {
+        if (event.action == GameAction::Confirm && calib_.ready() && current.out_of_range) {
+            std::cerr << "[Calibration] delay out of range; offset not saved\n";
+        } else if (event.action == GameAction::Confirm && current.ready) {
             if (synthetic_) {
                 std::cerr << "[Calibration] audio unavailable; offset not saved\n";
             } else if (ctx.config == nullptr) {
                 std::cerr << "[Calibration] no config available; offset not saved\n";
             } else {
-                ctx.config->offset.global_offset_seconds = calib_.result().offset_seconds;
+                ctx.config->offset.global_offset_seconds = current.offset_seconds;
                 saved_ = true;
                 if (ctx.manager != nullptr) {
                     ctx.manager->transition_to(ScreenId::Select);
@@ -130,8 +142,23 @@ void CalibrationScreen::update(ScreenContext& ctx, double fixed_dt,
     }
 
     result_ = calib_.result();
-    if (calib_.ready()) {
-        phase_ = CalibrationPhase::Ready;
+    if (phase_ != CalibrationPhase::CountIn) {
+        // Derived, not sticky (#74): later taps can bring the mean back in range.
+        if (result_.ready) {
+            phase_ = CalibrationPhase::Ready;
+        } else if (calib_.ready() && result_.out_of_range) {
+            phase_ = CalibrationPhase::OutOfRange;
+        } else {
+            phase_ = CalibrationPhase::Sampling;
+        }
+    }
+    if (phase_ == CalibrationPhase::OutOfRange && !out_of_range_logged_) {
+        out_of_range_logged_ = true;
+        std::cerr << "[Calibration] measured delay "
+                  << format_delay_ms(result_.mean_delta_seconds)
+                  << " ms is outside the supported range ("
+                  << format_delay_ms(-config_.max_early_seconds) << ".."
+                  << format_delay_ms(config_.max_late_seconds) << " ms); offset not saved\n";
     }
 }
 
@@ -156,6 +183,9 @@ void CalibrationScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int
         case CalibrationPhase::Ready:
             phase_text = "DONE";
             break;
+        case CalibrationPhase::OutOfRange:
+            phase_text = "OUT OF RANGE";
+            break;
     }
 
     // Synthetic mode measures against a fixed_dt stub clock, so the number is
@@ -164,12 +194,13 @@ void CalibrationScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int
     // SSO-sized; the formatted offset (once ready) is not allocation-free.
     const bool offset_ready = result_.ready && !synthetic_;
     const std::string samples =
-        setup_art::calibration_samples_text(sample_count(), config_.min_samples, result_.ready);
+        setup_art::calibration_samples_text(sample_count(), config_.min_samples, calib_.ready());
     const std::string offset = offset_ready ? format_offset(result_.offset_seconds)
                                             : std::string(setup_art::kOffsetPending);
     setup_art::draw_calibration(theme, text, renderer, L,
                                 setup_art::CalibrationView{phase_text, samples, offset,
-                                                           offset_ready, synthetic_});
+                                                           offset_ready, synthetic_,
+                                                           phase_ == CalibrationPhase::OutOfRange});
 
     // ENTER SAVE only once Confirm can save (a real clock and a ready result).
     if (!offset_ready) {
