@@ -241,6 +241,21 @@ struct HintLine {
 using HintMeasure = std::function<float(std::string_view)>;
 [[nodiscard]] HintLine hint_layout(const HintMeasure& measure_key, const HintMeasure& measure_word);
 
+// One legend item (shared by select's and the options overlay's legends):
+// VArrows = up/down pair (cell 4, pitch 16), HArrows = left/right pair (cell 14,
+// pitch 24), each followed by kHintArrowKeyGap; Key + kHintTextKeyGap; Word +
+// kHintGap unless it is the last item. `text` is used by Key / Word only.
+struct HintItem {
+    enum class Kind { VArrows, HArrows, Key, Word };
+    Kind kind = Kind::Word;
+    std::string_view text;
+};
+// Lays `items` out left to right and centres the line on kHintCentreX. Pieces
+// past kHintPieceCount are dropped (an arrow pair counts as two pieces).
+[[nodiscard]] HintLine layout_hint_items(std::span<const HintItem> items,
+                                         const HintMeasure& measure_key,
+                                         const HintMeasure& measure_word);
+
 // Solid arrow: a 2px stem the full 14px cap band plus a 4x4 triangle head at
 // the pointing end (a quad with two coincident corners). Reference px.
 struct ArrowQuads {
@@ -267,6 +282,11 @@ void draw_top_bar(const ThemeTextures& theme, GlQuadRenderer& renderer, const th
 void draw_chips(const ThemeTextures* theme, TextRenderer* text, GlQuadRenderer& renderer,
                 const theme::LayoutScale& L, std::string_view speed_text,
                 std::string_view scroll_text);
+
+// A laid-out hint line in the hint band: gold code-drawn arrows, then the keys
+// (kHintKey) and words (kHintWord). No bar.
+void draw_hint_line(TextRenderer& text, GlQuadRenderer& renderer, const theme::LayoutScale& L,
+                    const HintLine& line);
 
 // bar_hint along the bottom, then the hint line (gold keys and arrows, grey words).
 void draw_hint_bar(const ThemeTextures* theme, TextRenderer* text, GlQuadRenderer& renderer,

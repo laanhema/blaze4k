@@ -605,6 +605,17 @@ void test_special_character_titles() {
     std::cout << "  - special-character / UTF-8 / malformed titles render crash-free ok.\n";
 }
 
+// #96: the overlay's cached value text matches the model for every row.
+bool options_values_match(const blaze4k::SelectScreen* select) {
+    for (int i = 0; i < blaze4k::kOptionsRowCount; ++i) {
+        if (select->options_values()[static_cast<std::size_t>(i)] !=
+            blaze4k::options_row_value_text(select->options_menu(), i)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 // Drives the C4 overlay through the real ScreenManager + shared GameConfig,
 // verifying open/adjust/close, wheel suspension, gameplay application, and the
 // real C2 save/load persistence path.
@@ -621,22 +632,35 @@ void test_options_overlay(blaze4k::ScreenManager& manager, blaze4k::SelectScreen
     TEST_CHECK(select->selected_song_index() == song_before);
 
     // 2. Adjust SpeedType -> CMOD, Speed value 450 -> 400, Scroll -> DOWN, Fail -> OFF.
+    using blaze4k::OptionsRow;
+    const auto value = [select](OptionsRow row) -> const std::string& {
+        return select->options_values()[static_cast<std::size_t>(row)];
+    };
+    TEST_CHECK(options_values_match(select)); // filled on open
     manager.update(kDt, {press(GameAction::Up)});    // row back to SpeedType
     manager.update(kDt, {press(GameAction::Right)}); // XMOD -> CMOD
     TEST_CHECK(select->options_menu().speed_type == blaze4k::SpeedModType::CMod);
+    TEST_CHECK(options_values_match(select));
+    TEST_CHECK(value(OptionsRow::SpeedType) == "CMOD");
     manager.update(kDt, {press(GameAction::Down)});  // row: SpeedValue
     for (int i = 0; i < 5; ++i) {
         manager.update(kDt, {press(GameAction::Left)}); // 450 -> 400
+        TEST_CHECK(options_values_match(select));
     }
     TEST_CHECK(config.gameplay.speed_mod == "C400");
+    TEST_CHECK(value(OptionsRow::SpeedValue) == "C400");
 
     manager.update(kDt, {press(GameAction::Down)});  // row: Scroll
     manager.update(kDt, {press(GameAction::Right)});
     TEST_CHECK(config.gameplay.scroll == "down");
+    TEST_CHECK(options_values_match(select));
+    TEST_CHECK(value(OptionsRow::Scroll) == "DOWN");
 
     manager.update(kDt, {press(GameAction::Down)});  // row: Fail
     manager.update(kDt, {press(GameAction::Right)});
     TEST_CHECK(!config.gameplay.fail_enabled);
+    TEST_CHECK(options_values_match(select));
+    TEST_CHECK(value(OptionsRow::Fail) == "OFF");
 
     // 3. Back closes the overlay without leaving Select; a second Back navigates.
     manager.update(kDt, {press(GameAction::Back)});
@@ -706,13 +730,26 @@ void test_calibration_launch_from_options(blaze4k::ScreenManager& manager, blaze
     TEST_CHECK(config.offset.global_offset_seconds == offset_before);
     TEST_CHECK(select->options_open());
     TEST_CHECK(select->options_menu().row == static_cast<int>(blaze4k::OptionsRow::CalibrateOffset));
+    // #96: the reopened overlay's cached value text shows the offset on the first frame back.
+    const auto offset_text = [select] {
+        return select->options_values()[static_cast<std::size_t>(
+            blaze4k::OptionsRow::CalibrateOffset)];
+    };
+    TEST_CHECK(offset_text() == blaze4k::format_offset(config.offset.global_offset_seconds));
+    TEST_CHECK(options_values_match(select));
 
     // Right launches it as well, straight from the reopened overlay.
     manager.update(kDt, {press(GameAction::Right)});
     TEST_CHECK(manager.active_id() == ScreenId::Calibration);
+    // #96: stand in for an accepted calibration (the wizard writes the config
+    // offset); the reopened overlay must show the fresh value.
+    config.offset.global_offset_seconds = -0.011;
     manager.update(kDt, {press(GameAction::Back)});
     TEST_CHECK(manager.active_id() == ScreenId::Select);
     TEST_CHECK(select->options_open());
+    TEST_CHECK(offset_text() == blaze4k::format_offset(config.offset.global_offset_seconds));
+    TEST_CHECK(offset_text() == "-0.011 s");
+    config.offset.global_offset_seconds = offset_before;
 
     // A second Back then closes the overlay and stays on Select.
     manager.update(kDt, {press(GameAction::Back)});

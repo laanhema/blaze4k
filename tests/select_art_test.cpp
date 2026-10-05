@@ -5,6 +5,9 @@
 // boxes, the hint line and arrow geometry, that every texture name the screen
 // uses is in the real manifest, and renders SelectScreen with the real headless
 // theme and text services (populated, empty, options overlay, null services).
+// #96: the options overlay in the Cabinet look (options_art): the panel and row
+// layout and room budget, text fit with the real fonts, the options legend, the
+// pre-baked styles, and a render walk over every overlay row.
 
 #include <algorithm>
 #include <cmath>
@@ -27,6 +30,8 @@
 #include "render/theme_layout.hpp"
 #include "render/theme_textures.hpp"
 #include "render/ttf_font.hpp"
+#include "screens/options_art.hpp"
+#include "screens/options_menu.hpp"
 #include "screens/play_request.hpp"
 #include "screens/screen.hpp"
 #include "screens/screen_manager.hpp"
@@ -48,6 +53,7 @@ namespace {
 namespace fs = std::filesystem;
 namespace theme = blaze4k::theme;
 namespace art = blaze4k::select_art;
+namespace opt = blaze4k::options_art;
 
 using blaze4k::Chart;
 using blaze4k::GameAction;
@@ -643,6 +649,199 @@ void test_texture_names_exist() {
     std::cout << "  - every select texture name is in the manifest ok.\n";
 }
 
+void test_options_layout() {
+    constexpr int kRows = blaze4k::kOptionsRowCount;
+    TEST_CHECK(kRows == 7);
+    TEST_CHECK(rect_eq(opt::panel_rect(), 320, 95, 640, 542));
+    TEST_CHECK(rect_eq(opt::header_rect(), 320, 95, 640, 66));
+    TEST_CHECK(rect_eq(opt::row_rect(0, 0), 360, 185, 560, 80));
+    TEST_CHECK(rect_eq(opt::row_rect(1, 0), 360, 275, 560, 48));
+    const Rect last = opt::row_rect(6, 0);
+    TEST_CHECK(approx(last.y + last.h, 613.0f));
+    TEST_CHECK(rect_eq(opt::row_rect(6, 6), 360, 533, 560, 80));
+
+    const Rect panel = opt::panel_rect();
+    for (int sel = 0; sel < kRows; ++sel) {
+        int tall = 0;
+        for (int i = 0; i < kRows; ++i) {
+            const Rect r = opt::row_rect(i, sel);
+            TEST_CHECK(r.y >= opt::kRowsTop - 1e-3f);
+            TEST_CHECK(r.y + r.h <= 613.0f + 1e-3f);
+            TEST_CHECK(r.y + r.h <= panel.y + panel.h - opt::kPanelPadY + 1e-3f);
+            if (i + 1 < kRows) {
+                TEST_CHECK(r.y + r.h < opt::row_rect(i + 1, sel).y);
+            }
+            tall += r.h == 80.0f ? 1 : 0;
+            TEST_CHECK(r.h == (i == sel ? 80.0f : 48.0f));
+        }
+        TEST_CHECK(tall == 1);
+    }
+    // Between select's top bar (66) and its hint-bar rule (666).
+    TEST_CHECK(panel.y >= theme::layout::kTopBarHeight + 2.0f);
+    TEST_CHECK(panel.y + panel.h <= art::kHintBarTop);
+    // The stretched gold bar keeps wheel_row_selected's slant (aspect within 2%).
+    TEST_CHECK(std::fabs(80.0f / 560.0f - 92.0f / 640.0f) / (92.0f / 640.0f) < 0.02f);
+    TEST_CHECK(vec_eq(loaded_theme().content_size("wheel_row_selected", 1.0f), 640, 92));
+    TEST_CHECK(approx(loaded_theme().content_size("bar_top", 1.0f).y, opt::kHeaderHeight));
+
+    // Screen px: exact 2x at 1440p; centred on x 1720 at 3440x1440.
+    TEST_CHECK(rect_eq(theme::layout_scale(2560, 1440).rect(opt::row_rect(0, 0)), 720, 370, 1120,
+                       160));
+    const Rect wide = theme::layout_scale(3440, 1440).rect(panel);
+    TEST_CHECK(approx(wide.x + wide.w * 0.5f, 1720.0f));
+
+    // Out-of-range inputs clamp.
+    TEST_CHECK(rect_eq(opt::row_rect(-1, 0), 360, 185, 560, 80));
+    TEST_CHECK(rect_eq(opt::row_rect(99, 0), 360, 185 + 6 * 58 + 32, 560, 48));
+    TEST_CHECK(rect_eq(opt::row_rect(0, -1), 360, 185, 560, 80));
+    TEST_CHECK(rect_eq(opt::row_rect(6, 99), 360, 533, 560, 80));
+    TEST_CHECK(rect_eq(opt::row_rect(-5, 99), 360, 185, 560, 48));
+
+    // Insets.
+    const Rect row = opt::row_rect(1, 0);
+    TEST_CHECK(approx(opt::name_x(row, false), 386.0f) && approx(opt::name_x(row, true), 390.0f));
+    TEST_CHECK(approx(opt::value_right(row, false), 890.0f) &&
+               approx(opt::value_right(row, true), 884.0f));
+
+    // Row names, built once.
+    const auto& names = opt::row_names();
+    TEST_CHECK(&names == &opt::row_names());
+    for (int i = 0; i < kRows; ++i) {
+        TEST_CHECK(names[static_cast<std::size_t>(i)] == blaze4k::options_row_name(i));
+    }
+    std::cout << "  - options overlay layout ok.\n";
+}
+
+void test_options_text_fits() {
+    blaze4k::TextRenderer& text = loaded_text();
+    using blaze4k::OptionsRow;
+    using blaze4k::SpeedMod;
+    using blaze4k::SpeedModType;
+
+    std::vector<std::string> speeds = {"C9999", "M9999"};
+    for (double v : blaze4k::options_speed_values(SpeedModType::XMod)) {
+        speeds.push_back(blaze4k::format_speed_mod(SpeedMod{SpeedModType::XMod, v}));
+    }
+    speeds.push_back("2.5x");
+    const std::vector<std::vector<std::string>> values = {
+        {"XMOD", "CMOD", "MMOD"},
+        speeds,
+        {"UP", "DOWN"},
+        {"ON", "OFF"},
+        {"ON", "OFF"},
+        {blaze4k::format_offset(-3600.0), blaze4k::format_offset(3600.0), "+0.023 s"},
+        {">"},
+    };
+    TEST_CHECK(values.size() == static_cast<std::size_t>(blaze4k::kOptionsRowCount));
+    TEST_CHECK(values[5][0] == "-3600.000 s");
+
+    const theme::TextStyle value_style =
+        blaze4k::with_color(theme::text::kWheelPack, theme::color::kGold);
+    for (int i = 0; i < blaze4k::kOptionsRowCount; ++i) {
+        const std::string& name = opt::row_names()[static_cast<std::size_t>(i)];
+        for (const std::string& value : values[static_cast<std::size_t>(i)]) {
+            for (const bool selected : {false, true}) {
+                const Rect row = opt::row_rect(i, selected ? i : (i == 0 ? 1 : 0));
+                const theme::TextStyle& ns =
+                    selected ? theme::text::kWheelSelected : theme::text::kWheelRow;
+                const theme::TextStyle& vs = selected ? theme::text::kWheelSelected : value_style;
+                const float name_end = opt::name_x(row, selected) +
+                                       blaze4k::ref_measure(text, name, ns) + opt::kNameValueGap;
+                const float value_start =
+                    opt::value_right(row, selected) - blaze4k::ref_measure(text, value, vs);
+                if (!(name_end <= value_start)) {
+                    std::cerr << "    " << name << " / " << value << " selected=" << selected
+                              << ": " << name_end << " > " << value_start << "\n";
+                }
+                TEST_CHECK(name_end <= value_start);
+                // Each line box fits its row.
+                TEST_CHECK(text.line_height(ns) <= row.h);
+                TEST_CHECK(text.line_height(vs) <= row.h);
+            }
+        }
+    }
+    // The title fits the panel and the header's 64px band.
+    TEST_CHECK(blaze4k::ref_measure(text, "OPTIONS", opt::kTitleStyle) < opt::kPanel.w - 48.0f);
+    // Its line box (~70px: ascent 50 + descent 20) is taller than the band, as
+    // kSongTitle's is; centred in the band, the baseline and one em above it
+    // (caps and accents) stay inside the band.
+    const float line_top = opt::kPanel.y +
+                           (opt::kHeaderBandHeight - text.line_height(opt::kTitleStyle)) * 0.5f;
+    const float baseline = line_top + text.ascent(opt::kTitleStyle);
+    TEST_CHECK(baseline <= opt::kPanel.y + opt::kHeaderBandHeight);
+    TEST_CHECK(baseline - opt::kTitleStyle.size_px >= opt::kPanel.y);
+    TEST_CHECK(opt::kTitleStyle.color.r == theme::color::kWhite.r &&
+               opt::kTitleStyle.shadow == theme::Shadow::Hard3 && opt::kTitleStyle.italic);
+    std::cout << "  - options names and values fit their rows ok.\n";
+}
+
+void test_options_hint_layout() {
+    blaze4k::TextRenderer& text = loaded_text();
+    const art::HintLine line = opt::hint_layout(
+        [&text](std::string_view s) { return text.measure(s, theme::text::kHintKey); },
+        [&text](std::string_view s) { return text.measure(s, theme::text::kHintWord); });
+
+    using Kind = art::HintPiece::Kind;
+    TEST_CHECK(line.count == 10);
+    const Kind kinds[10] = {Kind::Arrow, Kind::Arrow, Kind::Word, Kind::Arrow, Kind::Arrow,
+                            Kind::Word,  Kind::Key,   Kind::Word, Kind::Key,   Kind::Word};
+    const char* texts[10] = {"", "", "ROW", "", "", "CHANGE", "ENTER", "NEXT", "ESC", "CLOSE"};
+    for (std::size_t i = 0; i < 10; ++i) {
+        TEST_CHECK(line.pieces[i].kind == kinds[i]);
+        if (kinds[i] != Kind::Arrow) {
+            TEST_CHECK(line.pieces[i].text == texts[i]);
+        }
+    }
+    TEST_CHECK(line.pieces[0].arrow == art::HintArrow::Up);
+    TEST_CHECK(line.pieces[1].arrow == art::HintArrow::Down);
+    TEST_CHECK(line.pieces[3].arrow == art::HintArrow::Left);
+    TEST_CHECK(line.pieces[4].arrow == art::HintArrow::Right);
+
+    // Same spacing rules as select's legend.
+    const auto& p = line.pieces;
+    TEST_CHECK(approx(p[1].x - p[0].x, 16.0f) && approx(p[2].x, p[1].x + 4.0f + 10.0f));
+    TEST_CHECK(approx(p[3].x, p[2].x + p[2].width + 34.0f));
+    TEST_CHECK(approx(p[6].x, p[5].x + p[5].width + 34.0f));
+    TEST_CHECK(approx(p[7].x, p[6].x + p[6].width + 8.0f));
+    TEST_CHECK(approx(p[9].x + p[9].width, p[0].x + line.width));
+    // Centred on x 640, inside the 40px margins.
+    TEST_CHECK(approx(p[0].x + line.width * 0.5f, 640.0f));
+    TEST_CHECK(line.width < 1280.0f - 2.0f * 40.0f);
+
+    // The shared builder stops at kHintPieceCount pieces.
+    std::vector<art::HintItem> many(20, art::HintItem{art::HintItem::Kind::Word, "W"});
+    const art::HintLine capped =
+        art::layout_hint_items(many, [](std::string_view) { return 10.0f; },
+                               [](std::string_view) { return 10.0f; });
+    TEST_CHECK(capped.count == static_cast<int>(art::kHintPieceCount));
+    // 12 words of 10 + 11 gaps of 34 (no trailing gap after the last one fitted).
+    TEST_CHECK(approx(capped.width, 12.0f * 10.0f + 11.0f * 34.0f));
+    // An arrow pair that would straddle the cap is dropped whole.
+    std::vector<art::HintItem> arrows(11, art::HintItem{art::HintItem::Kind::Word, "W"});
+    arrows.push_back(art::HintItem{art::HintItem::Kind::VArrows, {}});
+    const art::HintLine no_split = art::layout_hint_items(arrows, nullptr, nullptr);
+    TEST_CHECK(no_split.count == 11);
+    std::cout << "  - options legend ok.\n";
+}
+
+void test_options_styles_prebaked() {
+    auto prebaked = [](const theme::TextStyle& style) {
+        for (const theme::TextStyle& s : theme::text::kAllStyles) {
+            if (s.font == style.font && s.size_px == style.size_px) {
+                return true;
+            }
+        }
+        return false;
+    };
+    for (const theme::TextStyle& style :
+         {opt::kTitleStyle, theme::text::kWheelRow, theme::text::kWheelPack,
+          theme::text::kWheelSelected, theme::text::kHintKey, theme::text::kHintWord}) {
+        TEST_CHECK(prebaked(style));
+    }
+    TEST_CHECK(theme::text::kAllStyles.size() == 26);
+    std::cout << "  - options styles share pre-baked atlases ok.\n";
+}
+
 void write_file(const fs::path& path, const std::string& content) {
     fs::create_directories(path.parent_path());
     std::ofstream out(path, std::ios::binary);
@@ -726,9 +925,20 @@ void test_render_smoke() {
             manager.update(1.0 / 60.0, {press(GameAction::Down)});
             render_all(manager, services);
         }
-        // The options overlay draws over the Cabinet screen.
+        // The options overlay draws over the Cabinet screen, with every row as
+        // the selection (Down clamps at the last row).
         manager.update(1.0 / 60.0, {press(GameAction::Options)});
         TEST_CHECK(select->options_open());
+        render_all(manager, services);
+        for (int i = 0; i < 7; ++i) {
+            manager.update(1.0 / 60.0, {press(GameAction::Down)});
+            TEST_CHECK(select->options_open());
+            TEST_CHECK(select->options_menu().row ==
+                       std::min(i + 1, blaze4k::kOptionsRowCount - 1));
+            render_all(manager, services);
+        }
+        manager.update(1.0 / 60.0, {press(GameAction::Up)});
+        TEST_CHECK(select->options_menu().row == blaze4k::kOptionsRowCount - 2);
         render_all(manager, services);
         manager.update(1.0 / 60.0, {press(GameAction::Back)});
         TEST_CHECK(!select->options_open());
@@ -771,6 +981,10 @@ int main() {
     test_skewed_quad();
     test_chrome_layout();
     test_texture_names_exist();
+    test_options_layout();
+    test_options_text_fits();
+    test_options_hint_layout();
+    test_options_styles_prebaked();
     test_render_smoke();
     std::cout << "select_art_test: all passed\n";
     return 0;

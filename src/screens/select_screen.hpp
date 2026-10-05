@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <cstddef>
 #include <string>
 #include <vector>
@@ -30,7 +31,8 @@ struct ScoreRecord;
 // The real Song Select wheel: a pack-grouped list of the scanned library (pack
 // header rows inline, StepMania-style) with banner art, artist/BPM, passthrough
 // difficulty labels + foot ratings, and the player's best percent per chart,
-// drawn in the Cabinet v3 look (#94, select_art). Highlighting a song arms a
+// drawn in the Cabinet v3 look (#94, select_art); the options overlay is drawn
+// by options_art (#96). Highlighting a song arms a
 // delayed audio preview; Confirm publishes a `PlayRequest` and transitions to
 // Gameplay; Back is handled centrally by the manager (Select -> Title).
 class SelectScreen : public Screen {
@@ -56,6 +58,10 @@ public:
     [[nodiscard]] const PreviewPlayer& preview() const { return preview_; }
     [[nodiscard]] bool options_open() const { return options_open_; }
     [[nodiscard]] const OptionsMenu& options_menu() const { return options_; }
+    // The overlay's cached value text (options_row_value_text per row).
+    [[nodiscard]] const std::array<std::string, kOptionsRowCount>& options_values() const {
+        return options_values_;
+    }
     // Wheel display rows (pack headers + songs), the window's first row, and the
     // current slide offset in reference px (0 when the wheel is at rest).
     [[nodiscard]] std::size_t wheel_row_count() const { return wheel_rows_.size(); }
@@ -73,6 +79,7 @@ private:
     void move_chart(int delta);
     void request_preview_for_selected();
     void refresh_chips(const ScreenContext& ctx);
+    void refresh_options_values();
     [[nodiscard]] int selected_wheel_row() const;
     void apply_navigation(GameAction action);
     [[nodiscard]] GameAction held_direction(const ScreenContext& ctx) const;
@@ -98,6 +105,10 @@ private:
     TextureCache texture_cache_;
     OptionsMenu options_;
     bool options_open_ = false;
+    // The overlay's value text, rebuilt when it may have changed (set dirty on
+    // open and on every press the overlay handles), so render() never allocates it.
+    std::array<std::string, kOptionsRowCount> options_values_{};
+    bool options_values_dirty_ = true;
     // Set when launching InputRemap: exit() then leaves the preview playing (and
     // update_inactive() keeps it looping) so the song continues behind the remap
     // screen. Every other exit stops the preview.

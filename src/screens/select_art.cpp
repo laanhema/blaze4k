@@ -43,6 +43,20 @@ constexpr DifficultyRowStyle kRowStyles[] = {
 constexpr std::string_view kDifficultyNames[] = {"BEGINNER", "EASY", "MEDIUM", "HARD",
                                                  "CHALLENGE", "EDIT", "EDIT"};
 
+// Select's legend: [up down] SONG [left right] DIFFICULTY ENTER PLAY TAB OPTIONS ESC TITLE.
+constexpr std::array<HintItem, 10> kSelectHintItems = {{
+    {HintItem::Kind::VArrows, {}},
+    {HintItem::Kind::Word, "SONG"},
+    {HintItem::Kind::HArrows, {}},
+    {HintItem::Kind::Word, "DIFFICULTY"},
+    {HintItem::Kind::Key, "ENTER"},
+    {HintItem::Kind::Word, "PLAY"},
+    {HintItem::Kind::Key, "TAB"},
+    {HintItem::Kind::Word, "OPTIONS"},
+    {HintItem::Kind::Key, "ESC"},
+    {HintItem::Kind::Word, "TITLE"},
+}};
+
 // Line-box top that centres `style`'s line in a reference band [ref_top, ref_top + ref_h].
 float centred_top(const TextRenderer& text, const theme::LayoutScale& L, float ref_top, float ref_h,
                   const theme::TextStyle& style) {
@@ -232,7 +246,22 @@ std::array<Rect, 2> chip_rects(float speed_text_w, float scroll_text_w) {
             Rect{scroll_x, kChipTop, scroll_w, kChipHeight}};
 }
 
-HintLine hint_layout(const HintMeasure& measure_key, const HintMeasure& measure_word) {
+HintLine layout_hint_items(std::span<const HintItem> items, const HintMeasure& measure_key,
+                           const HintMeasure& measure_word) {
+    // How many items fit in kHintPieceCount pieces (an arrow pair takes two).
+    std::size_t fitted = 0;
+    std::size_t pieces = 0;
+    for (const HintItem& item : items) {
+        const bool arrows =
+            item.kind == HintItem::Kind::VArrows || item.kind == HintItem::Kind::HArrows;
+        const std::size_t need = arrows ? 2 : 1;
+        if (pieces + need > kHintPieceCount) {
+            break;
+        }
+        pieces += need;
+        ++fitted;
+    }
+
     HintLine line;
     float x = 0.0f;
     auto add = [&line](HintPiece piece) {
@@ -254,16 +283,23 @@ HintLine hint_layout(const HintMeasure& measure_key, const HintMeasure& measure_
         x += w + (last ? 0.0f : layout::kHintGap);
     };
 
-    add_arrows(HintArrow::Up, HintArrow::Down, kHintVArrowCell, kHintVArrowPitch);
-    add_word("SONG", false);
-    add_arrows(HintArrow::Left, HintArrow::Right, kHintHArrowCell, kHintHArrowPitch);
-    add_word("DIFFICULTY", false);
-    add_key("ENTER");
-    add_word("PLAY", false);
-    add_key("TAB");
-    add_word("OPTIONS", false);
-    add_key("ESC");
-    add_word("TITLE", true);
+    for (std::size_t i = 0; i < fitted; ++i) {
+        const HintItem& item = items[i];
+        switch (item.kind) {
+        case HintItem::Kind::VArrows:
+            add_arrows(HintArrow::Up, HintArrow::Down, kHintVArrowCell, kHintVArrowPitch);
+            break;
+        case HintItem::Kind::HArrows:
+            add_arrows(HintArrow::Left, HintArrow::Right, kHintHArrowCell, kHintHArrowPitch);
+            break;
+        case HintItem::Kind::Key:
+            add_key(item.text);
+            break;
+        case HintItem::Kind::Word:
+            add_word(item.text, i + 1 == fitted);
+            break;
+        }
+    }
 
     line.width = x;
     const float start = kHintCentreX - x * 0.5f;
@@ -271,6 +307,10 @@ HintLine hint_layout(const HintMeasure& measure_key, const HintMeasure& measure_
         line.pieces[static_cast<std::size_t>(i)].x += start;
     }
     return line;
+}
+
+HintLine hint_layout(const HintMeasure& measure_key, const HintMeasure& measure_word) {
+    return layout_hint_items(kSelectHintItems, measure_key, measure_word);
 }
 
 ArrowQuads hint_arrow_quads(HintArrow arrow, Vec2 c) {
@@ -357,20 +397,8 @@ void draw_chips(const ThemeTextures* theme, TextRenderer* text, GlQuadRenderer& 
     }
 }
 
-void draw_hint_bar(const ThemeTextures* theme, TextRenderer* text, GlQuadRenderer& renderer,
-                   const theme::LayoutScale& L, int w) {
-    if (theme != nullptr) {
-        const float bar_h = theme->content_size("bar_hint", L.s).y;
-        theme->draw_stretch_x(renderer, "bar_hint", 0.0f, L.y(layout::kRefHeight) - bar_h,
-                              static_cast<float>(w), L.s);
-    }
-    if (text == nullptr) {
-        return;
-    }
-    const HintLine line = hint_layout(
-        [text](std::string_view s) { return ref_measure(*text, s, theme::text::kHintKey); },
-        [text](std::string_view s) { return ref_measure(*text, s, theme::text::kHintWord); });
-
+void draw_hint_line(TextRenderer& text, GlQuadRenderer& renderer, const theme::LayoutScale& L,
+                    const HintLine& line) {
     for (int i = 0; i < line.count; ++i) {
         const HintPiece& piece = line.pieces[static_cast<std::size_t>(i)];
         if (piece.kind != HintPiece::Kind::Arrow) {
@@ -389,10 +417,30 @@ void draw_hint_bar(const ThemeTextures* theme, TextRenderer* text, GlQuadRendere
         }
         const theme::TextStyle& style =
             piece.kind == HintPiece::Kind::Key ? theme::text::kHintKey : theme::text::kHintWord;
-        text->draw(renderer, piece.text, L.x(piece.x),
-                   centred_top(*text, L, kHintBandTop, kHintBandHeight, style), style,
-                   TextAlign::Left);
+        text.draw(renderer, piece.text, L.x(piece.x),
+                  centred_top(text, L, kHintBandTop, kHintBandHeight, style), style,
+                  TextAlign::Left);
     }
+}
+
+void draw_hint_bar(const ThemeTextures* theme, TextRenderer* text, GlQuadRenderer& renderer,
+                   const theme::LayoutScale& L, int w) {
+    if (theme != nullptr) {
+        const float bar_h = theme->content_size("bar_hint", L.s).y;
+        theme->draw_stretch_x(renderer, "bar_hint", 0.0f, L.y(layout::kRefHeight) - bar_h,
+                              static_cast<float>(w), L.s);
+    }
+    if (text == nullptr) {
+        return;
+    }
+    draw_hint_line(*text, renderer, L,
+                   hint_layout(
+                       [text](std::string_view st) {
+                           return ref_measure(*text, st, theme::text::kHintKey);
+                       },
+                       [text](std::string_view st) {
+                           return ref_measure(*text, st, theme::text::kHintWord);
+                       }));
 }
 
 void draw_banner(const ThemeTextures* theme, GlQuadRenderer& renderer, const theme::LayoutScale& L,
