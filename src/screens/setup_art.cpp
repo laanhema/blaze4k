@@ -309,8 +309,11 @@ void draw_calibration(const ThemeTextures* theme, TextRenderer* text, GlQuadRend
                    L.y(baseline) - text->ascent(style), style, TextAlign::Centre);
     }
 
-    if (view.synthetic) {
-        text->draw(renderer, kNoAudioNotice, L.x(kPhaseCentreX),
+    // Synthetic takes priority: it can never save anyway.
+    const std::string_view notice =
+        view.synthetic ? kNoAudioNotice : (view.out_of_range ? kOutOfRangeNotice : std::string_view{});
+    if (!notice.empty()) {
+        text->draw(renderer, notice, L.x(kPhaseCentreX),
                    centred_top(*text, L, kNoticeTop, kNoticeHeight, kNoticeStyle), kNoticeStyle,
                    TextAlign::Centre);
     }
