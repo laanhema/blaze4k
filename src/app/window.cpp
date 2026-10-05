@@ -17,10 +17,12 @@ Window::Window(Window&& other) noexcept
       gl_context_(other.gl_context_),
       width_(other.width_),
       height_(other.height_),
-      is_initialized_(other.is_initialized_) {
+      is_initialized_(other.is_initialized_),
+      cursor_hidden_(other.cursor_hidden_) {
     other.window_ = nullptr;
     other.gl_context_ = nullptr;
     other.is_initialized_ = false;
+    other.cursor_hidden_ = false;
 }
 
 Window& Window::operator=(Window&& other) noexcept {
@@ -32,10 +34,12 @@ Window& Window::operator=(Window&& other) noexcept {
         width_ = other.width_;
         height_ = other.height_;
         is_initialized_ = other.is_initialized_;
+        cursor_hidden_ = other.cursor_hidden_;
 
         other.window_ = nullptr;
         other.gl_context_ = nullptr;
         other.is_initialized_ = false;
+        other.cursor_hidden_ = false;
     }
     return *this;
 }
@@ -134,6 +138,11 @@ bool Window::init() {
 }
 
 void Window::shutdown() {
+    // #112: no screen exit() runs at app shutdown, so restore the cursor here
+    // before the window (and with it the SDL mouse focus) goes away.
+    if (window_ != nullptr && cursor_hidden_) {
+        set_cursor_visible(true);
+    }
     if (gl_context_) {
         SDL_GL_DestroyContext(gl_context_);
         gl_context_ = nullptr;
@@ -143,11 +152,28 @@ void Window::shutdown() {
         window_ = nullptr;
     }
     is_initialized_ = false;
+    cursor_hidden_ = false;
 }
 
 void Window::swap_buffers() {
     if (window_ && gl_context_ && !config_.headless) {
         SDL_GL_SwapWindow(window_);
+    }
+}
+
+void Window::set_cursor_visible(bool visible) {
+    if (window_ == nullptr) {
+        return; // headless / before init / after shutdown: no SDL video
+    }
+    if (visible == !cursor_hidden_) {
+        return; // already in the requested state
+    }
+    const bool ok = visible ? SDL_ShowCursor() : SDL_HideCursor();
+    if (ok) {
+        cursor_hidden_ = !visible;
+    } else {
+        std::cerr << "[Window] Failed to " << (visible ? "show" : "hide")
+                  << " cursor: " << SDL_GetError() << "\n";
     }
 }
 

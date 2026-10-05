@@ -322,6 +322,8 @@ int main(int argc, char* argv[]) {
             std::cerr << "[main] Failed to initialize gameplay demo\n";
             return 1;
         }
+        // #112: the demo is gameplay; Window::shutdown() restores the cursor.
+        app.window().set_cursor_visible(false);
 
         if (!app.window().is_headless()) {
             if (!quad_renderer.init()) {
@@ -373,6 +375,10 @@ int main(int argc, char* argv[]) {
         shell->context().results = &results_summary;
         shell->context().action_down = [&app](blaze4k::GameAction action) {
             return app.input_manager().is_action_down(action);
+        };
+        // #112: GameplayScreen hides the OS cursor on enter and shows it on exit.
+        shell->context().set_cursor_visible = [&app](bool visible) {
+            app.window().set_cursor_visible(visible);
         };
         shell->context().input = &app.input_manager();
         // D2: synthesize + wire the menu UI sounds (silent/no-op when unavailable).

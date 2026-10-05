@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cassert>
 #include <cmath>
+#include <utility>
 #include "app/app.hpp"
 #include "app/window.hpp"
 
@@ -119,6 +120,30 @@ int main() {
     TEST_CHECK(std::isfinite(perf_app.frame_stats().mean_ms()));
     std::cout << "  - Perf-report smoke run recorded " << perf_app.frame_stats().count()
               << " frame samples (mean " << perf_app.frame_stats().mean_ms() << " ms).\n";
+
+    // 6. Cursor wrapper is a no-op without a window (#112): it never calls SDL
+    //    mouse APIs without video and its record stays "visible".
+    {
+        blaze4k::WindowConfig cursor_cfg;
+        cursor_cfg.headless = true;
+        blaze4k::Window cursor_window(cursor_cfg);
+        cursor_window.set_cursor_visible(false); // before init()
+        TEST_CHECK(!cursor_window.cursor_hidden());
+        TEST_CHECK(cursor_window.init());
+        cursor_window.set_cursor_visible(false);
+        TEST_CHECK(!cursor_window.cursor_hidden());
+        cursor_window.set_cursor_visible(true);
+        TEST_CHECK(!cursor_window.cursor_hidden());
+        cursor_window.set_cursor_visible(false);
+        // Headless cursor_hidden_ can never be true, so this only shows that a
+        // headless move doesn't crash; the move carry needs SDL video to test.
+        blaze4k::Window moved(std::move(cursor_window));
+        TEST_CHECK(!moved.cursor_hidden());
+        moved.shutdown();
+        moved.set_cursor_visible(false); // after shutdown()
+        TEST_CHECK(!moved.cursor_hidden());
+    }
+    std::cout << "  - Headless cursor wrapper is a no-op.\n";
 
     std::cout << "[app_test] All tests passed!\n";
     return 0;

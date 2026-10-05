@@ -23,6 +23,9 @@ namespace blaze4k {
 // finished run to Results (publishing the run snapshot into `ctx.results`). Back
 // aborts straight to Select with no result. On a run end it falls back to Select
 // when no Results screen is registered, so a run can never strand here.
+// While active it hides the OS mouse cursor (via `ScreenContext::set_cursor_visible`)
+// and restores it on `exit()` (#112). A future pause "quit" (#60) must leave through a
+// ScreenManager transition so `exit()` runs and the cursor comes back.
 class GameplayScreen : public Screen {
 public:
     GameplayScreen() = default;

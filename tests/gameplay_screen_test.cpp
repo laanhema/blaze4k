@@ -43,6 +43,13 @@ private:
     ScreenId id_;
 };
 
+blaze4k::InputEvent press(blaze4k::GameAction action) {
+    blaze4k::InputEvent event;
+    event.action = action;
+    event.pressed = true;
+    return event;
+}
+
 blaze4k::Note make_tap(int column, double beat, double time_seconds) {
     blaze4k::Note note;
     note.column = column;
@@ -94,6 +101,108 @@ void test_end_delay_before_results() {
     TEST_CHECK(gameplay->end_reported());
     TEST_CHECK(manager.active_id() == ScreenId::Select);
     std::cout << "  - run end lingers 2 s before Results ok.\n";
+}
+
+// #112: Gameplay hides the OS cursor on enter and shows it on exit, through the
+// null-guarded ScreenContext service, so every way out of a run restores it.
+void test_cursor_hidden_during_gameplay() {
+    using blaze4k::GameAction;
+    using Calls = std::vector<bool>;
+
+    blaze4k::Song song;
+    blaze4k::Chart chart;
+    chart.timing.parse_bpms_string("0=120");
+    chart.notes.push_back(make_tap(0, 0.0, 0.0));
+
+    blaze4k::PlayRequest request;
+    request.song = &song;
+    request.chart = &chart;
+    request.options.fail_enabled = false;
+
+    constexpr double dt = 0.25;
+    const int end_updates = static_cast<int>(blaze4k::GameplayScreen::kEndDelaySeconds / dt);
+
+    // 1. Run end -> Results. A failed run leaves through the exact same
+    // transition_to line in GameplayScreen::update (gated only on
+    // outcome() != InProgress), so this case covers the fail path's cursor
+    // lifecycle too; the owner's windowed check covers a real fail.
+    {
+        Calls calls;
+        blaze4k::ScreenManager manager(0.0);
+        manager.add_screen(std::make_unique<blaze4k::GameplayScreen>());
+        manager.add_screen(std::make_unique<StubScreen>(ScreenId::Results));
+        manager.add_screen(std::make_unique<StubScreen>(ScreenId::Select));
+        manager.context().play_request = &request;
+        manager.context().set_cursor_visible = [&calls](bool v) { calls.push_back(v); };
+
+        manager.start(ScreenId::Gameplay);
+        TEST_CHECK((calls == Calls{false}));
+        for (int i = 0; i < end_updates; ++i) {
+            manager.update(dt, {});
+        }
+        manager.update(0.0, {}); // apply any deferred transition
+        TEST_CHECK(manager.active_id() == ScreenId::Results);
+        TEST_CHECK((calls == Calls{false, true}));
+    }
+
+    // 2. Back-abort -> Select, then 3. re-entry and leaving again: the calls
+    // strictly alternate, so the hidden state never sticks.
+    {
+        Calls calls;
+        blaze4k::ScreenManager manager(0.0);
+        manager.add_screen(std::make_unique<blaze4k::GameplayScreen>());
+        manager.add_screen(std::make_unique<StubScreen>(ScreenId::Select));
+        manager.context().play_request = &request;
+        manager.context().set_cursor_visible = [&calls](bool v) { calls.push_back(v); };
+
+        manager.start(ScreenId::Gameplay);
+        TEST_CHECK((calls == Calls{false}));
+        manager.update(dt, {press(GameAction::Back)});
+        manager.update(0.0, {});
+        TEST_CHECK(manager.active_id() == ScreenId::Select);
+        TEST_CHECK((calls == Calls{false, true}));
+
+        manager.transition_to(ScreenId::Gameplay);
+        manager.update(0.0, {});
+        TEST_CHECK(manager.active_id() == ScreenId::Gameplay);
+        TEST_CHECK((calls == Calls{false, true, false}));
+        manager.update(dt, {press(GameAction::Back)});
+        manager.update(0.0, {});
+        TEST_CHECK(manager.active_id() == ScreenId::Select);
+        TEST_CHECK((calls == Calls{false, true, false, true}));
+    }
+
+    // 4. No play request: the empty screen still hides and Back restores it.
+    {
+        Calls calls;
+        blaze4k::ScreenManager manager(0.0);
+        manager.add_screen(std::make_unique<blaze4k::GameplayScreen>());
+        manager.add_screen(std::make_unique<StubScreen>(ScreenId::Select));
+        manager.context().play_request = nullptr;
+        manager.context().set_cursor_visible = [&calls](bool v) { calls.push_back(v); };
+
+        manager.start(ScreenId::Gameplay);
+        TEST_CHECK((calls == Calls{false}));
+        manager.update(dt, {press(GameAction::Back)});
+        manager.update(0.0, {});
+        TEST_CHECK(manager.active_id() == ScreenId::Select);
+        TEST_CHECK((calls == Calls{false, true}));
+    }
+
+    // 5. Null callback (headless / --gameplay-demo wiring): enter and exit do not crash.
+    {
+        blaze4k::ScreenManager manager(0.0);
+        manager.add_screen(std::make_unique<blaze4k::GameplayScreen>());
+        manager.add_screen(std::make_unique<StubScreen>(ScreenId::Select));
+        manager.context().play_request = &request;
+        TEST_CHECK(!manager.context().set_cursor_visible);
+
+        manager.start(ScreenId::Gameplay);
+        manager.update(dt, {press(GameAction::Back)});
+        manager.update(0.0, {});
+        TEST_CHECK(manager.active_id() == ScreenId::Select);
+    }
+    std::cout << "  - cursor hidden during gameplay, restored on every exit ok.\n";
 }
 
 bool same_colors(const blaze4k::theme::DifficultyColors& a,
@@ -225,6 +334,7 @@ void test_enter_sets_badge_and_renders_headless() {
 int main() {
     std::cout << "[gameplay_screen_test] Running gameplay screen tests...\n";
     test_end_delay_before_results();
+    test_cursor_hidden_during_gameplay();
     test_difficulty_badge_for();
     test_long_edit_badge_keeps_meter();
     test_enter_sets_badge_and_renders_headless();
