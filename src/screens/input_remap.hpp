@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "data/config.hpp"
@@ -63,7 +64,10 @@ void input_remap_reset(InputRemapModel& model);
 // per-action name order.
 void input_remap_apply(const InputRemapModel& model, InputSettings& settings);
 
-// Display helpers (pure).
+// Display helpers (pure). The *_label views are the one label table (no
+// allocation, used by setup_art); the *_name strings wrap them.
+[[nodiscard]] std::string_view remap_action_label(GameAction action);
+[[nodiscard]] std::string_view remap_device_label(DeviceType device);
 [[nodiscard]] std::string remap_action_name(GameAction action);
 [[nodiscard]] std::string remap_device_name(DeviceType device);
 [[nodiscard]] std::string remap_row_value_text(const InputRemapModel& model, int row);

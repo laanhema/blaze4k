@@ -122,31 +122,6 @@ Rect remap_chip_rect(float text_w) {
     return Rect{select_art::kChipRight - w, select_art::kChipTop, w, select_art::kChipHeight};
 }
 
-std::string_view remap_action_label(GameAction action) {
-    switch (action) {
-        case GameAction::Left:
-            return "LEFT";
-        case GameAction::Down:
-            return "DOWN";
-        case GameAction::Up:
-            return "UP";
-        case GameAction::Right:
-            return "RIGHT";
-        case GameAction::Confirm:
-            return "CONFIRM";
-        case GameAction::Back:
-            return "BACK";
-        case GameAction::Options:
-            return "OPTIONS";
-        default:
-            return "NONE";
-    }
-}
-
-std::string_view remap_device_label(DeviceType device) {
-    return device == DeviceType::Keyboard ? "KEYBOARD" : "PAD";
-}
-
 std::string_view remap_value_view(const InputRemapModel& model, int row) {
     if (row < 0 || row >= static_cast<int>(model.rows.size())) {
         return {};

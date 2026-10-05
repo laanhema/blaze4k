@@ -157,7 +157,8 @@ void CalibrationScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int
 
     // Synthetic mode measures against a fixed_dt stub clock, so the number is
     // provisional and unsavable; the notice says so and the OFFSET plate keeps
-    // "---" rather than imply a usable result. Both values are SSO-sized.
+    // "---" rather than imply a usable result. The samples text and "---" are
+    // SSO-sized; the formatted offset (once ready) is not allocation-free.
     const bool offset_ready = result_.ready && !synthetic_;
     const std::string samples =
         setup_art::calibration_samples_text(sample_count(), config_.min_samples, result_.ready);
@@ -167,7 +168,8 @@ void CalibrationScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int
                                 setup_art::CalibrationView{phase_text, samples, offset,
                                                            offset_ready, synthetic_});
 
-    if (synthetic_) {
+    // ENTER SAVE only once Confirm can save (a real clock and a ready result).
+    if (!offset_ready) {
         setup_art::draw_hint_bar(theme, text, renderer, L, w, setup_art::kCalibrateNoAudioHint);
     } else {
         setup_art::draw_hint_bar(theme, text, renderer, L, w, setup_art::kCalibrateHint);

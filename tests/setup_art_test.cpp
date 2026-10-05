@@ -260,10 +260,10 @@ void test_remap_labels() {
     for (const GameAction action :
          {GameAction::Left, GameAction::Down, GameAction::Up, GameAction::Right,
           GameAction::Confirm, GameAction::Back, GameAction::Options, GameAction::None}) {
-        TEST_CHECK(setup::remap_action_label(action) == blaze4k::remap_action_name(action));
+        TEST_CHECK(blaze4k::remap_action_label(action) == blaze4k::remap_action_name(action));
     }
     for (const DeviceType device : {DeviceType::Keyboard, DeviceType::Gamepad}) {
-        TEST_CHECK(setup::remap_device_label(device) == blaze4k::remap_device_name(device));
+        TEST_CHECK(blaze4k::remap_device_label(device) == blaze4k::remap_device_name(device));
     }
 
     InputRemapModel model = default_model();
@@ -416,7 +416,7 @@ void test_text_fits() {
     }
     keys.emplace_back(setup::kPressLabel);
     for (const RemapRow& row : model.rows) {
-        const std::string_view action = setup::remap_action_label(row.action);
+        const std::string_view action = blaze4k::remap_action_label(row.action);
         for (const std::string& key : keys) {
             for (const bool selected : {false, true}) {
                 const Rect& r = selected ? bar : plain;
@@ -459,8 +459,8 @@ void test_text_fits() {
     }
     // The notice.
     TEST_CHECK(measure(setup::kNoAudioNotice, setup::kNoticeStyle) < 1280.0f - 2.0f * 40.0f);
-    // Its line box (~44px) is a little taller than the 40px band; centred in the
-    // band it still clears the plates above and the hint-bar rule below.
+    // Its line box (~44px) fills the 44px band; centred in the band it clears
+    // the plates above and the hint-bar rule below.
     const float notice_top = setup::kNoticeTop +
                              (setup::kNoticeHeight - text.line_height(setup::kNoticeStyle)) * 0.5f;
     TEST_CHECK(notice_top >= setup::kCalPlateTop + setup::kCalPlateHeight);

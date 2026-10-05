@@ -79,7 +79,7 @@ inline constexpr std::array<HintItem, 3> kRemapCaptureHint = {{
     {HintItem::Kind::Key, "ESC"},
     {HintItem::Kind::Word, "CANCEL"},
 }};
-// [up down] [left right] TAP  ENTER SAVE  ESC CANCEL: calibration with audio.
+// [up down] [left right] TAP  ENTER SAVE  ESC CANCEL: calibration with audio, ready.
 inline constexpr std::array<HintItem, 7> kCalibrateHint = {{
     {HintItem::Kind::VArrows, {}},
     {HintItem::Kind::HArrows, {}},
@@ -89,7 +89,8 @@ inline constexpr std::array<HintItem, 7> kCalibrateHint = {{
     {HintItem::Kind::Key, "ESC"},
     {HintItem::Kind::Word, "CANCEL"},
 }};
-// [up down] [left right] TAP  ESC CANCEL: synthetic clock (Enter cannot save).
+// [up down] [left right] TAP  ESC CANCEL: before a ready result, and always on the
+// synthetic clock (Enter cannot save).
 inline constexpr std::array<HintItem, 5> kCalibrateNoAudioHint = {{
     {HintItem::Kind::VArrows, {}},
     {HintItem::Kind::HArrows, {}},
@@ -147,10 +148,11 @@ inline constexpr theme::TextStyle kPlatePendingStyle =
     with_color(theme::text::kComboNumber, theme::color::kSteel); // "---"
 // The offset readout before a usable result (and always on the synthetic clock).
 inline constexpr std::string_view kOffsetPending = "---";
-// No-audio notice: a centred red line in the band {450, 40} under the plates.
+// No-audio notice: a centred red line in the band {450, 44} (its ~44px line box)
+// under the plates.
 inline constexpr std::string_view kNoAudioNotice = "AUDIO UNAVAILABLE - OFFSET WILL NOT BE SAVED";
 inline constexpr float kNoticeTop = 450.0f;
-inline constexpr float kNoticeHeight = 40.0f;
+inline constexpr float kNoticeHeight = 44.0f;
 inline constexpr theme::TextStyle kNoticeStyle =
     with_color(theme::text::kWheelRow, theme::color::kMissLabel);
 
@@ -201,9 +203,8 @@ struct RemapDisplayRow {
 // select's chip top / height / padding: {1240 - (w + 44), 12, w + 44, 40}.
 [[nodiscard]] Rect remap_chip_rect(float text_w);
 
-// remap_action_name / remap_device_name / remap_row_value_text without allocating.
-[[nodiscard]] std::string_view remap_action_label(GameAction action);
-[[nodiscard]] std::string_view remap_device_label(DeviceType device);
+// remap_row_value_text without allocating. The action / device labels are
+// input_remap's remap_action_label / remap_device_label (one table).
 [[nodiscard]] std::string_view remap_value_view(const InputRemapModel& model, int row);
 
 // ---------------------------------------------------------------------------------------------
