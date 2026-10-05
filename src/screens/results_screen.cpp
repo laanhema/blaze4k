@@ -117,6 +117,10 @@ void ResultsScreen::build_cached_text(const ScreenContext& ctx) {
                     ? song_display_subtitle(summary_.song->metadata, ctx.text,
                                             theme::text::kBarSongSubtitle.font)
                     : std::string{};
+    // An empty title gives its place to the subtitle (title_subtitle_text, as on select).
+    if (title_.empty()) {
+        title_.swap(subtitle_);
+    }
     artist_ = summary_.song != nullptr
                   ? song_display_artist(summary_.song->metadata, ctx.text,
                                         theme::text::kBarArtist.font)

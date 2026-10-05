@@ -682,6 +682,14 @@ void test_enter_caches_badge() {
     TEST_CHECK(subtitled.results->display_subtitle() == "-Hyper-");
     TEST_CHECK(subtitled.results->display_title() == "Blaze Anthem");
 
+    // An empty title gives its place to the subtitle (same rule as song select).
+    ResultsFixture untitled;
+    untitled.song.metadata.title.clear();
+    untitled.song.metadata.subtitle = "-Hyper-";
+    untitled.start();
+    TEST_CHECK(untitled.results->display_title() == "-Hyper-");
+    TEST_CHECK(untitled.results->display_subtitle().empty());
+
     // No chart / song: no badge, "UNKNOWN" title.
     ResultsFixture bare;
     bare.summary.chart = nullptr;

@@ -217,6 +217,17 @@ void test_subtitle_display_and_fit() {
     TEST_CHECK(fits(fit_title_subtitle(0, 50, 8, 400), 0, 50));     // no title
     TEST_CHECK(near(blaze4k::kSubtitleMinShare, 0.4f));
 
+    // An empty title gives its place to the subtitle; otherwise both pass through.
+    using blaze4k::title_subtitle_text;
+    const auto shown = title_subtitle_text("", "-Hyper-");
+    TEST_CHECK(shown.title == "-Hyper-" && shown.subtitle.empty());
+    const auto both = title_subtitle_text("Disconnected", "-Hyper-");
+    TEST_CHECK(both.title == "Disconnected" && both.subtitle == "-Hyper-");
+    const auto title_only = title_subtitle_text("Disconnected", "");
+    TEST_CHECK(title_only.title == "Disconnected" && title_only.subtitle.empty());
+    const auto neither = title_subtitle_text("", "");
+    TEST_CHECK(neither.title.empty() && neither.subtitle.empty());
+
     // Non-finite and negative inputs count as 0, and outputs stay finite and >= 0.
     const float nan = std::nanf("");
     const float inf = INFINITY;

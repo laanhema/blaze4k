@@ -58,6 +58,13 @@ const std::string& song_display_subtitle(const SongMetadata& metadata, const Tex
                                text->covers_text(metadata.subtitle, font));
 }
 
+TitleSubtitleText title_subtitle_text(std::string_view title, std::string_view subtitle) {
+    if (title.empty()) {
+        return TitleSubtitleText{subtitle, {}};
+    }
+    return TitleSubtitleText{title, subtitle};
+}
+
 namespace {
 
 float finite_nonneg(float v) {

@@ -9,7 +9,8 @@
 // layout and room budget, text fit with the real fonts, the options legend, the
 // pre-baked styles, and a render walk over every overlay row.
 // #110: subtitle display choice (TrueType coverage), the real-font title/subtitle
-// fit for same-title songs, and subtitled songs in the render smoke.
+// fit for same-title songs, and subtitled songs (one with an empty title) in the
+// render smoke.
 
 #include <algorithm>
 #include <array>
@@ -997,6 +998,10 @@ void test_render_smoke() {
         write_file(root / "Pack A" / dir / "Disconnected.sm",
                    make_sm("Disconnected", {{"Hard", 9}}, "", sub));
     }
+    // An empty #TITLE with a subtitle: the subtitle takes the title's place (#110 review).
+    write_file(root / "Pack A" / "Untitled" / "audio.ogg", "fake");
+    write_file(root / "Pack A" / "Untitled" / "Untitled.sm",
+               make_sm("", {{"Easy", 2}}, "", "-Subtitle Only-"));
     for (int i = 0; i < 9; ++i) {
         const std::string name = "Filler " + std::to_string(i);
         write_file(root / "Pack B" / name / "audio.ogg", "fake");
@@ -1038,9 +1043,9 @@ void test_render_smoke() {
             manager.context().text = &text;
         }
         manager.start(ScreenId::Select);
-        // Pack A: 4 songs (2 subtitled "Disconnected"), Pack B: 9; + 2 pack headers.
-        TEST_CHECK(select->song_count() == 13);
-        TEST_CHECK(select->wheel_row_count() == 15);
+        // Pack A: 5 songs (2 subtitled "Disconnected", 1 untitled), Pack B: 9; + 2 pack headers.
+        TEST_CHECK(select->song_count() == 14);
+        TEST_CHECK(select->wheel_row_count() == 16);
 
         // Every song, every chart (the 7-chart song scrolls its difficulty list),
         // mid-slide and at rest.

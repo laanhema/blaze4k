@@ -482,6 +482,10 @@ void draw_song_info(TextRenderer& text, GlQuadRenderer& renderer, const theme::L
     const theme::TextStyle& artist_style = theme::text::kArtist;
     const theme::TextStyle& bpm_style = theme::text::kBpm;
 
+    // An empty title gives its place to the subtitle (no stray gap).
+    const TitleSubtitleText line = title_subtitle_text(title, subtitle);
+    title = line.title;
+    subtitle = line.subtitle;
     if (subtitle.empty()) {
         text.draw(renderer, text.truncate(title, title_style, L.px(kInfoWidth)),
                   L.x(layout::kInfoX), L.y(layout::kSongTitleTop), title_style, TextAlign::Left);
@@ -651,8 +655,14 @@ void draw_wheel(const ThemeTextures* theme, TextRenderer* text, GlQuadRenderer& 
                                                 ? theme::text::kWheelSelectedSubtitle
                                                 : theme::text::kWheelSubtitle;
         const float gap = L.px(kSubtitleGap);
+        // The row's title and subtitle: Pack rows ignore the subtitle, and an empty
+        // title gives its place to the subtitle (no stray gap).
+        auto row_text = [&](const WheelRowView& view) {
+            return art == WheelArt::Pack ? TitleSubtitleText{view.label, {}}
+                                         : title_subtitle_text(view.label, view.subtitle);
+        };
         auto has_subtitle = [&](const WheelRowView& view) {
-            return art != WheelArt::Pack && !view.subtitle.empty();
+            return !row_text(view).subtitle.empty();
         };
         // The fitted title and the subtitle's width budget for a row with a subtitle.
         struct RowFit {
@@ -660,10 +670,11 @@ void draw_wheel(const ThemeTextures* theme, TextRenderer* text, GlQuadRenderer& 
             float subtitle_max_w = 0.0f;
         };
         auto fit_row = [&](const WheelRowView& view, float budget) {
+            const TitleSubtitleText line = row_text(view);
             const TitleSubtitleFit fit =
-                fit_title_subtitle(text->measure(view.label, style),
-                                   text->measure(view.subtitle, sub_style), gap, budget);
-            return RowFit{text->truncate(view.label, style, fit.title_max_w), fit.subtitle_max_w};
+                fit_title_subtitle(text->measure(line.title, style),
+                                   text->measure(line.subtitle, sub_style), gap, budget);
+            return RowFit{text->truncate(line.title, style, fit.title_max_w), fit.subtitle_max_w};
         };
         // Titles first, then the subtitles of the same rows (text grouped by style).
         for (const WheelRowView& view : rows) {
@@ -674,8 +685,8 @@ void draw_wheel(const ThemeTextures* theme, TextRenderer* text, GlQuadRenderer& 
             const float text_x = r.x + text_dx;
             const float budget = std::max(0.0f, L.px(kWheelTextRight - text_x));
             if (!has_subtitle(view)) {
-                text->draw(renderer, text->truncate(view.label, style, budget), L.x(text_x),
-                           centred_top(*text, L, r.y, r.h, style), style, TextAlign::Left);
+                text->draw(renderer, text->truncate(row_text(view).title, style, budget),
+                           L.x(text_x), centred_top(*text, L, r.y, r.h, style), style, TextAlign::Left);
                 continue;
             }
             text->draw(renderer, fit_row(view, budget).title, L.x(text_x),
@@ -689,7 +700,8 @@ void draw_wheel(const ThemeTextures* theme, TextRenderer* text, GlQuadRenderer& 
             const float text_x = r.x + text_dx;
             const float budget = std::max(0.0f, L.px(kWheelTextRight - text_x));
             const RowFit fit = fit_row(view, budget);
-            const std::string sub = text->truncate(view.subtitle, sub_style, fit.subtitle_max_w);
+            const std::string sub =
+                text->truncate(row_text(view).subtitle, sub_style, fit.subtitle_max_w);
             if (sub.empty()) {
                 continue;
             }

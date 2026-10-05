@@ -58,7 +58,8 @@ TopBarLayout top_bar_layout(float badge_text_w, float title_w, float artist_w, f
     title_w = finite_or_zero(title_w);
     artist_w = finite_or_zero(artist_w);
     subtitle_w = finite_or_zero(subtitle_w);
-    // A subtitle needs a title to follow ("UNKNOWN" stands in when there is no song).
+    // A subtitle needs a title to follow: the screen moves a subtitle with no title into
+    // the title place (title_subtitle_text), and "UNKNOWN" stands in when there is no song.
     const bool has_subtitle = subtitle_w > 0.0f && title_w > 0.0f;
 
     TopBarLayout out;

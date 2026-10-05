@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <string>
+#include <string_view>
 
 #include "chart/chart.hpp"
 #include "chart/song_metadata.hpp"
@@ -53,6 +54,17 @@ struct TitleSubtitleFit {
     float title_max_w = 0.0f;
     float subtitle_max_w = 0.0f;
 };
+
+// The text drawn in the title place and after it. An empty display title gives
+// its place to the subtitle: the subtitle is drawn as the title (title style, no
+// gap) and nothing follows. Otherwise both pass through unchanged. The views
+// alias the arguments.
+struct TitleSubtitleText {
+    std::string_view title;
+    std::string_view subtitle;
+};
+[[nodiscard]] TitleSubtitleText title_subtitle_text(std::string_view title,
+                                                    std::string_view subtitle);
 
 // When both do not fit, the subtitle keeps at least this share of the budget
 // (after the gap): it is what tells same-title songs apart.

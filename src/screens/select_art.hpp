@@ -303,7 +303,8 @@ void draw_banner(const ThemeTextures* theme, GlQuadRenderer& renderer, const the
 
 // Title + subtitle on one line, sharing the 560 budget via fit_title_subtitle
 // (the subtitle in kSongSubtitle on the title's baseline, kSubtitleGap after the
-// fitted title; an empty subtitle draws the title alone, truncated to 560),
+// fitted title; an empty subtitle draws the title alone, truncated to 560, and an
+// empty title draws the subtitle alone in its place and style),
 // artist (truncated to leave room for the BPM) and "BPM <range>" right-aligned
 // at x 604.
 void draw_song_info(TextRenderer& text, GlQuadRenderer& renderer, const theme::LayoutScale& L,
@@ -343,6 +344,7 @@ struct WheelRowView {
     // Song/Selected rows only (Pack rows ignore it): drawn after the label on its
     // baseline in kWheelSubtitle / kWheelSelectedSubtitle, sharing the row's
     // budget via fit_title_subtitle. Empty = the label alone, exactly as before.
+    // An empty label draws the subtitle in its place (label style, no gap).
     std::string_view subtitle;
 };
 void draw_wheel(const ThemeTextures* theme, TextRenderer* text, GlQuadRenderer& renderer,
