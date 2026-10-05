@@ -172,9 +172,12 @@ void AudioEngine::on_process(uint64_t frames) noexcept {
         // Time BEFORE the cursor: pre-seek cursors always carry a timestamp
         // earlier than the game thread's post-seek reset time.
         const uint64_t ns = now_ns_();
-        if (stats_reset_requested_.load(std::memory_order_relaxed) &&
-            stats_reset_requested_.exchange(false, std::memory_order_acq_rel)) {
+        // Zero first, then publish "done" (release): a reader that sees false
+        // also sees the zeroed stats. A request landing in between is absorbed
+        // by this just-applied reset.
+        if (stats_reset_requested_.load(std::memory_order_acquire)) {
             grouper_.reset_stats();
+            stats_reset_requested_.store(false, std::memory_order_release);
         }
         const uint32_t period =
             grouper_.on_update(frames, ns, engine_rate_.load(std::memory_order_relaxed));

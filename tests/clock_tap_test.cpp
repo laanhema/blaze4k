@@ -173,8 +173,10 @@ int main() {
     TEST_CHECK(second.enable_clock_interpolation());
 
     // 6b. Replace the ACTIVE tap during playback and free the replaced sound at
-    //     once (no sleep): attach must wait out an in-flight on_process that may
-    //     still be reading the old sound before returning.
+    //     once (no sleep). Crash/hang smoke test only: unload() keeps the
+    //     ma_sound storage allocated, so a missing quiescence wait in attach
+    //     would not fail here. The guarantee is the seq_cst handshake argument
+    //     in AudioEngine::attach_clock_tap / on_process.
     TEST_CHECK(second.play());
     for (int i = 0; i < 50; ++i) {
         blaze4k::SoundStream replaced;

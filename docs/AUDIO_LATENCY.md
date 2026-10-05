@@ -45,12 +45,12 @@ Numbers marked **estimate** were not measured here and must not be treated as ve
 | ---- | ---- | ------ |
 | Song audio is fully decoded on load | `src/audio/sound_stream.cpp:55-62` (`MA_SOUND_FLAG_DECODE`) | No streaming-decoder delay. The cursor is a read position in an in-memory PCM buffer |
 | Clock source | `src/audio/sound_stream.cpp:211-236` (`get_timed_position_frames`), raw cursor `:238-253` → `ma_sound_get_cursor_in_pcm_frames` | Since #81: the raw cursor (frames the engine has pulled into the current device callback; it moves when miniaudio *writes* audio, not when it is *heard*) **interpolated** from an audio-thread `(cursor, ns)` anchor, at most one device-callback interval ahead, never decreasing. See [Clock interpolation](#clock-interpolation-81-implemented) |
-| Gameplay binding | `src/gameplay/gameplay_view.cpp:118-132`, offset applied at `:70` | `SamplePosition{p.frames, rate, p.timestamp_ns}` from `audio_.get_timed_position_frames()` |
+| Gameplay binding | `src/gameplay/gameplay_view.cpp:121-135`, offset applied at `:70` | `SamplePosition{p.frames, rate, p.timestamp_ns}` from `audio_.get_timed_position_frames()` |
 | Formula | `src/timing/music_clock.hpp:14-21`, `src/timing/music_clock.cpp:53-60` | `time = frames / rate + global_offset_seconds`. Positive offset = clock reads later |
 | Offset storage | `src/data/config.hpp:37-39`, loader `src/data/config_loader.cpp:203-210`, writer `:393` | One `offset.global_offset_seconds`, clamped to ±3600 s |
 | Calibration | `src/screens/calibration_screen.cpp:63` (clock offset forced to 0), `:98-121`; math `src/timing/offset_calibration.cpp:62-120`, sign `src/timing/offset_calibration.hpp:16-18` | The player taps to clicks played through the *same* output path. `offset = -mean(hit - beat)` (after outlier rejection), so it absorbs **output latency + input latency + player bias**. It does not include display latency, because the wizard is audio-only |
-| Input aging | `src/gameplay/judgment_input.hpp:8-27`, `src/gameplay/gameplay_view.cpp:145-146`, `src/screens/calibration_screen.cpp:99-100` | Since #81: `hit = music - (clock_ns - event_ns)`, where `(music, clock_ns)` is one consistent pair from `MusicClock::timed_time_seconds()` (the interpolated estimate and the ns it was estimated at). Sources without a timestamp (stub, injected) fall back to `App::input_reference_ns_` (`src/app/app.cpp:176`) |
-| Engine init | `src/audio/audio_engine.cpp:34-110` | `ma_engine_config_init()` defaults (OS default playback device, low-latency profile, no device ID, no notification callback) plus, since #81, `periodSizeInFrames` (default 480, `audio.period_size_frames`) and an `onProcess` hook for the clock anchor. `configure()` runs from `src/main.cpp:273` before any audio init. Logs the device name, backend, requested and negotiated period (diagnostic only) |
+| Input aging | `src/gameplay/judgment_input.hpp:8-27`, `src/gameplay/gameplay_view.cpp:148-149`, `src/screens/calibration_screen.cpp:99-100` | Since #81: `hit = music - (clock_ns - event_ns)`, where `(music, clock_ns)` is one consistent pair from `MusicClock::timed_time_seconds()` (the interpolated estimate and the ns it was estimated at). Sources without a timestamp (stub, injected) fall back to `App::input_reference_ns_` (`src/app/app.cpp:176`) |
+| Engine init | `src/audio/audio_engine.cpp:34-111` | `ma_engine_config_init()` defaults (OS default playback device, low-latency profile, no device ID, no notification callback) plus, since #81, `periodSizeInFrames` (default 480, `audio.period_size_frames`) and an `onProcess` hook for the clock anchor. `configure()` runs from `src/main.cpp:273` before any audio init. Logs the device name, backend, requested and negotiated period (diagnostic only) |
 
 The diagnostic line looks like this (measured, dev machine):
 
@@ -204,7 +204,7 @@ Readings (all **measured** on this one machine and sink):
 ### Clock interpolation (#81, implemented)
 
 B + C from the #71 decision. Code: `src/audio/clock_anchor.{hpp,cpp}`,
-`src/timing/clock_interpolator.{hpp,cpp}`, `src/audio/audio_engine.cpp:160-176` (`on_process`),
+`src/timing/clock_interpolator.{hpp,cpp}`, `src/audio/audio_engine.cpp:169-194` (`on_process`),
 `src/audio/sound_stream.cpp:127-152, 211-236`.
 
 - **Smaller period (B).** `ma_engine_config.periodSizeInFrames = 480` (10 ms @ 48 kHz) by default.
@@ -232,7 +232,7 @@ B + C from the #71 decision. Code: `src/audio/clock_anchor.{hpp,cpp}`,
 - **Timed pair.** `SamplePosition` carries `timestamp_ns` (the `now` of the estimate), and
   gameplay/calibration age input against that pair (`aging_reference_ns`).
 - **Assist ticks stay on the raw cursor.** They are scheduled on engine time, which moves in
-  lockstep with the raw cursor, not with the interpolated one (`src/gameplay/gameplay_view.cpp:357`).
+  lockstep with the raw cursor, not with the interpolated one (`src/gameplay/gameplay_view.cpp:361`).
 - **Diagnostics.** The `Output device` line shows the requested and negotiated period. Gameplay logs
   `[AudioEngine] Device callback interval (gameplay): min / max … frames over N callbacks` at the end.
   The stats are reset when the song starts, so they cover that song only.
