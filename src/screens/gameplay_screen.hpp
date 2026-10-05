@@ -10,6 +10,13 @@
 
 namespace blaze4k {
 
+// The gameplay difficulty badge for `chart` (#93): "<LABEL> <meter>", e.g. "HARD 8".
+// The label follows select_art::difficulty_row_label (an Edit with a description shows
+// the chart's name as written; an empty label shows the resolved difficulty name; else
+// the label in ASCII upper case) and the colours follow difficulty_row_style (Edit and
+// unknown difficulties use the neutral theme::difficulty::kEdit).
+[[nodiscard]] DifficultyBadge difficulty_badge_for(const Chart& chart);
+
 // Deliberately thin host around the already-tested `GameplayView`: it consumes the
 // `PlayRequest` published by Select, forwards input/update/render, and reports a
 // finished run to Results (publishing the run snapshot into `ctx.results`). Back
@@ -37,6 +44,9 @@ public:
     // Test accessor: true once the finished run has been reported (snapshot
     // published and transition requested), so a run is never reported twice.
     [[nodiscard]] bool end_reported() const { return end_reported_; }
+
+    // Test accessor: the difficulty badge handed to the view for the current song.
+    [[nodiscard]] const DifficultyBadge& difficulty_badge() const { return view_.difficulty_badge(); }
 
     // Seconds the field lingers after the run ends before the Results transition,
     // so the final note/fail state is readable instead of snapping away.

@@ -234,7 +234,8 @@ void GameplayView::update(double fixed_dt, const std::array<bool, 4>& held_colum
     }
 }
 
-void GameplayView::render(GlQuadRenderer& renderer, int screen_w, int screen_h) {
+void GameplayView::render(GlQuadRenderer& renderer, int screen_w, int screen_h,
+                          const ThemeTextures* theme, TextRenderer* text) {
     if (!ready_ || !renderer.is_initialized() || screen_h <= 0 || screen_w <= 0) {
         return;
     }
@@ -321,11 +322,15 @@ void GameplayView::render(GlQuadRenderer& renderer, int screen_w, int screen_h) 
     }
     field_renderer_.render(field_, visible_items_, frame, screen_w, screen_h, skin_, renderer);
 
-    // Live HUD. Only reached with a valid GL context (`render()` above early-returns
-    // when the renderer is uninitialized); the score/life state is computed in update().
-    hud_.render(score_.state(), screen_w, screen_h, renderer);
-    hud_.render_life(life_.life(), screen_w, screen_h, field_.field_left(screen_w), renderer);
-    judge_anim_.render(renderer, screen_w, screen_h);
+    // Cabinet HUD (#93). Only reached with a valid GL context (`render()` above
+    // early-returns when the renderer is uninitialized); the life/combo state is
+    // computed in update(). Order: badge plate + life frame/fill/stripes, judgment
+    // sprite, then the badge and combo text on top.
+    const double field_left = field_.field_left(screen_w);
+    hud_.render_chrome(badge_, life_.life(), screen_w, screen_h, field_left, theme, text, renderer);
+    judge_anim_.render_judgment(renderer, screen_w, screen_h, theme);
+    hud_.render_text(badge_, screen_w, screen_h, field_left, text, renderer);
+    judge_anim_.render_combo(renderer, screen_w, screen_h, text);
 }
 
 void GameplayView::schedule_assist_ticks() {

@@ -1,6 +1,7 @@
 #include "screens/gameplay_screen.hpp"
 
 #include <iostream>
+#include <string>
 #include <utility>
 
 #include "chart/chart.hpp"
@@ -8,9 +9,17 @@
 #include "screens/play_request.hpp"
 #include "screens/results.hpp"
 #include "screens/screen_manager.hpp"
+#include "screens/select_art.hpp"
 #include "timing/judgment_constants.hpp"
 
 namespace blaze4k {
+
+DifficultyBadge difficulty_badge_for(const Chart& chart) {
+    DifficultyBadge badge;
+    badge.text = select_art::difficulty_row_label(chart) + " " + std::to_string(chart.meter);
+    badge.colors = select_art::difficulty_row_style(chart).colors;
+    return badge;
+}
 
 GameplayScreen::GameplayScreen(std::filesystem::path assist_tick_wav_path)
     : assist_tick_path_(std::move(assist_tick_wav_path)) {}
@@ -39,6 +48,7 @@ void GameplayScreen::enter(ScreenContext& ctx) {
         ctx.constants != nullptr ? *ctx.constants : JudgmentConstants::compiled_defaults();
 
     view_.set_assist_tick_sound(assist_tick_path_);
+    view_.set_difficulty_badge(difficulty_badge_for(chart));
     active_ = view_.init(chart, constants, audio_path, ctx.play_request->options,
                          song.resolved_background_path);
     std::cout << "[GameplayScreen] started '" << song.metadata.title << "' " << chart.difficulty
@@ -103,11 +113,11 @@ void GameplayScreen::update(ScreenContext& ctx, double fixed_dt,
     }
 }
 
-void GameplayScreen::render(ScreenContext& /*ctx*/, GlQuadRenderer& renderer, int w, int h) {
+void GameplayScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, int h) {
     if (!active_) {
         return;
     }
-    view_.render(renderer, w, h);
+    view_.render(renderer, w, h, ctx.theme, ctx.text);
 }
 
 void GameplayScreen::exit(ScreenContext& /*ctx*/) {

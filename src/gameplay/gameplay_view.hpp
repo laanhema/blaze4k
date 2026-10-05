@@ -26,6 +26,9 @@
 
 namespace blaze4k {
 
+class TextRenderer;
+class ThemeTextures;
+
 // Where a single song run stands. B6 exposes this so the future screen state
 // machine (C1/C7) can transition out of gameplay. `Cleared` means every row/hold
 // resolved without failing; `Failed` takes precedence.
@@ -54,7 +57,16 @@ public:
               const GameplayOptions& options, const std::string& background_path = "");
     void handle_input_events(const std::vector<InputEvent>& events, uint64_t reference_ns);
     void update(double fixed_dt, const std::array<bool, 4>& held_columns);
-    void render(GlQuadRenderer& renderer, int screen_w, int screen_h);
+    // Draws the field, then the Cabinet HUD (#93): badge + life bar over `theme`, the
+    // judgment sprite, and the badge/combo text through `text`. A null `theme` skips the
+    // chrome (the judgment falls back to the bitmap label); a null `text` skips the text.
+    void render(GlQuadRenderer& renderer, int screen_w, int screen_h,
+                const ThemeTextures* theme = nullptr, TextRenderer* text = nullptr);
+
+    // Difficulty badge content for this song (set by the caller per song; init/shutdown
+    // leave it alone).
+    void set_difficulty_badge(DifficultyBadge badge) { badge_ = std::move(badge); }
+    [[nodiscard]] const DifficultyBadge& difficulty_badge() const { return badge_; }
 
     [[nodiscard]] double music_time_seconds() const { return clock_.time_seconds(); }
     [[nodiscard]] bool is_ready() const { return ready_; }
@@ -105,6 +117,7 @@ private:
     ScoreKeeper score_;
     LifeKeeper life_;
     HudRenderer hud_;
+    DifficultyBadge badge_;
     JudgmentAnimator judge_anim_;
     AssistTickSchedule assist_schedule_;
     AssistTickPlayer assist_player_;

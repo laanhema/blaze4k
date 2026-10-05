@@ -1,10 +1,18 @@
+#include <cmath>
 #include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
+#include <sstream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "gameplay/judgment_animator.hpp"
 #include "render/gl_quad_renderer.hpp"
+#include "render/theme.hpp"
+#include "render/theme_textures.hpp"
+#include "render/ttf_font.hpp"
 
 #define TEST_CHECK(expr) \
     do { \
@@ -22,6 +30,18 @@ using blaze4k::JudgmentAnimator;
 using blaze4k::JudgmentEvent;
 using blaze4k::JudgmentKind;
 using blaze4k::TapJudgment;
+
+namespace fs = std::filesystem;
+
+const fs::path kSourceDir{BLAZE4K_SOURCE_DIR};
+const fs::path kCabinet = fs::path{BLAZE4K_ASSETS_DIR} / "theme" / "cabinet";
+
+std::string read_text(const fs::path& path) {
+    std::ifstream in(path, std::ios::binary);
+    std::ostringstream buffer;
+    buffer << in.rdbuf();
+    return buffer.str();
+}
 
 JudgmentEvent make_event(JudgmentKind kind, TapJudgment window = TapJudgment::Num,
                          HoldJudgment hold = HoldJudgment::Num) {
@@ -58,15 +78,119 @@ void test_label_mapping() {
     std::cout << "  - judgment label mapping ok.\n";
 }
 
-void test_color_mapping() {
-    const blaze4k::Color fantastic =
-        JudgmentAnimator::judgment_color(make_event(JudgmentKind::Tap, TapJudgment::Fantastic));
-    const blaze4k::Color miss = JudgmentAnimator::judgment_color(make_event(JudgmentKind::Miss));
-    const blaze4k::Color ok = JudgmentAnimator::judgment_color(make_event(JudgmentKind::HoldOk));
-    const blaze4k::Color ng = JudgmentAnimator::judgment_color(make_event(JudgmentKind::HoldNg));
-    TEST_CHECK(fantastic.r != miss.r || fantastic.g != miss.g || fantastic.b != miss.b);
-    TEST_CHECK(ok.b != ng.b || ok.r != ng.r);
-    std::cout << "  - judgment color mapping ok.\n";
+std::string_view sprite(JudgmentKind kind, TapJudgment window = TapJudgment::Num) {
+    return JudgmentAnimator::judgment_sprite(make_event(kind, window));
+}
+
+void test_sprite_mapping() {
+    TEST_CHECK(sprite(JudgmentKind::Tap, TapJudgment::Fantastic) == "judgment_fantastic");
+    TEST_CHECK(sprite(JudgmentKind::Tap, TapJudgment::Excellent) == "judgment_excellent");
+    TEST_CHECK(sprite(JudgmentKind::Tap, TapJudgment::Great) == "judgment_great");
+    TEST_CHECK(sprite(JudgmentKind::Tap, TapJudgment::Decent) == "judgment_decent");
+    TEST_CHECK(sprite(JudgmentKind::Tap, TapJudgment::WayOff) == "judgment_wayoff");
+    TEST_CHECK(sprite(JudgmentKind::Tap, TapJudgment::Miss) == "judgment_miss");
+    TEST_CHECK(sprite(JudgmentKind::Tap, TapJudgment::HitMine) == "judgment_mine");
+    TEST_CHECK(sprite(JudgmentKind::Miss) == "judgment_miss");
+    TEST_CHECK(sprite(JudgmentKind::HitMine) == "judgment_mine");
+    TEST_CHECK(sprite(JudgmentKind::HoldOk) == "judgment_ok");
+    TEST_CHECK(sprite(JudgmentKind::RollOk) == "judgment_ok");
+    TEST_CHECK(sprite(JudgmentKind::HoldNg) == "judgment_ng");
+    TEST_CHECK(sprite(JudgmentKind::RollNg) == "judgment_ng");
+    TEST_CHECK(sprite(JudgmentKind::Tap, TapJudgment::Num).empty());
+    TEST_CHECK(sprite(JudgmentKind::AvoidedMine).empty());
+    TEST_CHECK(sprite(JudgmentKind::RollHit).empty());
+
+    // Every pop-bearing event has a sprite, every sprite is a real manifest sprite
+    // whose content box pins kJudgmentContentRef (888x132 @2x = 444x66 reference px).
+    const blaze4k::ThemeManifest manifest =
+        blaze4k::parse_theme_manifest(read_text(kCabinet / "manifest.json"));
+    const blaze4k::Vec2 ref = JudgmentAnimator::kJudgmentContentRef;
+    int checked = 0;
+    for (int k = 0; k <= static_cast<int>(JudgmentKind::RollHit); ++k) {
+        for (int win = 0; win <= static_cast<int>(TapJudgment::Num); ++win) {
+            const JudgmentEvent e =
+                make_event(static_cast<JudgmentKind>(k), static_cast<TapJudgment>(win));
+            const std::string_view name = JudgmentAnimator::judgment_sprite(e);
+            TEST_CHECK(name.empty() == JudgmentAnimator::judgment_label(e).empty());
+            if (name.empty()) {
+                continue;
+            }
+            const auto it = manifest.textures.find(name);
+            TEST_CHECK(it != manifest.textures.end());
+            const blaze4k::ThemeEntry& entry = it->second;
+            TEST_CHECK(entry.kind == blaze4k::ThemeKind::Sprite);
+            TEST_CHECK(entry.content.w == 888 && entry.content.h == 132);
+            TEST_CHECK(std::abs(entry.content.w / manifest.texture_scale - ref.x) < 1e-4f);
+            TEST_CHECK(std::abs(entry.content.h / manifest.texture_scale - ref.y) < 1e-4f);
+            ++checked;
+        }
+    }
+    TEST_CHECK(checked > 0);
+
+    // The armed pop carries its sprite; reset clears it.
+    JudgmentAnimator animator;
+    animator.consume({make_event(JudgmentKind::HoldNg)});
+    TEST_CHECK(animator.popup_sprite() == "judgment_ng");
+    animator.reset();
+    TEST_CHECK(animator.popup_sprite().empty());
+    std::cout << "  - judgment sprite mapping (real manifest) ok.\n";
+}
+
+void test_judgment_pop_rect() {
+    const blaze4k::theme::LayoutScale L = blaze4k::theme::layout_scale(1280, 720);
+    const blaze4k::Rect r =
+        JudgmentAnimator::judgment_pop_rect(L, JudgmentAnimator::kJudgmentContentRef, 1.0f);
+    TEST_CHECK(r.x == 418.0f && r.y == 296.0f && r.w == 444.0f && r.h == 66.0f);
+    // Scaled about the content centre.
+    const blaze4k::Rect big =
+        JudgmentAnimator::judgment_pop_rect(L, JudgmentAnimator::kJudgmentContentRef, 1.25f);
+    TEST_CHECK(std::abs(big.x + big.w * 0.5f - 640.0f) < 1e-3f);
+    TEST_CHECK(std::abs(big.y + big.h * 0.5f - 329.0f) < 1e-3f);
+    TEST_CHECK(std::abs(big.w - 555.0f) < 1e-3f);
+    std::cout << "  - judgment pop rect ok.\n";
+}
+
+void test_combo_visibility() {
+    JudgmentAnimator animator;
+    TEST_CHECK(!animator.combo_visible());
+    animator.update(0.01, 3);
+    TEST_CHECK(!animator.combo_visible());
+    TEST_CHECK(animator.live_combo() == 3);
+    animator.update(0.01, JudgmentAnimator::kShowComboAt);
+    TEST_CHECK(animator.combo_visible());
+    TEST_CHECK(animator.live_combo() == 4);
+    // Persistent: it does not fade with the judgment pop.
+    animator.update(10.0, 4);
+    TEST_CHECK(animator.combo_visible());
+    animator.update(0.01, 0);
+    TEST_CHECK(!animator.combo_visible());
+    animator.update(0.01, -5);
+    TEST_CHECK(animator.live_combo() == 0);
+    animator.update(0.01, 212);
+    TEST_CHECK(animator.combo_visible());
+    animator.reset();
+    TEST_CHECK(animator.live_combo() == 0);
+    TEST_CHECK(!animator.combo_visible());
+    std::cout << "  - combo line visibility (ShowComboAt=4) ok.\n";
+}
+
+void test_combo_number_color() {
+    const double d = JudgmentAnimator::kComboPopSeconds;
+    const blaze4k::Color gold = blaze4k::theme::color::kGold;
+    const blaze4k::Color white = blaze4k::theme::color::kWhite;
+    const auto eq = [](blaze4k::Color a, blaze4k::Color b) {
+        return std::abs(a.r - b.r) < 1e-5f && std::abs(a.g - b.g) < 1e-5f &&
+               std::abs(a.b - b.b) < 1e-5f && std::abs(a.a - b.a) < 1e-5f;
+    };
+    TEST_CHECK(eq(JudgmentAnimator::combo_number_color(0.0, d), gold));
+    TEST_CHECK(eq(JudgmentAnimator::combo_number_color(d, d), white));
+    TEST_CHECK(eq(JudgmentAnimator::combo_number_color(d * 3.0, d), white));
+    TEST_CHECK(eq(JudgmentAnimator::combo_number_color(0.1, 0.0), white));
+    const blaze4k::Color half = JudgmentAnimator::combo_number_color(d * 0.5, d);
+    // Gold has a lower blue channel than white; halfway is strictly between.
+    TEST_CHECK(half.b > gold.b && half.b < white.b);
+    TEST_CHECK(std::abs(half.b - (gold.b + white.b) * 0.5f) < 1e-4f);
+    std::cout << "  - combo milestone flash colour (gold -> white) ok.\n";
 }
 
 void test_pop_curves() {
@@ -180,10 +304,25 @@ void test_headless_render_and_reset() {
 
     animator.consume({make_event(JudgmentKind::Tap, TapJudgment::Excellent)});
     animator.update(0.1, 50);
-    animator.render(renderer, 1280, 720); // must not crash
-    animator.render(renderer, 0, 0);
+    // Null services (bitmap fallback / no text) must not crash.
+    animator.render_judgment(renderer, 1280, 720, nullptr);
+    animator.render_combo(renderer, 1280, 720, nullptr);
+
+    // Real headless theme + fonts (draws are no-ops without GL).
+    blaze4k::ThemeTextures theme;
+    TEST_CHECK(theme.load(kCabinet));
+    blaze4k::TextRenderer text;
+    TEST_CHECK(text.load(kSourceDir));
+    text.set_window_size(1280, 720);
+    animator.render_judgment(renderer, 1280, 720, &theme);
+    animator.render_combo(renderer, 1280, 720, &text);
+    animator.render_judgment(renderer, 0, 0, &theme);
+    animator.render_combo(renderer, 0, 0, &text);
     animator.reset();
-    animator.render(renderer, 1280, 720);
+    animator.render_judgment(renderer, 1280, 720, &theme);
+    animator.render_combo(renderer, 1280, 720, &text);
+    text.shutdown();
+    theme.shutdown();
     std::cout << "  - headless render + reset ok.\n";
 }
 
@@ -192,7 +331,10 @@ void test_headless_render_and_reset() {
 int main() {
     std::cout << "[judgment_animator_test] Running judgment/combo pop tests...\n";
     test_label_mapping();
-    test_color_mapping();
+    test_sprite_mapping();
+    test_judgment_pop_rect();
+    test_combo_visibility();
+    test_combo_number_color();
     test_pop_curves();
     test_consume_arms_popup();
     test_combo_milestone_dedupe();
