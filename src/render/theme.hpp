@@ -206,8 +206,9 @@ constexpr std::array<float, 4> kWheelIndent = {0.0f, 46.0f, 76.0f, 96.0f};
 // Gameplay (the note field, receptors and Cel noteskin are unchanged)
 constexpr Rect kDiffBadge{36.0f, 28.0f, 130.0f, 40.0f};
 constexpr Rect kLifeBar{40.0f, 120.0f, 40.0f, 480.0f}; // outer frame; 4px chrome border
-// Top of the full-size (444x66) judgment content box, centred on the field; the pop is
-// drawn centred on that box at JudgmentAnimator::kJudgmentDisplayScale.
+// Top of the full-size (444x66) judgment content box, centred on the field; the judgment
+// sprite is drawn centred on that box at JudgmentAnimator::kJudgmentDisplayScale, while
+// the bitmap fallback label hangs from this top.
 constexpr float kJudgmentTop = 296.0f;
 constexpr float kComboTop = 368.0f;
 

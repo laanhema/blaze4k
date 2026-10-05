@@ -67,10 +67,10 @@ public:
     // completion), bypassing the milestone filter. `combo <= 0` is ignored.
     void celebrate(int combo);
 
-    // The judgment sprite centred on the field (centred on the full-size content box whose
-    // top is kJudgmentTop, drawn at `judgment_draw_scale`), scaled and faded by the pop
-    // curves. With a null `theme`, or a sprite missing from the manifest,
-    // draws the bitmap label instead so feedback never disappears.
+    // The judgment sprite, drawn at `judgment_draw_scale` and centred on the full-size
+    // content box whose top is kJudgmentTop, scaled and faded by the pop curves. With a
+    // null `theme`, or a sprite missing from the manifest, draws the bitmap label instead
+    // (top-anchored at kJudgmentTop, not centred on the box) so feedback never disappears.
     void render_judgment(GlQuadRenderer& renderer, int w, int h, const ThemeTextures* theme) const;
     // The persistent "N COMBO" line at kComboTop (kComboNumber + kComboLabel, group-sheared
     // by kComboGroupShear), while `combo_visible()`. No-op for a null `text`.
