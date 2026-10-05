@@ -27,8 +27,13 @@ public:
     static constexpr double kJudgmentPopSeconds = 0.6;
     static constexpr double kComboPopSeconds = 0.5;
     static constexpr int kComboMilestone = 50;
-    // Bitmap-font pixel of the fallback label (no theme / missing manifest entry).
+    // Bitmap-font pixel of the fallback label at full size (no theme / missing manifest
+    // entry). Drawn at `kJudgmentPopPixel * judgment_draw_scale(...)`.
     static constexpr float kJudgmentPopPixel = 5.0f;
+    // Display size of the judgment pop relative to the sprite's native 444x66 content box
+    // (and of the fallback label relative to `kJudgmentPopPixel`). Owner estimate on #111
+    // ("perhaps 50%"): tune here after a playtest.
+    static constexpr float kJudgmentDisplayScale = 0.5f;
 
     // The combo line shows from this live combo on: OpenITG ShowComboAt=4
     // (openitg @ f2c129f, assets/patch-data/Themes/default/metrics.ini:2985 [Combo];
@@ -62,8 +67,9 @@ public:
     // completion), bypassing the milestone filter. `combo <= 0` is ignored.
     void celebrate(int combo);
 
-    // The judgment sprite centred on the field (content top at kJudgmentTop), scaled and
-    // faded by the pop curves. With a null `theme`, or a sprite missing from the manifest,
+    // The judgment sprite centred on the field (centred on the full-size content box whose
+    // top is kJudgmentTop, drawn at `judgment_draw_scale`), scaled and faded by the pop
+    // curves. With a null `theme`, or a sprite missing from the manifest,
     // draws the bitmap label instead so feedback never disappears.
     void render_judgment(GlQuadRenderer& renderer, int w, int h, const ThemeTextures* theme) const;
     // The persistent "N COMBO" line at kComboTop (kComboNumber + kComboLabel, group-sheared
@@ -76,6 +82,9 @@ public:
     [[nodiscard]] static float pop_scale(double elapsed, double duration);
     [[nodiscard]] static float pop_alpha(double elapsed, double duration);
     [[nodiscard]] static bool pop_active(double elapsed, double duration);
+    // The judgment pop's draw scale: `kJudgmentDisplayScale * pop_scale(elapsed,
+    // kJudgmentPopSeconds)`. The same curve shape, at the display size. Pure.
+    [[nodiscard]] static float judgment_draw_scale(double elapsed);
 
     // Pure label mapping from an event; an empty label means "no popup".
     [[nodiscard]] static std::string judgment_label(const JudgmentEvent& e);
@@ -83,8 +92,9 @@ public:
     // when `judgment_label` is empty. Points at string literals.
     [[nodiscard]] static std::string_view judgment_sprite(const JudgmentEvent& e);
 
-    // Screen rect of the judgment sprite: `content` (its content size at L.s) scaled by
-    // `scale` about the centre (L.x(640), L.y(kJudgmentTop) + content.y / 2). Pure.
+    // Screen rect of the judgment sprite: `content` (its full-size content size at L.s)
+    // scaled by `scale` (relative to that full-size `content`) about the centre
+    // (L.x(640), L.y(kJudgmentTop) + content.y / 2). Pure.
     [[nodiscard]] static Rect judgment_pop_rect(const theme::LayoutScale& L, Vec2 content,
                                                 float scale);
     // Combo line pens: the number + gap + label pen box centred on L.x(640), the number
