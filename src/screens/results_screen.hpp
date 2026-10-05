@@ -77,6 +77,11 @@ public:
     [[nodiscard]] const DifficultyBadge& badge() const { return badge_; }
     [[nodiscard]] const std::string& display_title() const { return title_; }
     [[nodiscard]] const std::string& display_artist() const { return artist_; }
+    // The song's display subtitle (#110; empty when it has none) and the
+    // subtitle as fitted to the top bar by the last render (empty without a
+    // text service or when it got no room).
+    [[nodiscard]] const std::string& display_subtitle() const { return subtitle_; }
+    [[nodiscard]] const std::string& fitted_subtitle() const { return fitted_subtitle_; }
     [[nodiscard]] const std::string& grade_texture() const { return grade_texture_; }
     [[nodiscard]] const std::string& tier_text() const { return tier_text_; }
     [[nodiscard]] const std::string& max_combo_text() const { return max_combo_text_; }
@@ -98,7 +103,7 @@ private:
 
     void clear_cached_text();
     void build_cached_text(const ScreenContext& ctx);
-    // Re-fits the badge / title / artist to the bar, and the holds panel
+    // Re-fits the badge / title / subtitle / artist to the bar, and the holds panel
     // columns, when the text scale changed (every call without a text service).
     void refit_bar_text(const TextRenderer* text, const ThemeTextures* theme);
 
@@ -110,6 +115,7 @@ private:
     // Built once in enter().
     DifficultyBadge badge_{};
     std::string title_;
+    std::string subtitle_;
     std::string artist_;
     std::string grade_texture_;
     std::string grade_fallback_text_; // format_grade, drawn when the sprite is missing
@@ -127,6 +133,8 @@ private:
     std::array<float, 3> hold_cols_{}; // holds panel column offsets (reference px)
     std::string fitted_badge_;
     std::string fitted_title_;
+    std::string fitted_subtitle_;
+    float subtitle_x_ = 0.0f; // reference px: after the measured fitted title + kBarSubtitleGap
     std::string fitted_artist_;
 };
 

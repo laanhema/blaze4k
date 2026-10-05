@@ -594,9 +594,11 @@ void SelectScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, i
         if (song != nullptr && text != nullptr) {
             const std::string& title =
                 song_display_title(song->metadata, text, theme::text::kSongTitle.font);
+            const std::string& subtitle =
+                song_display_subtitle(song->metadata, text, theme::text::kSongSubtitle.font);
             const std::string& artist =
                 song_display_artist(song->metadata, text, theme::text::kArtist.font);
-            select_art::draw_song_info(*text, renderer, L, title, artist,
+            select_art::draw_song_info(*text, renderer, L, title, subtitle, artist,
                                        "BPM " + format_bpm_range(song->timing));
         }
 
@@ -653,6 +655,10 @@ void SelectScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, i
                 view.label = song_display_title(
                     row_song->metadata, text,
                     selected ? theme::text::kWheelSelected.font : theme::text::kWheelRow.font);
+                view.subtitle = song_display_subtitle(
+                    row_song->metadata, text,
+                    selected ? theme::text::kWheelSelectedSubtitle.font
+                             : theme::text::kWheelSubtitle.font);
             }
         }
         select_art::draw_wheel(theme, text, renderer, L, w, std::span(views.data(), n),

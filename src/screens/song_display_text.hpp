@@ -38,6 +38,37 @@ class TextRenderer;
 [[nodiscard]] const std::string& song_display_artist(const SongMetadata& metadata,
                                                      const TextRenderer* text, theme::Font font);
 
+// SUBTITLE / SUBTITLETRANSLIT (SM5 Song::GetDisplaySubTitle), chosen independently
+// of the title: the same coverage rule as title and artist, applied to the
+// subtitle on its own. Bitmap and TrueType overloads as above (a null `text`
+// falls back to the bitmap rule). The returned reference aliases `metadata`.
+[[nodiscard]] const std::string& song_display_subtitle(const SongMetadata& metadata);
+[[nodiscard]] const std::string& song_display_subtitle(const SongMetadata& metadata,
+                                                       const TextRenderer* text, theme::Font font);
+
+// Title and subtitle are drawn on one line, "Title Subtitle", with no added
+// brackets (SM5 Song::GetDisplayFullTitle): the simfile's subtitle already
+// carries its own -...-, (...) or ~...~. The two share one width budget.
+struct TitleSubtitleFit {
+    float title_max_w = 0.0f;
+    float subtitle_max_w = 0.0f;
+};
+
+// When both do not fit, the subtitle keeps at least this share of the budget
+// (after the gap): it is what tells same-title songs apart.
+inline constexpr float kSubtitleMinShare = 0.4f;
+
+// Splits `budget` between a title `title_w` wide and a subtitle `subtitle_w`
+// wide, `gap` apart (any one unit). Non-finite or negative inputs count as 0.
+//  - budget 0 -> {0, 0}; no subtitle, or budget <= gap -> {min(title, budget), 0}
+//  - both fit (title + gap + subtitle <= budget) -> {title_w, subtitle_w}
+//  - otherwise, avail = budget - gap:
+//      subtitle = min(subtitle_w, max(avail - title_w, avail * kSubtitleMinShare))
+//      title    = min(title_w, avail - subtitle)
+// With a subtitle, title + gap + subtitle <= budget.
+[[nodiscard]] TitleSubtitleFit fit_title_subtitle(float title_w, float subtitle_w, float gap,
+                                                  float budget);
+
 // Narrowest name budget for a difficulty label, in cells: the width of
 // "Challenge", the longest standard label, so an edit name is never shortened
 // below what a standard label already takes. Shared by select and results.

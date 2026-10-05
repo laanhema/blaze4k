@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -161,6 +162,101 @@ void test_translit_fallback() {
     std::cout << "  - translit display fallback ok.\n";
 }
 
+bool near(float a, float b) {
+    return std::fabs(a - b) <= 1e-3f;
+}
+
+void test_subtitle_display_and_fit() {
+    using blaze4k::fit_title_subtitle;
+    using blaze4k::song_display_subtitle;
+    using blaze4k::song_display_title;
+    using blaze4k::TitleSubtitleFit;
+
+    // Bitmap rule, applied to SUBTITLE / SUBTITLETRANSLIT on their own.
+    blaze4k::SongMetadata star;
+    star.title = "Summer";
+    star.subtitle = "\xE2\x98\x86Mix";
+    star.subtitle_translit = "Star Mix";
+    TEST_CHECK(!font_covers_text(star.subtitle));
+    TEST_CHECK(song_display_subtitle(star) == "Star Mix");
+    TEST_CHECK(&song_display_subtitle(star) == &star.subtitle_translit);
+    // Independent of the title: an ASCII title stays native next to a translit subtitle.
+    TEST_CHECK(&song_display_title(star) == &star.title);
+    TEST_CHECK(star.subtitle == "\xE2\x98\x86Mix"); // identity field stays raw
+
+    blaze4k::SongMetadata hyper;
+    hyper.title = "Disconnected";
+    hyper.subtitle = "-Hyper-";
+    hyper.subtitle_translit = "X";
+    TEST_CHECK(&song_display_subtitle(hyper) == &hyper.subtitle); // covered native wins
+
+    blaze4k::SongMetadata no_translit;
+    no_translit.subtitle = "\xE2\x98\x86";
+    TEST_CHECK(&song_display_subtitle(no_translit) == &no_translit.subtitle);
+
+    const blaze4k::SongMetadata none;
+    TEST_CHECK(song_display_subtitle(none).empty());
+    TEST_CHECK(&song_display_subtitle(none) == &none.subtitle);
+    // A null renderer falls back to the bitmap rule.
+    TEST_CHECK(&song_display_subtitle(star, nullptr, blaze4k::theme::Font::SairaBold) ==
+               &star.subtitle_translit);
+
+    auto fits = [](TitleSubtitleFit f, float title, float sub) {
+        return near(f.title_max_w, title) && near(f.subtitle_max_w, sub);
+    };
+    TEST_CHECK(fits(fit_title_subtitle(100, 0, 8, 400), 100, 0));   // no subtitle
+    TEST_CHECK(fits(fit_title_subtitle(500, 0, 8, 400), 400, 0));   // no subtitle, long title
+    TEST_CHECK(fits(fit_title_subtitle(100, 50, 8, 400), 100, 50)); // both fit
+    TEST_CHECK(fits(fit_title_subtitle(100, 292, 8, 400), 100, 292)); // exactly fits
+    TEST_CHECK(fits(fit_title_subtitle(100, 500, 8, 400), 100, 292)); // short title, long sub
+    TEST_CHECK(fits(fit_title_subtitle(600, 100, 8, 400), 292, 100)); // long title, short sub
+    TEST_CHECK(fits(fit_title_subtitle(600, 500, 8, 400), 392.0f * 0.6f, 392.0f * 0.4f));
+    TEST_CHECK(fits(fit_title_subtitle(100, 50, 8, 6), 6, 0));      // budget <= gap
+    TEST_CHECK(fits(fit_title_subtitle(100, 50, 8, 8), 8, 0));
+    TEST_CHECK(fits(fit_title_subtitle(100, 50, 8, 0), 0, 0));      // zero budget
+    TEST_CHECK(fits(fit_title_subtitle(0, 50, 8, 400), 0, 50));     // no title
+    TEST_CHECK(near(blaze4k::kSubtitleMinShare, 0.4f));
+
+    // Non-finite and negative inputs count as 0, and outputs stay finite and >= 0.
+    const float nan = std::nanf("");
+    const float inf = INFINITY;
+    for (const float bad : {nan, inf, -inf, -5.0f}) {
+        for (const TitleSubtitleFit f :
+             {fit_title_subtitle(bad, 50, 8, 400), fit_title_subtitle(100, bad, 8, 400),
+              fit_title_subtitle(100, 50, bad, 400), fit_title_subtitle(100, 50, 8, bad)}) {
+            TEST_CHECK(std::isfinite(f.title_max_w) && f.title_max_w >= 0.0f);
+            TEST_CHECK(std::isfinite(f.subtitle_max_w) && f.subtitle_max_w >= 0.0f);
+        }
+    }
+    TEST_CHECK(fits(fit_title_subtitle(100, nan, 8, 400), 100, 0));
+    TEST_CHECK(fits(fit_title_subtitle(100, 50, 8, inf), 0, 0));
+    TEST_CHECK(fits(fit_title_subtitle(100, 50, -3, 400), 100, 50)); // gap -> 0
+
+    // Invariants over a grid.
+    const float values[] = {0, 1, 7.5f, 40, 100, 291.9f, 292, 399, 400, 1000, 5000};
+    const float gaps[] = {0, 8, 10, 50};
+    for (const float t : values) {
+        for (const float s : values) {
+            for (const float g : gaps) {
+                for (const float b : values) {
+                    const TitleSubtitleFit f = fit_title_subtitle(t, s, g, b);
+                    TEST_CHECK(std::isfinite(f.title_max_w) && f.title_max_w >= 0.0f);
+                    TEST_CHECK(std::isfinite(f.subtitle_max_w) && f.subtitle_max_w >= 0.0f);
+                    TEST_CHECK(f.title_max_w <= t);
+                    TEST_CHECK(f.subtitle_max_w <= s);
+                    TEST_CHECK(f.title_max_w <= b);
+                    if (f.subtitle_max_w > 0.0f) {
+                        TEST_CHECK(f.title_max_w + g + f.subtitle_max_w <= b + 1e-3f);
+                        // The subtitle keeps its whole width or >= 40% of the space after the gap.
+                        TEST_CHECK(f.subtitle_max_w >= std::min(s, (b - g) * 0.4f) - 1e-3f);
+                    }
+                }
+            }
+        }
+    }
+    std::cout << "  - subtitle display choice and title/subtitle fit ok.\n";
+}
+
 void test_malformed_draw_smoke() {
     blaze4k::GlQuadRenderer renderer; // uninitialized: safe no-op
     std::mt19937 rng{77};
@@ -251,6 +347,7 @@ int main() {
     test_text_width_multibyte();
     test_coverage();
     test_translit_fallback();
+    test_subtitle_display_and_fit();
     test_malformed_draw_smoke();
     test_truncate_to_cells();
     test_chart_display_label();

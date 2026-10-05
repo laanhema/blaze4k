@@ -486,7 +486,7 @@ void test_styles_prebaked() {
           setup::kPlatePendingStyle, setup::kNoticeStyle}) {
         TEST_CHECK(prebaked(style));
     }
-    TEST_CHECK(theme::text::kAllStyles.size() == 26);
+    TEST_CHECK(theme::text::kAllStyles.size() == 30);
     std::cout << "  - styles share pre-baked atlases ok.\n";
 }
 

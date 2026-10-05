@@ -43,6 +43,7 @@ inline constexpr Vec2 kTitleSpritePos{theme::layout::kTopBarPadX, 9.0f};
 // cabinet-v3-results.png (#95) unless noted.
 inline constexpr float kBarRight = theme::layout::kRefWidth - theme::layout::kTopBarPadX; // 1240
 inline constexpr float kBarGap = 16.0f;          // plate -> title and title -> artist
+inline constexpr float kBarSubtitleGap = 8.0f;   // title -> subtitle (#110)
 inline constexpr float kBarLeftLimit = 360.0f;   // clear of the 40..340 title sprite
 inline constexpr float kBarArtistMax = 240.0f;   // Blaze 4k cap (long artists truncate)
 inline constexpr float kBarBadgeTextMax = 200.0f; // Blaze 4k cap (long Edit names truncate)
@@ -118,6 +119,12 @@ static_assert(theme::layout::kStatPanelTop + kStatPanelHeights[0] + theme::layou
 // badge plate). Inputs are untruncated reference widths; a non-positive (or
 // non-finite) width takes no room and no gap. The artist is capped at 240 and
 // the badge text at 200; the title gets what is left down to kBarLeftLimit.
+// With a subtitle (subtitle_w > 0, #110) the title slot is sized for
+// "title + kBarSubtitleGap + subtitle" and split by fit_title_subtitle; the
+// subtitle sits kBarSubtitleGap after the title's slot (nominal x: the screen
+// re-derives it from the measured fitted title). With no subtitle (<= 0 or
+// non-finite) every field is identical to the three-width layout, and
+// subtitle_x / subtitle_max_w are 0.
 struct TopBarLayout {
     Rect plate{};               // badge plate (w == 0: no plate)
     float badge_text_x = 0.0f;  // plate.x + 12
@@ -126,9 +133,12 @@ struct TopBarLayout {
     float title_max_w = 0.0f;
     float artist_x = 0.0f;
     float artist_max_w = 0.0f;
+    float subtitle_x = 0.0f;
+    float subtitle_max_w = 0.0f;
     float baseline = kBarTextBaseline;
 };
-[[nodiscard]] TopBarLayout top_bar_layout(float badge_text_w, float title_w, float artist_w);
+[[nodiscard]] TopBarLayout top_bar_layout(float badge_text_w, float title_w, float artist_w,
+                                          float subtitle_w = 0.0f);
 
 // Stat panel `i` (clamped to 0..2): {44, 120 / 245 / 370, 360, 111 / 111 / 102}.
 [[nodiscard]] Rect stat_panel_rect(int i);

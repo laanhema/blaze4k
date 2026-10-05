@@ -63,6 +63,14 @@ float centred_top(const TextRenderer& text, const theme::LayoutScale& L, float r
     return L.y(ref_top) + (L.px(ref_h) - text.line_height(style)) * 0.5f;
 }
 
+// Line-box top that puts `sub_style`'s baseline on the baseline of a `title_style`
+// line whose top is `title_top` (window px).
+float baseline_aligned_top(const TextRenderer& text, float title_top,
+                           const theme::TextStyle& title_style,
+                           const theme::TextStyle& sub_style) {
+    return title_top + text.ascent(title_style) - text.ascent(sub_style);
+}
+
 Vec2 lerp(Vec2 a, Vec2 b, float t) {
     return Vec2{a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t};
 }
@@ -468,13 +476,33 @@ void draw_banner(const ThemeTextures* theme, GlQuadRenderer& renderer, const the
 }
 
 void draw_song_info(TextRenderer& text, GlQuadRenderer& renderer, const theme::LayoutScale& L,
-                    std::string_view title, std::string_view artist, std::string_view bpm) {
+                    std::string_view title, std::string_view subtitle, std::string_view artist,
+                    std::string_view bpm) {
     const theme::TextStyle& title_style = theme::text::kSongTitle;
     const theme::TextStyle& artist_style = theme::text::kArtist;
     const theme::TextStyle& bpm_style = theme::text::kBpm;
 
-    text.draw(renderer, text.truncate(title, title_style, L.px(kInfoWidth)), L.x(layout::kInfoX),
-              L.y(layout::kSongTitleTop), title_style, TextAlign::Left);
+    if (subtitle.empty()) {
+        text.draw(renderer, text.truncate(title, title_style, L.px(kInfoWidth)),
+                  L.x(layout::kInfoX), L.y(layout::kSongTitleTop), title_style, TextAlign::Left);
+    } else {
+        const theme::TextStyle& sub_style = theme::text::kSongSubtitle;
+        const float budget = L.px(kInfoWidth);
+        const float gap = L.px(kSubtitleGap);
+        const TitleSubtitleFit fit = fit_title_subtitle(
+            text.measure(title, title_style), text.measure(subtitle, sub_style), gap, budget);
+        const std::string fitted_title = text.truncate(title, title_style, fit.title_max_w);
+        const float title_top = L.y(layout::kSongTitleTop);
+        text.draw(renderer, fitted_title, L.x(layout::kInfoX), title_top, title_style,
+                  TextAlign::Left);
+        const std::string fitted_sub = text.truncate(subtitle, sub_style, fit.subtitle_max_w);
+        if (!fitted_sub.empty()) {
+            text.draw(renderer, fitted_sub,
+                      L.x(layout::kInfoX) + text.measure(fitted_title, title_style) + gap,
+                      baseline_aligned_top(text, title_top, title_style, sub_style), sub_style,
+                      TextAlign::Left);
+        }
+    }
 
     const float bpm_w = text.measure(bpm, bpm_style);
     const float artist_budget = std::max(0.0f, L.px(kInfoWidth) - bpm_w - L.px(kArtistBpmGap));
@@ -619,6 +647,25 @@ void draw_wheel(const ThemeTextures* theme, TextRenderer* text, GlQuadRenderer& 
         const float text_dx = art == WheelArt::Selected ? kWheelSelectedTextX
                               : art == WheelArt::Pack   ? kWheelPackTextX
                                                         : kWheelSongTextX;
+        const theme::TextStyle& sub_style = art == WheelArt::Selected
+                                                ? theme::text::kWheelSelectedSubtitle
+                                                : theme::text::kWheelSubtitle;
+        const float gap = L.px(kSubtitleGap);
+        auto has_subtitle = [&](const WheelRowView& view) {
+            return art != WheelArt::Pack && !view.subtitle.empty();
+        };
+        // The fitted title and the subtitle's width budget for a row with a subtitle.
+        struct RowFit {
+            std::string title;
+            float subtitle_max_w = 0.0f;
+        };
+        auto fit_row = [&](const WheelRowView& view, float budget) {
+            const TitleSubtitleFit fit =
+                fit_title_subtitle(text->measure(view.label, style),
+                                   text->measure(view.subtitle, sub_style), gap, budget);
+            return RowFit{text->truncate(view.label, style, fit.title_max_w), fit.subtitle_max_w};
+        };
+        // Titles first, then the subtitles of the same rows (text grouped by style).
         for (const WheelRowView& view : rows) {
             if (view.art != art || !drawn(view)) {
                 continue;
@@ -626,8 +673,30 @@ void draw_wheel(const ThemeTextures* theme, TextRenderer* text, GlQuadRenderer& 
             const Rect r = row_rect(view);
             const float text_x = r.x + text_dx;
             const float budget = std::max(0.0f, L.px(kWheelTextRight - text_x));
-            text->draw(renderer, text->truncate(view.label, style, budget), L.x(text_x),
+            if (!has_subtitle(view)) {
+                text->draw(renderer, text->truncate(view.label, style, budget), L.x(text_x),
+                           centred_top(*text, L, r.y, r.h, style), style, TextAlign::Left);
+                continue;
+            }
+            text->draw(renderer, fit_row(view, budget).title, L.x(text_x),
                        centred_top(*text, L, r.y, r.h, style), style, TextAlign::Left);
+        }
+        for (const WheelRowView& view : rows) {
+            if (view.art != art || !drawn(view) || !has_subtitle(view)) {
+                continue;
+            }
+            const Rect r = row_rect(view);
+            const float text_x = r.x + text_dx;
+            const float budget = std::max(0.0f, L.px(kWheelTextRight - text_x));
+            const RowFit fit = fit_row(view, budget);
+            const std::string sub = text->truncate(view.subtitle, sub_style, fit.subtitle_max_w);
+            if (sub.empty()) {
+                continue;
+            }
+            const float title_top = centred_top(*text, L, r.y, r.h, style);
+            text->draw(renderer, sub, L.x(text_x) + text->measure(fit.title, style) + gap,
+                       baseline_aligned_top(*text, title_top, style, sub_style), sub_style,
+                       TextAlign::Left);
         }
     };
 

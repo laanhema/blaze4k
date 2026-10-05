@@ -807,13 +807,13 @@ void test_headless_renderer() {
 // --- 9. Style list --------------------------------------------------------------------------
 
 void test_all_styles() {
-    TEST_CHECK(theme::text::kAllStyles.size() == 26);
+    TEST_CHECK(theme::text::kAllStyles.size() == 30);
     std::set<std::pair<int, float>> pairs;
     for (const theme::TextStyle& style : theme::text::kAllStyles) {
         pairs.emplace(static_cast<int>(style.font), style.size_px);
     }
     TEST_CHECK(pairs.size() == 13);
-    std::cout << "  - kAllStyles: 26 styles, 13 unique (font, size) pairs ok.\n";
+    std::cout << "  - kAllStyles: 30 styles, 13 unique (font, size) pairs ok.\n";
 }
 
 } // namespace
