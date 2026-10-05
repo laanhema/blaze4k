@@ -289,4 +289,19 @@ private:
     std::array<bool, theme::kFontCount> warned_fallback_{};
 };
 
+// `style` with its colour replaced by `color`. Pure.
+[[nodiscard]] constexpr theme::TextStyle with_color(theme::TextStyle style, Color color) {
+    style.color = color;
+    return style;
+}
+
+// Reference-px width of `s` in `style` (TextRenderer measures at its scale, so
+// this divides the scale back out; the raw width when the scale is <= 0).
+[[nodiscard]] inline float ref_measure(const TextRenderer& text, std::string_view s,
+                                       const theme::TextStyle& style) {
+    const float scale = text.scale();
+    const float w = text.measure(s, style);
+    return scale > 0.0f ? w / scale : w;
+}
+
 } // namespace blaze4k

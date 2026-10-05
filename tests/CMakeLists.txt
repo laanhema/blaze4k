@@ -340,6 +340,13 @@ target_link_libraries(results_screen_test PRIVATE
     blaze4k_core
 )
 
+# #95: the Cabinet score screen render smoke and grade-texture checks use the
+# real theme manifest and fonts (headless).
+target_compile_definitions(results_screen_test PRIVATE
+    BLAZE4K_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+    BLAZE4K_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets"
+)
+
 add_test(NAME results_screen_test COMMAND results_screen_test)
 
 add_executable(results_anim_test

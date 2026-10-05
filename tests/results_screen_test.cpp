@@ -1,8 +1,15 @@
+#include <array>
+#include <cmath>
 #include <cstdint>
 #include <cstdlib>
+#include <filesystem>
+#include <fstream>
 #include <iostream>
+#include <limits>
 #include <memory>
+#include <sstream>
 #include <string>
+#include <string_view>
 #include <vector>
 
 #include "chart/chart.hpp"
@@ -11,14 +18,19 @@
 #include "data/config.hpp"
 #include "data/high_scores.hpp"
 #include "gameplay/gameplay_options.hpp"
-#include "render/bitmap_font.hpp"
+#include "gameplay/hud_renderer.hpp"
 #include "render/gl_quad_renderer.hpp"
+#include "render/theme.hpp"
+#include "render/theme_textures.hpp"
+#include "render/ttf_font.hpp"
 #include "screens/gameplay_screen.hpp"
 #include "screens/play_request.hpp"
 #include "screens/results.hpp"
+#include "screens/results_art.hpp"
 #include "screens/results_screen.hpp"
 #include "screens/screen.hpp"
 #include "screens/screen_manager.hpp"
+#include "timing/judgment_constants.hpp"
 
 #define TEST_CHECK(expr) \
     do { \
@@ -43,6 +55,60 @@ using blaze4k::ScreenId;
 using blaze4k::Song;
 
 constexpr double kDt = 0.1;
+
+const std::filesystem::path kSourceDir{BLAZE4K_SOURCE_DIR};
+const std::filesystem::path kCabinet =
+    std::filesystem::path{BLAZE4K_ASSETS_DIR} / "theme" / "cabinet";
+
+// Real headless theme + text services (#95): measuring and truncation work
+// without GL; draws are no-ops.
+blaze4k::ThemeTextures& loaded_theme() {
+    static blaze4k::ThemeTextures theme;
+    static const bool loaded = theme.load(kCabinet);
+    if (!loaded) {
+        std::cerr << "theme failed to load from " << kCabinet << "\n";
+        std::abort();
+    }
+    return theme;
+}
+
+blaze4k::TextRenderer& loaded_text() {
+    static blaze4k::TextRenderer text;
+    static const bool loaded = text.load(kSourceDir);
+    if (!loaded) {
+        std::cerr << "fonts failed to load from " << kSourceDir << "\n";
+        std::abort();
+    }
+    text.set_window_size(1280, 720);
+    return text;
+}
+
+const blaze4k::ThemeManifest& real_manifest() {
+    static const blaze4k::ThemeManifest manifest = [] {
+        std::ifstream in(kCabinet / "manifest.json", std::ios::binary);
+        std::ostringstream buffer;
+        buffer << in.rdbuf();
+        return blaze4k::parse_theme_manifest(buffer.str());
+    }();
+    return manifest;
+}
+
+bool near(float a, float b, float tol = 1e-3f) {
+    return std::fabs(a - b) <= tol;
+}
+
+bool same_color(blaze4k::Color a, blaze4k::Color b) {
+    return a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
+}
+
+bool digits_only(std::string_view text) {
+    for (const char c : text) {
+        if (blaze4k::digit_glyph_index(c) < 0) {
+            return false;
+        }
+    }
+    return true;
+}
 
 InputEvent press(GameAction action) {
     InputEvent event;
@@ -275,6 +341,31 @@ void test_invalid_summary_exits_immediately() {
     std::cout << "  - invalid summary exits on first press ok.\n";
 }
 
+// 4e. The hint word (owner decision 6): ENTER SKIP while the reveal runs, ENTER
+//     CONTINUE once it settles (skipped or played out) and on a NO RESULT screen.
+void test_hint_word() {
+    ResultsFixture skipped;
+    skipped.start();
+    TEST_CHECK(skipped.results->hint_word() == "SKIP");
+    skipped.manager.update(kDt, {press(GameAction::Confirm)});
+    TEST_CHECK(skipped.manager.active_id() == ScreenId::Results);
+    TEST_CHECK(skipped.results->hint_word() == "CONTINUE");
+
+    ResultsFixture played;
+    played.start();
+    for (int i = 0; i < 1000 && !played.results->reveal_finished(); ++i) {
+        played.manager.update(0.1, {});
+    }
+    TEST_CHECK(played.results->reveal_finished());
+    TEST_CHECK(played.results->hint_word() == "CONTINUE");
+
+    ResultsFixture empty;
+    empty.start(false);
+    TEST_CHECK(!empty.results->reveal_finished());
+    TEST_CHECK(empty.results->hint_word() == "CONTINUE");
+    std::cout << "  - hint word SKIP -> CONTINUE ok.\n";
+}
+
 // 5. Back goes through the manager default to the wheel (AC3, no dead end).
 void test_back_returns_to_wheel() {
     ResultsFixture fx;
@@ -303,46 +394,340 @@ void test_render_and_reenter() {
     std::cout << "  - headless render + re-enter robustness ok.\n";
 }
 
-// 6b. Difficulty line (#84): Edit charts show their name, everything else is
-//     unchanged, and a long name is shortened to fit the line.
-void test_difficulty_line() {
-    using blaze4k::results_difficulty_line;
-    const float line_1280 = 0.9f * 1280.0f;
+// 6b. Screen title: the baked sprite exists, with the text fallback (#95).
+void test_screen_title_text() {
+    TEST_CHECK(blaze4k::results_art::kScreenTitleText == "SCORE SCREEN");
+    const auto it = real_manifest().textures.find("title_score_screen");
+    TEST_CHECK(it != real_manifest().textures.end());
+    TEST_CHECK(it->second.kind == blaze4k::ThemeKind::Sprite);
+    std::cout << "  - SCORE SCREEN title sprite + fallback text ok.\n";
+}
 
-    TEST_CHECK(results_difficulty_line(nullptr, line_1280, 2.0f) == "UNKNOWN");
+// 6c. Every compiled grade tier maps to a 680x400 @2x grade sprite; tier labels.
+void test_grade_textures() {
+    namespace art = blaze4k::results_art;
+    const auto& tiers = blaze4k::JudgmentConstants::compiled_defaults().grade_tiers;
+    for (const blaze4k::GradeTier& tier : tiers) {
+        const std::string name = art::grade_texture_name(tier.label);
+        const auto it = real_manifest().textures.find(name);
+        TEST_CHECK(it != real_manifest().textures.end());
+        TEST_CHECK(it->second.kind == blaze4k::ThemeKind::Sprite);
+        TEST_CHECK(it->second.content.w == 680 && it->second.content.h == 400);
+        TEST_CHECK(near(art::kGradeContentRef.x * real_manifest().texture_scale, 680.0f));
+        TEST_CHECK(near(art::kGradeContentRef.y * real_manifest().texture_scale, 400.0f));
+        TEST_CHECK(!art::grade_tier_text(tier.label).empty());
+    }
+    TEST_CHECK(art::grade_texture_name("quad_star") == "grade_quad_star");
+    TEST_CHECK(art::grade_texture_name("S+") == "grade_S_plus");
+    TEST_CHECK(art::grade_texture_name("A-") == "grade_A_minus");
+    TEST_CHECK(art::grade_texture_name("D") == "grade_D");
+    TEST_CHECK(art::grade_texture_name("").empty());
 
-    Chart hard = make_chart();
-    hard.description = "Some Author";
-    TEST_CHECK(results_difficulty_line(&hard, line_1280, 2.0f) == "Hard 9");
+    TEST_CHECK(art::grade_tier_text("quad_star") == "FOUR STARS");
+    TEST_CHECK(art::grade_tier_text("triple_star") == "THREE STARS");
+    TEST_CHECK(art::grade_tier_text("double_star") == "TWO STARS");
+    TEST_CHECK(art::grade_tier_text("single_star") == "ONE STAR");
+    TEST_CHECK(art::grade_tier_text("S+") == "GRADE S+");
+    TEST_CHECK(art::grade_tier_text("").empty());
+    std::cout << "  - grade textures + tier labels ok.\n";
+}
 
-    Chart edit = make_chart();
-    edit.difficulty = "Edit";
-    edit.meter = 10;
-    edit.description = "JBEAN";
-    TEST_CHECK(results_difficulty_line(&edit, line_1280, 2.0f) == "JBEAN 10");
-    // Results has more room than the select bar: the real-data Bagpipe name fits whole.
-    edit.description = "mDaWg & Hatena Zubon";
-    TEST_CHECK(results_difficulty_line(&edit, line_1280, 2.0f) == "mDaWg & Hatena Zubon 10");
+// 6d. Only 0-9 . % / and space ever reach BitmapDigits (negative DP shows 0).
+void test_digit_strings() {
+    namespace art = blaze4k::results_art;
+    TEST_CHECK(art::digits_text(-48) == "0");
+    TEST_CHECK(art::digits_text(0) == "0");
+    TEST_CHECK(art::digits_text(1928) == "1928");
 
-    Chart unnamed = edit;
-    unnamed.description.clear();
-    TEST_CHECK(results_difficulty_line(&unnamed, line_1280, 2.0f) == "Edit 10");
+    ResultsFixture fx;
+    fx.summary.actual_dp = -30;
+    fx.summary.possible_dp = 2000;
+    fx.summary.max_combo = -1;
+    fx.summary.hold_counts = {12, 3};
+    fx.summary.tap_counts[static_cast<std::size_t>(blaze4k::TapJudgment::HitMine)] = 4;
+    fx.start();
+    TEST_CHECK(fx.results->dp_text() == "0");
+    TEST_CHECK(fx.results->dp_max_text() == "/ 2000");
+    TEST_CHECK(fx.results->max_combo_text() == "0");
+    TEST_CHECK(fx.results->hold_texts()[0] == "12");
+    TEST_CHECK(fx.results->hold_texts()[1] == "3");
+    TEST_CHECK(fx.results->hold_texts()[2] == "4"); // MINES = mines stepped on
+    TEST_CHECK(digits_only(fx.results->dp_text()));
+    TEST_CHECK(digits_only(fx.results->dp_max_text()));
+    TEST_CHECK(digits_only(fx.results->max_combo_text()));
+    for (const std::string& text : fx.results->hold_texts()) {
+        TEST_CHECK(!text.empty());
+        TEST_CHECK(digits_only(text));
+    }
+    for (const double p : {-2.4, 0.0, 0.9642, 1.0, 1.5}) {
+        TEST_CHECK(digits_only(blaze4k::format_percent(p)));
+    }
+    std::cout << "  - digit strings stay inside the atlas glyph set ok.\n";
+}
 
-    Chart long_edit = edit;
-    long_edit.description = std::string(200, 'W');
-    const std::string line = results_difficulty_line(&long_edit, line_1280, 2.0f);
-    TEST_CHECK(blaze4k::text_width(line, 2.0f) <= line_1280);
-    TEST_CHECK(line.find("... 10") != std::string::npos);
-    // Narrow / degenerate widths clamp the name to 9 cells, no underflow.
-    TEST_CHECK(results_difficulty_line(&long_edit, 0.0f, 2.0f) == "WWWWWW... 10");
-    TEST_CHECK(results_difficulty_line(&long_edit, line_1280, 0.0f) == "WWWWWW... 10");
+// 6e. Top bar group: artist, title and badge plate right-aligned at 1240.
+void test_top_bar_layout() {
+    namespace art = blaze4k::results_art;
+    // Mock: "HARD 8" ~59, "Anubis"-like title ~118, artist ~50.
+    const art::TopBarLayout mock = art::top_bar_layout(59.0f, 118.0f, 50.0f);
+    TEST_CHECK(near(mock.artist_x, 1190.0f));
+    TEST_CHECK(near(mock.artist_max_w, 50.0f));
+    TEST_CHECK(near(mock.title_x, 1056.0f));
+    TEST_CHECK(near(mock.title_max_w, 118.0f));
+    TEST_CHECK(near(mock.plate.x, 957.0f) && near(mock.plate.y, 16.0f));
+    TEST_CHECK(near(mock.plate.w, 83.0f) && near(mock.plate.h, 32.0f));
+    TEST_CHECK(near(mock.plate.x + mock.plate.w, 1040.0f)); // mock plate ink 957..1040
+    TEST_CHECK(near(mock.badge_text_x, 969.0f));
+    TEST_CHECK(near(mock.badge_text_max_w, 59.0f));
+    TEST_CHECK(near(mock.baseline, 40.0f));
+
+    // No artist: the title ends at 1240.
+    const art::TopBarLayout no_artist = art::top_bar_layout(59.0f, 118.0f, 0.0f);
+    TEST_CHECK(near(no_artist.artist_max_w, 0.0f));
+    TEST_CHECK(near(no_artist.title_x + no_artist.title_max_w, 1240.0f));
+
+    // A 2000px title is clamped so the plate stays clear of the title sprite.
+    const art::TopBarLayout long_title = art::top_bar_layout(59.0f, 2000.0f, 50.0f);
+    TEST_CHECK(long_title.plate.x >= art::kBarLeftLimit - 1e-3f);
+    TEST_CHECK(long_title.title_max_w < 2000.0f);
+    // Long artist and badge texts are capped.
+    const art::TopBarLayout long_all = art::top_bar_layout(900.0f, 2000.0f, 900.0f);
+    TEST_CHECK(near(long_all.artist_max_w, art::kBarArtistMax));
+    TEST_CHECK(near(long_all.badge_text_max_w, art::kBarBadgeTextMax));
+    TEST_CHECK(long_all.plate.x >= art::kBarLeftLimit - 1e-3f);
+
+    // No badge text: no plate.
+    const art::TopBarLayout no_badge = art::top_bar_layout(0.0f, 118.0f, 50.0f);
+    TEST_CHECK(no_badge.plate.w == 0.0f);
+    TEST_CHECK(near(no_badge.title_x, 1056.0f));
+
+    // Non-finite input never produces NaN.
+    const float inf = std::numeric_limits<float>::infinity();
+    const float nan = std::numeric_limits<float>::quiet_NaN();
+    const art::TopBarLayout bad = art::top_bar_layout(nan, inf, -inf);
+    for (const float v : {bad.plate.x, bad.plate.w, bad.title_x, bad.title_max_w, bad.artist_x,
+                          bad.artist_max_w, bad.badge_text_x, bad.badge_text_max_w}) {
+        TEST_CHECK(std::isfinite(v));
+    }
+    std::cout << "  - top bar layout ok.\n";
+}
+
+// 6f. Stat panels: measured rects, slanted text x, holds columns.
+void test_stat_panels() {
+    namespace art = blaze4k::results_art;
+    const blaze4k::Rect p0 = art::stat_panel_rect(0);
+    const blaze4k::Rect p1 = art::stat_panel_rect(1);
+    const blaze4k::Rect p2 = art::stat_panel_rect(2);
+    TEST_CHECK(near(p0.x, 44.0f) && near(p0.y, 120.0f) && near(p0.w, 360.0f) && near(p0.h, 111.0f));
+    TEST_CHECK(near(p1.x, 44.0f) && near(p1.y, 245.0f) && near(p1.w, 360.0f) && near(p1.h, 111.0f));
+    TEST_CHECK(near(p2.x, 44.0f) && near(p2.y, 370.0f) && near(p2.w, 360.0f) && near(p2.h, 102.0f));
+    TEST_CHECK(near(art::stat_panel_rect(-3).y, p0.y));
+    TEST_CHECK(near(art::stat_panel_rect(9).y, p2.y));
+
+    // Mock label ink x 69 (line top +14, cap centre +14.5) and value ink x 64 (baseline 86).
+    const float label_x = art::stat_text_x(p0, p0.y + art::kStatLabelTop + art::kStatLabelCapCentre);
+    const float value_x = art::stat_text_x(p0, p0.y + art::kValueBaseline - art::kDigitCapHalfRef);
+    TEST_CHECK(near(label_x, 67.807f, 0.01f));
+    TEST_CHECK(near(value_x, 62.026f, 0.01f));
+    TEST_CHECK(std::isfinite(art::stat_text_x(p0, std::numeric_limits<float>::quiet_NaN())));
+
+    // Mock: HOLDS OK -> NG -> MINES ink at 69 / 192 / 246.
+    const std::array<float, 3> cols = art::hold_columns({89.0f, 21.0f, 56.0f}, {59.0f, 9.0f, 33.0f});
+    TEST_CHECK(near(cols[0], 0.0f) && near(cols[1], 123.0f) && near(cols[2], 178.0f));
+    // A four-digit hold count wider than its label pushes the next column right.
+    const std::array<float, 3> wide = art::hold_columns({89.0f, 21.0f, 56.0f}, {120.0f, 9.0f, 33.0f});
+    TEST_CHECK(near(wide[1], 154.0f) && near(wide[2], 209.0f));
+    std::cout << "  - stat panels layout ok.\n";
+}
+
+// 6g. Judgment rows: mock coordinates and proportional fills.
+void test_judgment_rows() {
+    namespace art = blaze4k::results_art;
+    const art::JudgmentRowLayout r0 = art::judgment_row_layout(0);
+    TEST_CHECK(near(r0.label_x, 878.0f) && near(r0.baseline, 145.0f));
+    TEST_CHECK(near(r0.bar.x, 1018.0f) && near(r0.bar.y, 131.0f));
+    TEST_CHECK(near(r0.bar.w, 154.0f) && near(r0.bar.h, 14.0f));
+    TEST_CHECK(near(r0.count_right, 1238.0f));
+    const art::JudgmentRowLayout r5 = art::judgment_row_layout(5);
+    TEST_CHECK(near(r5.baseline, 370.0f) && near(r5.bar.y, 356.0f) && near(r5.bar.x, 1018.0f));
+    TEST_CHECK(near(art::judgment_row_layout(42).baseline, r5.baseline));
+    TEST_CHECK(art::kJudgmentRowLabels[0] == "FANTASTIC" && art::kJudgmentRowLabels[5] == "MISS");
+    TEST_CHECK(same_color(art::judgment_label_color(5), blaze4k::theme::color::kMissLabel));
+    TEST_CHECK(same_color(art::judgment_row_color(5), blaze4k::theme::color::kMiss));
+    TEST_CHECK(same_color(art::judgment_label_color(0), blaze4k::theme::color::kFantastic));
+
+    TEST_CHECK(near(art::judgment_bar_fill_width(312, 362, 154.0f), 154.0f * 312.0f / 362.0f));
+    TEST_CHECK(near(art::judgment_bar_fill_width(1, 362, 154.0f), 2.0f));
+    TEST_CHECK(art::judgment_bar_fill_width(0, 362, 154.0f) == 0.0f);
+    TEST_CHECK(near(art::judgment_bar_fill_width(5, 3, 154.0f), 154.0f));
+    TEST_CHECK(art::judgment_bar_fill_width(5, 0, 154.0f) == 0.0f);
+    TEST_CHECK(art::judgment_bar_fill_width(-1, 10, 154.0f) == 0.0f);
+
+    ResultsSummary summary;
+    summary.tap_counts = {312, 40, 6, 1, 0, 2, 9}; // HitMine = 9 is excluded
+    TEST_CHECK(art::judged_tap_total(summary) == 361);
+    std::cout << "  - judgment rows layout + fills ok.\n";
+}
+
+// 6h. Ribbon and grade rects keep their centres when scaled.
+void test_ribbon_and_grade_rects() {
+    namespace art = blaze4k::results_art;
+    const blaze4k::Rect& ribbon = blaze4k::theme::layout::kRecordRibbon;
+    const blaze4k::Rect r1 = art::ribbon_rect(1.0f);
+    TEST_CHECK(near(r1.x, ribbon.x) && near(r1.y, ribbon.y) && near(r1.w, ribbon.w) &&
+               near(r1.h, ribbon.h));
+    const blaze4k::Rect r2 = art::ribbon_rect(2.0f);
+    TEST_CHECK(near(r2.x + r2.w * 0.5f, 640.0f) && near(r2.y + r2.h * 0.5f, 622.0f));
+    TEST_CHECK(near(r2.w, 680.0f) && near(r2.h, 88.0f));
+
+    const blaze4k::Rect g1 = art::grade_rect(art::kGradeContentRef, 1.0f);
+    TEST_CHECK(near(g1.x, 470.0f) && near(g1.y, 186.0f) && near(g1.w, 340.0f) && near(g1.h, 200.0f));
+    const blaze4k::Rect g24 = art::grade_rect(art::kGradeContentRef, 2.4f);
+    TEST_CHECK(near(g24.x + g24.w * 0.5f, 640.0f) && near(g24.y + g24.h * 0.5f, 286.0f));
+    TEST_CHECK(near(g24.w, 816.0f, 0.01f));
+    const blaze4k::Rect bad = art::grade_rect(art::kGradeContentRef,
+                                              std::numeric_limits<float>::quiet_NaN());
+    TEST_CHECK(std::isfinite(bad.x) && bad.w == 0.0f);
+    std::cout << "  - ribbon + grade rects ok.\n";
+}
+
+// 6i. enter() caches the badge (#93 rule) and the display strings; Edit charts
+//     show their name, which never changes the high-score key.
+void test_enter_caches_badge() {
+    ResultsFixture fx;
+    fx.start();
+    TEST_CHECK(fx.results->badge().label == "HARD");
+    TEST_CHECK(fx.results->badge().meter == "9");
+    TEST_CHECK(same_color(fx.results->badge().colors.fill, blaze4k::theme::difficulty::kHard.fill));
+    TEST_CHECK(same_color(fx.results->badge().colors.ink, blaze4k::theme::difficulty::kHard.ink));
+    TEST_CHECK(fx.results->display_title() == "Blaze Anthem");
+    TEST_CHECK(fx.results->display_artist() == "Test Artist");
+    TEST_CHECK(fx.results->grade_texture() == "grade_S_plus");
+    TEST_CHECK(fx.results->tier_text() == "GRADE S+");
+    TEST_CHECK(fx.results->dp_text() == "40");
+    TEST_CHECK(fx.results->dp_max_text() == "/ 50");
+    TEST_CHECK(fx.results->max_combo_text() == "7");
+    TEST_CHECK(fx.results->count_texts()[0] == "0");
+
+    ResultsFixture edit;
+    edit.chart.difficulty = "Edit";
+    edit.chart.meter = 10;
+    edit.chart.description = "JBEAN";
+    edit.summary = make_summary(edit.song, edit.chart, "single_star", 1.0);
+    edit.start();
+    TEST_CHECK(edit.results->badge().label == "JBEAN");
+    TEST_CHECK(edit.results->badge().meter == "10");
+    TEST_CHECK(same_color(edit.results->badge().colors.fill, blaze4k::theme::difficulty::kEdit.fill));
+    TEST_CHECK(edit.results->grade_texture() == "grade_single_star");
+    TEST_CHECK(edit.results->tier_text() == "ONE STAR");
+
+    // No chart / song: no badge, "UNKNOWN" title.
+    ResultsFixture bare;
+    bare.summary.chart = nullptr;
+    bare.summary.song = nullptr;
+    bare.start();
+    TEST_CHECK(bare.results->badge().label.empty() && bare.results->badge().meter.empty());
+    TEST_CHECK(bare.results->display_title() == "UNKNOWN");
+    TEST_CHECK(bare.results->display_artist().empty());
+
+    // An invalid summary clears every cached string.
+    ResultsFixture invalid;
+    invalid.start(false);
+    TEST_CHECK(invalid.results->dp_text().empty());
+    TEST_CHECK(invalid.results->tier_text().empty());
+    TEST_CHECK(invalid.results->badge().label.empty());
 
     // The chart name is draw-only: high-score keys ignore the description.
     const Song song = make_song();
-    Chart renamed = edit;
+    Chart named = edit.chart;
+    Chart renamed = edit.chart;
     renamed.description = "Another Name";
-    TEST_CHECK(blaze4k::make_chart_key(song, edit) == blaze4k::make_chart_key(song, renamed));
-    std::cout << "  - difficulty line (Edit chart names) ok.\n";
+    TEST_CHECK(blaze4k::make_chart_key(song, named) == blaze4k::make_chart_key(song, renamed));
+    std::cout << "  - enter caches badge + display strings ok.\n";
+}
+
+// 6j. Headless Cabinet render with the real theme and fonts at several window
+//     sizes for every state (clear, NEW RECORD, failed, named Edit, NO RESULT).
+void render_all_sizes(ResultsFixture& fx, blaze4k::GlQuadRenderer& renderer) {
+    blaze4k::TextRenderer& text = loaded_text();
+    const std::array<std::array<int, 2>, 6> sizes = {
+        {{1280, 720}, {2560, 1440}, {3440, 1440}, {640, 480}, {320, 240}, {0, 0}}};
+    for (int step = 0; step < 30; ++step) {
+        fx.manager.update(0.1, {});
+        for (const auto& size : sizes) {
+            text.set_window_size(size[0], size[1]);
+            fx.manager.render(renderer, size[0], size[1]);
+        }
+    }
+    text.set_window_size(1280, 720);
+}
+
+void test_render_cabinet_headless() {
+    blaze4k::GlQuadRenderer renderer; // uninitialized: draws are no-ops
+    const auto attach = [](ResultsFixture& fx) {
+        fx.manager.context().theme = &loaded_theme();
+        fx.manager.context().text = &loaded_text();
+    };
+
+    // Normal clear (sub-best: no ribbon).
+    {
+        ResultsFixture fx;
+        TEST_CHECK(blaze4k::results_submit_score(
+            fx.scores, make_summary(fx.song, fx.chart, "quad_star", 1.0), 1));
+        attach(fx);
+        fx.start();
+        render_all_sizes(fx, renderer);
+        TEST_CHECK(fx.results->valid());
+        TEST_CHECK(!fx.results->shows_record_finale());
+        TEST_CHECK(fx.results->reveal_finished());
+    }
+    // NEW RECORD.
+    {
+        ResultsFixture fx;
+        fx.summary.tap_counts = {312, 40, 6, 1, 0, 2, 1};
+        fx.summary.hold_counts = {1234, 5};
+        attach(fx);
+        fx.start();
+        TEST_CHECK(fx.results->shows_record_finale());
+        render_all_sizes(fx, renderer);
+        TEST_CHECK(fx.results->valid());
+    }
+    // Failed run: the earned grade + FAILED ribbon.
+    {
+        ResultsFixture fx;
+        fx.summary = make_summary(fx.song, fx.chart, "D", 0.30, true);
+        fx.summary.actual_dp = -120;
+        attach(fx);
+        fx.start();
+        TEST_CHECK(!fx.results->shows_record_finale());
+        TEST_CHECK(fx.results->grade_texture() == "grade_D");
+        render_all_sizes(fx, renderer);
+        TEST_CHECK(fx.results->valid());
+    }
+    // A named Edit chart with a long UTF-8 name.
+    {
+        ResultsFixture fx;
+        fx.chart.difficulty = "Edit";
+        fx.chart.meter = 10;
+        fx.chart.description = "Caf\xC3\xA9 \xE2\x98\xBA " + std::string(100, 'W');
+        fx.song.metadata.title = std::string(300, 'T');
+        fx.song.metadata.artist = std::string(300, 'A');
+        attach(fx);
+        fx.start();
+        render_all_sizes(fx, renderer);
+        TEST_CHECK(fx.results->valid());
+        TEST_CHECK(fx.results->summary().chart == &fx.chart);
+    }
+    // NO RESULT.
+    {
+        ResultsFixture fx;
+        attach(fx);
+        fx.start(false);
+        render_all_sizes(fx, renderer);
+        TEST_CHECK(!fx.results->valid());
+        TEST_CHECK(!fx.results->shows_record_finale());
+    }
+    std::cout << "  - headless Cabinet render (real theme + fonts, 6 sizes, 5 states) ok.\n";
 }
 
 // 6c. Headless render of a results summary for a named Edit chart.
@@ -453,9 +838,18 @@ int main() {
     test_reveal_gating_skip_presses();
     test_new_record_finale_flag();
     test_invalid_summary_exits_immediately();
+    test_hint_word();
     test_back_returns_to_wheel();
     test_render_and_reenter();
-    test_difficulty_line();
+    test_screen_title_text();
+    test_grade_textures();
+    test_digit_strings();
+    test_top_bar_layout();
+    test_stat_panels();
+    test_judgment_rows();
+    test_ribbon_and_grade_rects();
+    test_enter_caches_badge();
+    test_render_cabinet_headless();
     test_render_edit_chart();
     test_gameplay_to_results_end_to_end();
     std::cout << "[results_screen_test] All tests passed!\n";
