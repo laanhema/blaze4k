@@ -1,51 +1,19 @@
 #include "gameplay/hud_renderer.hpp"
 
 #include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
 #include <string>
+#include <string_view>
 
-#include "render/bitmap_font.hpp"
 #include "render/gl_quad_renderer.hpp"
+#include "render/theme_layout.hpp"
+#include "render/theme_textures.hpp"
+#include "render/ttf_font.hpp"
+#include "render/unicode_text.hpp"
 
 namespace blaze4k {
-
-namespace {
-
-// Blaze 4k's own presentation palette (unsourced; no OpenITG parity requirement).
-constexpr Color kTextColor{0.95f, 0.97f, 1.0f, 1.0f};
-constexpr Color kFantasticColor{0.40f, 0.90f, 1.00f, 1.0f};
-constexpr Color kExcellentColor{0.55f, 1.00f, 0.45f, 1.0f};
-constexpr Color kGreatColor{1.00f, 0.90f, 0.30f, 1.0f};
-constexpr Color kDecentColor{1.00f, 1.00f, 1.00f, 1.0f};
-constexpr Color kWayOffColor{1.00f, 0.60f, 0.20f, 1.0f};
-constexpr Color kMissColor{1.00f, 0.30f, 0.30f, 1.0f};
-constexpr Color kHoldOkColor{0.45f, 0.65f, 1.00f, 1.0f};
-constexpr Color kHoldNgColor{1.00f, 0.30f, 0.30f, 1.0f};
-
-// Life bar palette + geometry (Blaze 4k presentation, unsourced; no OpenITG parity
-// requirement). The only semantic value is the 0.3 danger threshold.
-constexpr Color kLifeBackColor{0.10f, 0.12f, 0.18f, 0.90f};
-constexpr Color kLifeFrameColor{0.55f, 0.60f, 0.70f, 1.0f};
-constexpr Color kLifeFillColor{0.40f, 0.90f, 1.00f, 1.0f};
-constexpr Color kLifeDangerColor{1.00f, 0.30f, 0.30f, 1.0f};
-constexpr double kLifeDangerThreshold = 0.3;
-constexpr float kLifeBarLeft = 24.0f;          // x of the inner bar
-constexpr float kLifeBarThickness = 16.0f;     // inner bar width
-constexpr float kLifeBarBorder = 2.0f;         // frame thickness on every side
-constexpr float kLifeBarMinThickness = 6.0f;   // narrowest width in very narrow windows
-constexpr float kLifeBarInsetFraction = 0.2f;  // top/bottom inset as a fraction of height
-constexpr float kLifeBarMinInset = 40.0f;      // keeps the frame below the percent text
-
-// HUD text layout (Blaze 4k presentation, unsourced).
-constexpr float kHudEdgeMargin = 8.0f;  // inset of the HUD text from the screen edges
-constexpr float kHudTextPixel = 3.0f;   // bitmap-font pixel for percent/combo
-constexpr float kGlyphRows = 7.0f;      // 5x7 font glyph height, in font pixels
-
-} // namespace
-
-Rect percent_text_rect(const std::string& text) {
-    return Rect{kHudEdgeMargin, kHudEdgeMargin, text_width(text, kHudTextPixel),
-                kGlyphRows * kHudTextPixel};
-}
 
 std::string format_percent(double percent) {
     // Display-clamp to [0,1] (PercentageDisplay.cpp:110-116), then the OpenITG
@@ -74,141 +42,163 @@ std::string format_combo(int combo) {
     return std::to_string(combo);
 }
 
-Color judgment_color(JudgmentKind kind, TapJudgment window, HoldJudgment hold) {
-    (void)hold;
-    switch (kind) {
-        case JudgmentKind::Tap:
-            switch (window) {
-                case TapJudgment::Fantastic: return kFantasticColor;
-                case TapJudgment::Excellent: return kExcellentColor;
-                case TapJudgment::Great: return kGreatColor;
-                case TapJudgment::Decent: return kDecentColor;
-                case TapJudgment::WayOff: return kWayOffColor;
-                case TapJudgment::Miss: return kMissColor;
-                case TapJudgment::HitMine: return kMissColor;
-                case TapJudgment::Num: return kTextColor;
-            }
-            return kTextColor;
-        case JudgmentKind::Miss: return kMissColor;
-        case JudgmentKind::HitMine: return kMissColor;
-        case JudgmentKind::HoldOk:
-        case JudgmentKind::RollOk: return kHoldOkColor;
-        case JudgmentKind::HoldNg:
-        case JudgmentKind::RollNg: return kHoldNgColor;
-        case JudgmentKind::AvoidedMine:
-        case JudgmentKind::RollHit: return kTextColor;
-    }
-    return kTextColor;
-}
-
-void HudRenderer::render(const ScoreState& state, int screen_w, int screen_h,
-                         GlQuadRenderer& renderer) const {
-    if (screen_w <= 0 || screen_h <= 0) {
-        return;
-    }
-
-    const float width = static_cast<float>(screen_w);
-    const float main_pixel = kHudTextPixel;
-
-    // Top-left: live percent.
-    const std::string percent_text = format_percent(state.percent);
-    const Rect percent_rect = percent_text_rect(percent_text);
-    draw_text(renderer, percent_text, percent_rect.x, percent_rect.y, main_pixel, kTextColor);
-
-    // Top-centre: live combo.
-    const std::string combo_text = format_combo(state.combo) + "x";
-    draw_text(renderer, combo_text, (width - text_width(combo_text, main_pixel)) * 0.5f, 8.0f,
-              main_pixel, kTextColor);
-
-    // Top-right: color-coded per-window judgment chips (tap windows + hold outcomes).
-    const float chip_pixel = 2.0f;
-    const float square = 10.0f;
-    const float gap = 4.0f;
-    const float right = width - 8.0f;
-    float chip_y = 8.0f;
-
-    const auto draw_chip = [&](int count, Color color, float& y) {
-        const std::string count_text = std::to_string(count);
-        const float row_total = square + gap + text_width(count_text, chip_pixel);
-        const float x = right - row_total;
-        renderer.draw_quad(Rect{x, y, square, square}, color);
-        draw_text(renderer, count_text, x + square + gap, y, chip_pixel, kTextColor);
-        y += square + gap;
-    };
-
-    draw_chip(state.tap_counts[static_cast<std::size_t>(TapJudgment::Fantastic)],
-              judgment_color(JudgmentKind::Tap, TapJudgment::Fantastic, HoldJudgment::Num), chip_y);
-    draw_chip(state.tap_counts[static_cast<std::size_t>(TapJudgment::Excellent)],
-              judgment_color(JudgmentKind::Tap, TapJudgment::Excellent, HoldJudgment::Num), chip_y);
-    draw_chip(state.tap_counts[static_cast<std::size_t>(TapJudgment::Great)],
-              judgment_color(JudgmentKind::Tap, TapJudgment::Great, HoldJudgment::Num), chip_y);
-    draw_chip(state.tap_counts[static_cast<std::size_t>(TapJudgment::Decent)],
-              judgment_color(JudgmentKind::Tap, TapJudgment::Decent, HoldJudgment::Num), chip_y);
-    draw_chip(state.tap_counts[static_cast<std::size_t>(TapJudgment::WayOff)],
-              judgment_color(JudgmentKind::Tap, TapJudgment::WayOff, HoldJudgment::Num), chip_y);
-    draw_chip(state.tap_counts[static_cast<std::size_t>(TapJudgment::Miss)],
-              judgment_color(JudgmentKind::Miss, TapJudgment::Miss, HoldJudgment::Num), chip_y);
-    draw_chip(state.hold_counts[static_cast<std::size_t>(HoldJudgment::Ok)],
-              judgment_color(JudgmentKind::HoldOk, TapJudgment::Num, HoldJudgment::Ok), chip_y);
-    draw_chip(state.hold_counts[static_cast<std::size_t>(HoldJudgment::Ng)],
-              judgment_color(JudgmentKind::HoldNg, TapJudgment::Num, HoldJudgment::Ng), chip_y);
-}
-
 LifeBarLayout layout_life_bar(double life, int screen_w, int screen_h, double field_left) {
     LifeBarLayout layout;
     if (screen_w <= 0 || screen_h <= 0) {
         return layout;
     }
 
-    double clamped = life;
-    if (clamped < 0.0) {
-        clamped = 0.0;
-    } else if (clamped > 1.0) {
-        clamped = 1.0;
-    }
-    layout.danger = clamped < kLifeDangerThreshold;
+    double clamped = std::isnan(life) ? 0.0 : life;
+    clamped = std::clamp(clamped, 0.0, 1.0);
+    layout.fraction = static_cast<float>(clamped);
+    layout.danger = clamped < theme::color::kLifeDangerThreshold;
 
-    // Vertical: centred, inset top and bottom by max(20% of height, 40 px).
-    const float height = static_cast<float>(screen_h);
-    const float inset = std::max(height * kLifeBarInsetFraction, kLifeBarMinInset);
-    const float y = inset;
-    const float bar_h = std::max(0.0f, height - 2.0f * inset);
+    const theme::LayoutScale L = theme::layout_scale(screen_w, screen_h);
+    const float border = L.px(kLifeFrameBorderRef);
+    layout.border = border;
 
-    // Horizontal: fixed left margin, then slide left and shrink as needed so the
-    // frame stays at least kLifeBarFieldGap left of the note field.
-    const float max_right = static_cast<float>(field_left) - kLifeBarFieldGap - kLifeBarBorder;
-    float x = kLifeBarLeft;
-    float w = kLifeBarThickness;
-    if (x + w > max_right) {
-        x = std::max(kLifeBarBorder, max_right - w);
-        if (x + w > max_right) {
-            w = std::max(kLifeBarMinThickness, max_right - x);
+    // The frame starts at the Cabinet layout, then slides left and shrinks as needed so
+    // it stays at least kLifeBarFieldGap left of the note field (narrow windows).
+    Rect frame = L.rect(theme::layout::kLifeBar);
+    const float max_right = static_cast<float>(field_left) - kLifeBarFieldGap;
+    if (frame.x + frame.w > max_right) {
+        frame.x = std::max(0.0f, max_right - frame.w);
+        if (frame.x + frame.w > max_right) {
+            const float min_w = 2.0f * border + kLifeBarMinTrack;
+            frame.w = std::max(min_w, max_right - frame.x);
         }
     }
+    layout.frame = frame;
+    layout.track = Rect{frame.x + border, frame.y + border, frame.w - 2.0f * border,
+                        frame.h - 2.0f * border};
 
-    const float fill_h = bar_h * static_cast<float>(clamped);
-    layout.back = Rect{x, y, w, bar_h};
-    layout.frame = Rect{x - kLifeBarBorder, y - kLifeBarBorder, w + kLifeBarBorder * 2.0f,
-                        bar_h + kLifeBarBorder * 2.0f};
-    layout.fill = Rect{x, y + bar_h - fill_h, w, fill_h};
+    const std::optional<Rect> fill = fill_cropped_rect(layout.track, layout.fraction);
+    layout.fill = fill ? *fill
+                       : Rect{layout.track.x, layout.track.y + layout.track.h, layout.track.w, 0.0f};
     layout.visible = true;
     return layout;
 }
 
-void HudRenderer::render_life(double life, int screen_w, int screen_h, double field_left,
-                              GlQuadRenderer& renderer) const {
+DiffBadgeLayout layout_diff_badge(float text_w, int screen_w, int screen_h, double field_left) {
+    DiffBadgeLayout layout;
+    if (screen_w <= 0 || screen_h <= 0) {
+        return layout;
+    }
+    const theme::LayoutScale L = theme::layout_scale(screen_w, screen_h);
+    const float pad = L.px(kBadgeTextPadX);
+    const float min_w = L.px(theme::layout::kDiffBadge.w);
+    const float max_w = L.px(kBadgeMaxWidthRef);
+    const float wanted = std::isfinite(text_w) ? std::max(text_w, 0.0f) + 2.0f * pad : max_w;
+
+    Rect plate = L.rect(theme::layout::kDiffBadge);
+    plate.w = std::clamp(wanted, min_w, max_w);
+
+    bool visible = true;
+    const float max_right = static_cast<float>(field_left) - kLifeBarFieldGap;
+    if (plate.x + plate.w > max_right) {
+        plate.w = std::max(0.0f, max_right - plate.x);
+        visible = plate.w >= min_w;
+    }
+
+    layout.plate = plate;
+    layout.text_x = plate.x + pad;
+    layout.text_max_w = std::max(0.0f, plate.w - 2.0f * pad);
+    layout.visible = visible;
+    return layout;
+}
+
+float badge_text_width(const DifficultyBadge& badge,
+                       const std::function<float(std::string_view)>& measure) {
+    float width = measure(badge.label);
+    if (!badge.meter.empty()) {
+        width += measure(badge.meter);
+        if (!badge.label.empty()) {
+            width += measure(" ");
+        }
+    }
+    return width;
+}
+
+std::string fit_badge_text(const DifficultyBadge& badge, float max_w,
+                           const std::function<float(std::string_view)>& measure) {
+    if (badge.meter.empty()) {
+        return truncate_to_width(badge.label, max_w, measure);
+    }
+    // Reserve the meter (and its separator) first; only the label gives way.
+    const float label_max = max_w - measure(" ") - measure(badge.meter);
+    std::string text = badge.label.empty() ? std::string{}
+                                           : truncate_to_width(badge.label, label_max, measure);
+    if (text.empty()) {
+        return badge.meter;
+    }
+    text += ' ';
+    text += badge.meter;
+    return text;
+}
+
+void HudRenderer::render_chrome(const DifficultyBadge& badge, double life, int screen_w,
+                                int screen_h, double field_left, const ThemeTextures* theme,
+                                const TextRenderer* text, GlQuadRenderer& renderer) const {
+    if (theme == nullptr || !renderer.is_initialized() || screen_w <= 0 || screen_h <= 0) {
+        return;
+    }
+    const theme::LayoutScale L = theme::layout_scale(screen_w, screen_h);
+
+    if (!badge.label.empty() || !badge.meter.empty()) {
+        const float text_w =
+            text != nullptr ? badge_text_width(badge,
+                                               [text](std::string_view s) {
+                                                   return text->measure(s, theme::text::kBadge);
+                                               })
+                            : 0.0f;
+        const DiffBadgeLayout plate = layout_diff_badge(text_w, screen_w, screen_h, field_left);
+        if (plate.visible) {
+            theme->draw_slice3(renderer, "diff_badge", plate.plate, badge.colors.fill);
+        }
+    }
+
     const LifeBarLayout bar = layout_life_bar(life, screen_w, screen_h, field_left);
     if (!bar.visible) {
         return;
     }
-
-    // Frame (drawn as a slightly larger backing quad), the empty back, then the
-    // bottom-anchored filled portion.
-    renderer.draw_quad(bar.frame, kLifeFrameColor);
-    renderer.draw_quad(bar.back, kLifeBackColor);
+    theme->draw_slice9(renderer, "life_frame", bar.frame, L.s);
     if (bar.fill.h > 0.0f) {
-        renderer.draw_quad(bar.fill, bar.danger ? kLifeDangerColor : kLifeFillColor);
+        // The full texture maps to the whole track; the UVs crop to the filled part, so
+        // the gradient stays put as life changes.
+        theme->draw_fill_cropped(renderer, bar.danger ? "life_fill_danger" : "life_fill", bar.track,
+                                 bar.fraction);
+        theme->draw_tiled(renderer, "life_stripes", bar.fill, L.s, Color{}, TileAnchor::Bottom);
     }
+}
+
+void HudRenderer::render_text(const DifficultyBadge& badge, int screen_w, int screen_h,
+                              double field_left, TextRenderer* text, GlQuadRenderer& renderer) {
+    if (text == nullptr || (badge.label.empty() && badge.meter.empty()) ||
+        !renderer.is_initialized() || screen_w <= 0 || screen_h <= 0) {
+        return;
+    }
+    const theme::TextStyle& base = theme::text::kBadge;
+    const auto measure = [text](std::string_view s) { return text->measure(s, theme::text::kBadge); };
+    const DiffBadgeLayout layout =
+        layout_diff_badge(badge_text_width(badge, measure), screen_w, screen_h, field_left);
+    if (!layout.visible) {
+        return;
+    }
+
+    // Re-truncate only when the input changes, so steady-state frames do not allocate.
+    if (cached_label_ != badge.label || cached_meter_ != badge.meter ||
+        cached_max_w_ != layout.text_max_w || cached_scale_ != text->scale()) {
+        cached_label_ = badge.label;
+        cached_meter_ = badge.meter;
+        cached_max_w_ = layout.text_max_w;
+        cached_scale_ = text->scale();
+        cached_text_ = fit_badge_text(badge, layout.text_max_w, measure);
+    }
+
+    theme::TextStyle style = base;
+    style.color = badge.colors.ink;
+    const float top = layout.plate.y + (layout.plate.h - text->line_height(style)) * 0.5f;
+    text->draw(renderer, cached_text_, layout.text_x, top, style, TextAlign::Left);
 }
 
 } // namespace blaze4k

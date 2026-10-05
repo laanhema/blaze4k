@@ -316,6 +316,7 @@ int main(int argc, char* argv[]) {
         options.scroll = downscroll ? blaze4k::ScrollDirection::Down : blaze4k::ScrollDirection::Up;
         options.fail_enabled = !fail_off;
 
+        gameplay.set_difficulty_badge(blaze4k::difficulty_badge_for(parser.charts().front()));
         if (!gameplay.init(parser.charts().front(), app.judgment_constants(), audio_path, options,
                            background_path)) {
             std::cerr << "[main] Failed to initialize gameplay demo\n";
@@ -343,7 +344,8 @@ int main(int argc, char* argv[]) {
             if (quad_renderer.is_initialized()) {
                 quad_renderer.begin(app.window().width(), app.window().height());
             }
-            gameplay.render(quad_renderer, app.window().width(), app.window().height());
+            gameplay.render(quad_renderer, app.window().width(), app.window().height(),
+                            &app.theme_textures(), &app.text_renderer());
             if (quad_renderer.is_initialized()) {
                 quad_renderer.end();
             }

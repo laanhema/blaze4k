@@ -1,16 +1,24 @@
 #include <cmath>
 #include <cstdlib>
+#include <filesystem>
 #include <iostream>
 #include <memory>
+#include <string>
+#include <string_view>
 #include <vector>
 
 #include "chart/chart.hpp"
 #include "chart/song.hpp"
 #include "chart/timing_data.hpp"
+#include "gameplay/hud_renderer.hpp"
 #include "screens/gameplay_screen.hpp"
 #include "screens/play_request.hpp"
 #include "screens/screen.hpp"
 #include "screens/screen_manager.hpp"
+#include "render/gl_quad_renderer.hpp"
+#include "render/theme.hpp"
+#include "render/theme_textures.hpp"
+#include "render/ttf_font.hpp"
 
 #define TEST_CHECK(expr) \
     do { \
@@ -88,11 +96,138 @@ void test_end_delay_before_results() {
     std::cout << "  - run end lingers 2 s before Results ok.\n";
 }
 
+bool same_colors(const blaze4k::theme::DifficultyColors& a,
+                 const blaze4k::theme::DifficultyColors& b) {
+    const auto eq = [](blaze4k::Color x, blaze4k::Color y) {
+        return x.r == y.r && x.g == y.g && x.b == y.b && x.a == y.a;
+    };
+    return eq(a.fill, b.fill) && eq(a.ink, b.ink);
+}
+
+blaze4k::Chart make_chart(const std::string& difficulty, const std::string& description,
+                          int meter) {
+    blaze4k::Chart chart;
+    chart.difficulty = difficulty;
+    chart.description = description;
+    chart.meter = meter;
+    return chart;
+}
+
+// #93: label + meter with the select screen's label rule and colours.
+void test_difficulty_badge_for() {
+    namespace difficulty = blaze4k::theme::difficulty;
+
+    const blaze4k::DifficultyBadge hard = blaze4k::difficulty_badge_for(make_chart("Hard", "", 8));
+    TEST_CHECK(hard.label == "HARD" && hard.meter == "8");
+    TEST_CHECK(same_colors(hard.colors, difficulty::kHard));
+
+    const blaze4k::DifficultyBadge challenge =
+        blaze4k::difficulty_badge_for(make_chart("Challenge", "", 12));
+    TEST_CHECK(challenge.label == "CHALLENGE" && challenge.meter == "12");
+    TEST_CHECK(same_colors(challenge.colors, difficulty::kChallenge));
+
+    const blaze4k::DifficultyBadge named =
+        blaze4k::difficulty_badge_for(make_chart("Edit", "Crazy Edit", 11));
+    TEST_CHECK(named.label == "Crazy Edit" && named.meter == "11");
+    TEST_CHECK(same_colors(named.colors, difficulty::kEdit));
+
+    const blaze4k::DifficultyBadge edit = blaze4k::difficulty_badge_for(make_chart("Edit", "", 5));
+    TEST_CHECK(edit.label == "EDIT" && edit.meter == "5");
+    TEST_CHECK(same_colors(edit.colors, difficulty::kEdit));
+
+    const blaze4k::DifficultyBadge unnamed = blaze4k::difficulty_badge_for(make_chart("", "", 1));
+    TEST_CHECK(unnamed.label == "BEGINNER" && unnamed.meter == "1");
+    TEST_CHECK(same_colors(unnamed.colors, difficulty::kBeginner));
+    std::cout << "  - difficulty badge text and colours ok.\n";
+}
+
+// Review fix (#93): a 40-character Edit name, fitted with the real badge font at the
+// 300 ref px plate cap (720p), is "..."-truncated but still ends with its meter.
+void test_long_edit_badge_keeps_meter() {
+    blaze4k::TextRenderer text;
+    TEST_CHECK(text.load(std::filesystem::path{BLAZE4K_SOURCE_DIR}));
+    text.set_window_size(1280, 720);
+    const auto measure = [&text](std::string_view s) {
+        return text.measure(s, blaze4k::theme::text::kBadge);
+    };
+
+    const std::string name = "An Extremely Long Edit Chart Name Here!!";
+    TEST_CHECK(name.size() == 40);
+    const blaze4k::DifficultyBadge badge =
+        blaze4k::difficulty_badge_for(make_chart("Edit", name, 13));
+    TEST_CHECK(badge.label == name && badge.meter == "13");
+
+    const blaze4k::DiffBadgeLayout layout = blaze4k::layout_diff_badge(
+        blaze4k::badge_text_width(badge, measure), 1280, 720, 424.0);
+    TEST_CHECK(layout.visible);
+    TEST_CHECK(std::abs(layout.plate.w - 300.0f) < 1e-3f); // capped
+    const std::string drawn = blaze4k::fit_badge_text(badge, layout.text_max_w, measure);
+    const std::string tail = "... 13";
+    TEST_CHECK(drawn.size() > tail.size());
+    TEST_CHECK(drawn.compare(drawn.size() - tail.size(), tail.size(), tail) == 0);
+    TEST_CHECK(measure(drawn) <= layout.text_max_w + 1e-3f);
+    text.shutdown();
+    std::cout << "  - long Edit badge keeps its meter ok.\n";
+}
+
+// #93: entering Gameplay hands the view its badge, and a render with the real
+// (headless) theme and fonts on an uninitialised renderer does not crash.
+void test_enter_sets_badge_and_renders_headless() {
+    const std::filesystem::path source_dir{BLAZE4K_SOURCE_DIR};
+    const std::filesystem::path cabinet =
+        std::filesystem::path{BLAZE4K_ASSETS_DIR} / "theme" / "cabinet";
+    blaze4k::ThemeTextures theme;
+    TEST_CHECK(theme.load(cabinet));
+    blaze4k::TextRenderer text;
+    TEST_CHECK(text.load(source_dir));
+    text.set_window_size(1280, 720);
+
+    blaze4k::Song song;
+    blaze4k::Chart chart = make_chart("Hard", "", 8);
+    chart.timing.parse_bpms_string("0=120");
+    chart.notes.push_back(make_tap(0, 0.0, 0.0));
+
+    blaze4k::PlayRequest request;
+    request.song = &song;
+    request.chart = &chart;
+    request.options.fail_enabled = false;
+
+    blaze4k::ScreenManager manager(0.0);
+    auto gameplay_owner = std::make_unique<blaze4k::GameplayScreen>();
+    blaze4k::GameplayScreen* gameplay = gameplay_owner.get();
+    manager.add_screen(std::move(gameplay_owner));
+    manager.add_screen(std::make_unique<StubScreen>(ScreenId::Select));
+    manager.context().play_request = &request;
+    manager.context().theme = &theme;
+    manager.context().text = &text;
+
+    manager.start(ScreenId::Gameplay);
+    TEST_CHECK(manager.active_id() == ScreenId::Gameplay);
+    TEST_CHECK(gameplay->difficulty_badge().label == "HARD");
+    TEST_CHECK(gameplay->difficulty_badge().meter == "8");
+    TEST_CHECK(same_colors(gameplay->difficulty_badge().colors, blaze4k::theme::difficulty::kHard));
+
+    blaze4k::GlQuadRenderer renderer; // uninitialised: draws are no-ops
+    manager.update(0.25, {});
+    manager.render(renderer, 1280, 720);
+    manager.render(renderer, 2560, 1440);
+    manager.render(renderer, 0, 0);
+
+    manager.transition_to(ScreenId::Select);
+    manager.update(0.0, {});
+    text.shutdown();
+    theme.shutdown();
+    std::cout << "  - enter sets the badge and renders headless ok.\n";
+}
+
 } // namespace
 
 int main() {
     std::cout << "[gameplay_screen_test] Running gameplay screen tests...\n";
     test_end_delay_before_results();
+    test_difficulty_badge_for();
+    test_long_edit_badge_keeps_meter();
+    test_enter_sets_badge_and_renders_headless();
     std::cout << "[gameplay_screen_test] All tests passed!\n";
     return 0;
 }

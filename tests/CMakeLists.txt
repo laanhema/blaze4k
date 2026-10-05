@@ -390,6 +390,13 @@ target_link_libraries(judgment_animator_test PRIVATE
     blaze4k_core
 )
 
+# #93: sprite mapping is checked against the real theme manifest, and the
+# headless render smoke loads the real theme and fonts.
+target_compile_definitions(judgment_animator_test PRIVATE
+    BLAZE4K_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+    BLAZE4K_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets"
+)
+
 add_test(NAME judgment_animator_test COMMAND judgment_animator_test)
 
 add_executable(ui_sounds_test
@@ -434,6 +441,13 @@ add_executable(gameplay_screen_test
 
 target_link_libraries(gameplay_screen_test PRIVATE
     blaze4k_core
+)
+
+# #93: the difficulty badge + headless render smoke use the real theme manifest
+# and fonts.
+target_compile_definitions(gameplay_screen_test PRIVATE
+    BLAZE4K_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+    BLAZE4K_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets"
 )
 
 add_test(NAME gameplay_screen_test COMMAND gameplay_screen_test)
