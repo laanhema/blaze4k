@@ -171,8 +171,27 @@ int main() {
     }
     // The churn replaced second's tap; re-attaching makes it active again.
     TEST_CHECK(second.enable_clock_interpolation());
+
+    // 6b. Replace the ACTIVE tap during playback and free the replaced sound at
+    //     once (no sleep): attach must wait out an in-flight on_process that may
+    //     still be reading the old sound before returning.
+    TEST_CHECK(second.play());
+    for (int i = 0; i < 50; ++i) {
+        blaze4k::SoundStream replaced;
+        TEST_CHECK(replaced.load(wav.string()));
+        replaced.set_volume(0.0f);
+        TEST_CHECK(replaced.enable_clock_interpolation());
+        TEST_CHECK(replaced.play());
+        std::this_thread::sleep_for(std::chrono::milliseconds(1 + (i % 5)));
+        TEST_CHECK(second.enable_clock_interpolation()); // replaces `replaced`'s tap
+        replaced.unload(); // now inactive: no detach wait, ma_sound_uninit right away
+    }
+    std::this_thread::sleep_for(std::chrono::milliseconds(30));
+    const blaze4k::TimedFrames replacer_pos = second.get_timed_position_frames();
+    TEST_CHECK(replacer_pos.timestamp_ns != 0 && replacer_pos.frames > 0);
     second.unload();
-    std::cout << "  - tap replacement and 50 active-tap detach cycles: no crash, no hang.\n";
+    std::cout << "  - tap replacement, 50 active-tap detach and 50 replace-then-free cycles: "
+                 "no crash, no hang.\n";
 
     // 7. Moving a stream keeps its tap (stable address) working.
     {
@@ -189,6 +208,24 @@ int main() {
         TEST_CHECK(moved.timestamp_ns != 0 && moved.frames > 0);
         b.unload();
     }
+
+    // 8. Stats reset request (per-song gameplay log): zeros until the audio
+    //    thread applies it, then counting resumes. Something must play: idle
+    //    engine updates carry no frames and are not counted.
+    blaze4k::SoundStream song;
+    TEST_CHECK(song.load(wav.string()));
+    song.set_volume(0.0f);
+    TEST_CHECK(song.play());
+    const blaze4k::AudioEngine::CallbackStats before_reset = engine.callback_stats();
+    TEST_CHECK(before_reset.callbacks > 10);
+    engine.reset_callback_stats();
+    TEST_CHECK(engine.callback_stats().callbacks < before_reset.callbacks);
+    std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    const blaze4k::AudioEngine::CallbackStats after_reset = engine.callback_stats();
+    TEST_CHECK(after_reset.callbacks > 0 && after_reset.callbacks < before_reset.callbacks);
+    TEST_CHECK(after_reset.min_frames > 0);
+    TEST_CHECK(after_reset.sample_rate == engine_rate);
+    song.unload();
 
     engine.log_callback_stats("clock_tap_test");
     engine.shutdown();

@@ -81,6 +81,9 @@ bool GameplayView::init(const Chart& chart, const JudgmentConstants& constants,
         // #81: interpolate the music clock from audio-thread callback anchors.
         clock_interpolation_ = audio_.enable_clock_interpolation();
         audio_started_ = audio_.play();
+        if (audio_started_) {
+            AudioEngine::instance().reset_callback_stats(); // logged per song at shutdown
+        }
     }
 
     if (!audio_started_) {
@@ -177,6 +180,7 @@ void GameplayView::update(double fixed_dt, const std::array<bool, 4>& held_colum
         // source so gameplay time always follows whichever source drives update.
         if (!audio_started_ && audio_.is_loaded() && audio_.play()) {
             audio_started_ = true;
+            AudioEngine::instance().reset_callback_stats();
             use_stub_ = false;
             bind_clock_source();
             std::cout << "[GameplayView] Audio started; switched clock source from stub to audio\n";

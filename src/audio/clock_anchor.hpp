@@ -31,6 +31,8 @@ public:
 
     [[nodiscard]] Stats stats() const noexcept;
     void reset() noexcept;
+    // Audio thread: zeroes only the stats; the period estimate is kept.
+    void reset_stats() noexcept;
 
 private:
     bool has_group_ = false;
@@ -68,9 +70,12 @@ private:
 
 // One registered clock source: the sound whose cursor the audio thread samples
 // and the slot it publishes into. Owned by a SoundStream via unique_ptr so the
-// address is stable across moves.
+// address is stable across moves. `sound` is atomic because the game thread may
+// (re)write it while the tap is active.
 struct ClockTap {
-    ma_sound* sound = nullptr;
+    static_assert(std::atomic<ma_sound*>::is_always_lock_free);
+
+    std::atomic<ma_sound*> sound{nullptr};
     AnchorSlot slot;
 };
 

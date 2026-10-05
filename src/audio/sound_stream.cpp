@@ -107,7 +107,7 @@ void SoundStream::unload() {
     if (tap_attached_ && tap_) {
         // Before ma_sound_uninit: after detach the audio thread cannot reach the sound.
         AudioEngine::instance().detach_clock_tap(tap_.get());
-        tap_->sound = nullptr;
+        tap_->sound.store(nullptr, std::memory_order_release);
     }
     tap_attached_ = false;
     if (is_loaded_ && sound_) {
@@ -135,7 +135,7 @@ bool SoundStream::enable_clock_interpolation() {
     if (!tap_) {
         tap_ = std::make_unique<ClockTap>();
     }
-    tap_->sound = sound_.get();
+    tap_->sound.store(sound_.get(), std::memory_order_release);
     if (!engine.attach_clock_tap(tap_.get())) {
         return false;
     }

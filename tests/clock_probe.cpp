@@ -13,7 +13,8 @@
 // To measure a real device, run it OUTSIDE the bwrap test sandbox (the sandbox
 // has no audio device; without --null the engine then fails to open one).
 // `--null` uses miniaudio's silent, real-time-paced null backend instead
-// (sandbox-safe; residuals are expected to be near zero).
+// (sandbox-safe; it proves the path works, not precision: the null device's
+// thread wakes unevenly, so its residuals are not near zero).
 //
 // Method (same as gran2): poll every 1 ms, recording (now_ns, raw cursor,
 // interpolated cursor). Fit a least-squares line to the raw cursor over the

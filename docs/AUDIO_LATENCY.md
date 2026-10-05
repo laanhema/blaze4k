@@ -217,8 +217,8 @@ B + C from the #71 decision. Code: `src/audio/clock_anchor.{hpp,cpp}`,
   function pointer keeps `src/audio` SDL-free) **before** the clock sound's cursor, and publishes
   `(cursor, ns, device period)` through a lock-free seqlock of atomics (`AnchorSlot`). No locks,
   allocation or logging on the audio thread. A Dekker-style handshake in
-  `AudioEngine::detach_clock_tap` runs before `ma_sound_uninit`, so the audio thread never touches a
-  freed sound.
+  `AudioEngine::detach_clock_tap` (and in `attach_clock_tap` when it replaces another tap) runs
+  before `ma_sound_uninit`, so the audio thread never touches a freed sound.
 - **Burst grouping.** `CallbackGrouper` merges engine updates that arrive back to back (closer than
   half their own duration) into one device callback. The cap is therefore the **device-callback
   interval**, measured, not the engine update size or `internalPeriodSizeInFrames` (which on
@@ -235,6 +235,7 @@ B + C from the #71 decision. Code: `src/audio/clock_anchor.{hpp,cpp}`,
   lockstep with the raw cursor, not with the interpolated one (`src/gameplay/gameplay_view.cpp:357`).
 - **Diagnostics.** The `Output device` line shows the requested and negotiated period. Gameplay logs
   `[AudioEngine] Device callback interval (gameplay): min / max … frames over N callbacks` at the end.
+  The stats are reset when the song starts, so they cover that song only.
 - **Recalibrate after upgrading.** The smaller period and the interpolated clock's lead over the old
   stepped cursor (about half a step) move the mean bias, so saved offsets shift by several ms
   (**estimate**: about 5 ms at 480; measured mean lead +5.12 ms on the WH-1000XM4 sink). Re-run the

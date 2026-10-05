@@ -47,6 +47,10 @@ void CallbackGrouper::reset() noexcept {
     last_update_ns_ = 0;
     group_ = 0;
     prev_group_ = 0;
+    reset_stats();
+}
+
+void CallbackGrouper::reset_stats() noexcept {
     min_group_.store(0, std::memory_order_relaxed);
     max_group_.store(0, std::memory_order_relaxed);
     callbacks_.store(0, std::memory_order_relaxed);

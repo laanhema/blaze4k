@@ -67,6 +67,7 @@ bool AudioEngine::init() {
     // Set before the device starts so the audio thread sees a consistent snapshot.
     now_ns_ = settings_.now_ns;
     grouper_.reset();
+    stats_reset_requested_.store(false, std::memory_order_relaxed);
     active_tap_.store(nullptr, std::memory_order_seq_cst);
 
     ma_result result = ma_engine_init(&config, engine_.get());
@@ -82,7 +83,7 @@ bool AudioEngine::init() {
     }
 
     initialized_ = true;
-    engine_rate_ = ma_engine_get_sample_rate(engine_.get());
+    engine_rate_.store(ma_engine_get_sample_rate(engine_.get()), std::memory_order_relaxed);
     std::cout << "[AudioEngine] Initialized successfully. Sample rate: "
               << ma_engine_get_sample_rate(engine_.get()) << " Hz, Channels: "
               << ma_engine_get_channels(engine_.get()) << "\n";
@@ -120,7 +121,7 @@ void AudioEngine::shutdown() {
         null_context_.reset();
     }
     now_ns_ = nullptr;
-    engine_rate_ = 0;
+    engine_rate_.store(0, std::memory_order_relaxed);
 }
 
 void AudioEngine::set_master_volume(float volume) {
@@ -140,7 +141,11 @@ bool AudioEngine::attach_clock_tap(ClockTap* tap) {
     if (tap == nullptr || !initialized_ || now_ns_ == nullptr) {
         return false;
     }
-    active_tap_.store(tap, std::memory_order_seq_cst);
+    ClockTap* const previous = active_tap_.exchange(tap, std::memory_order_seq_cst);
+    if (previous != nullptr && previous != tap) {
+        // Same handshake as detach: the caller may free `previous->sound` next.
+        wait_for_audio_quiescence();
+    }
     return true;
 }
 
@@ -152,6 +157,10 @@ void AudioEngine::detach_clock_tap(ClockTap* tap) {
     // is cleared and no process call is in flight, the audio thread can no
     // longer reach `tap->sound`.
     active_tap_.store(nullptr, std::memory_order_seq_cst);
+    wait_for_audio_quiescence();
+}
+
+void AudioEngine::wait_for_audio_quiescence() const {
     while (in_process_.load(std::memory_order_seq_cst)) {
         std::this_thread::yield();
     }
@@ -163,11 +172,17 @@ void AudioEngine::on_process(uint64_t frames) noexcept {
         // Time BEFORE the cursor: pre-seek cursors always carry a timestamp
         // earlier than the game thread's post-seek reset time.
         const uint64_t ns = now_ns_();
-        const uint32_t period = grouper_.on_update(frames, ns, engine_rate_);
+        if (stats_reset_requested_.load(std::memory_order_relaxed) &&
+            stats_reset_requested_.exchange(false, std::memory_order_acq_rel)) {
+            grouper_.reset_stats();
+        }
+        const uint32_t period =
+            grouper_.on_update(frames, ns, engine_rate_.load(std::memory_order_relaxed));
         ClockTap* tap = active_tap_.load(std::memory_order_seq_cst);
-        if (tap != nullptr && tap->sound != nullptr) {
+        ma_sound* sound = tap != nullptr ? tap->sound.load(std::memory_order_acquire) : nullptr;
+        if (sound != nullptr) {
             ma_uint64 cursor = 0;
-            if (ma_sound_get_cursor_in_pcm_frames(tap->sound, &cursor) == MA_SUCCESS) {
+            if (ma_sound_get_cursor_in_pcm_frames(sound, &cursor) == MA_SUCCESS) {
                 tap->slot.publish(ClockAnchor{static_cast<uint64_t>(cursor), ns, period});
             }
         }
@@ -175,9 +190,17 @@ void AudioEngine::on_process(uint64_t frames) noexcept {
     in_process_.store(false, std::memory_order_release);
 }
 
+void AudioEngine::reset_callback_stats() {
+    stats_reset_requested_.store(true, std::memory_order_release);
+}
+
 AudioEngine::CallbackStats AudioEngine::callback_stats() const {
+    const uint32_t rate = engine_rate_.load(std::memory_order_relaxed);
+    if (stats_reset_requested_.load(std::memory_order_acquire)) {
+        return CallbackStats{0, 0, 0, rate}; // reset not yet applied by the audio thread
+    }
     const CallbackGrouper::Stats s = grouper_.stats();
-    return CallbackStats{s.min_group, s.max_group, s.callbacks, engine_rate_};
+    return CallbackStats{s.min_group, s.max_group, s.callbacks, rate};
 }
 
 void AudioEngine::log_callback_stats(const char* context) const {
