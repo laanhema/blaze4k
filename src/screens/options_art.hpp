@@ -122,7 +122,6 @@ static_assert(kRowsTop + static_cast<float>(kOptionsRowCount - 1) * kRowPitch +
 // ---------------------------------------------------------------------------------------------
 
 // The navy panel body + 2px ring, the bar_top header and the "OPTIONS" title.
-// Public so the remap / calibration restyle (#97) can reuse it.
 void draw_panel(const ThemeTextures* theme, TextRenderer* text, GlQuadRenderer& renderer,
                 const theme::LayoutScale& L);
 

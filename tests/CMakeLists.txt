@@ -563,3 +563,21 @@ target_compile_definitions(select_art_test PRIVATE
 )
 
 add_test(NAME select_art_test COMMAND select_art_test)
+
+# #97: Cabinet Input Remap + Calibration art (setup_art display rows and layout,
+# labels, legends, text fit with the real fonts, pre-baked styles, manifest names,
+# render smoke of both screens with the real headless theme + text).
+add_executable(setup_art_test
+    setup_art_test.cpp
+)
+
+target_link_libraries(setup_art_test PRIVATE
+    blaze4k_core
+)
+
+target_compile_definitions(setup_art_test PRIVATE
+    BLAZE4K_SOURCE_DIR="${CMAKE_SOURCE_DIR}"
+    BLAZE4K_ASSETS_DIR="${CMAKE_SOURCE_DIR}/assets"
+)
+
+add_test(NAME setup_art_test COMMAND setup_art_test)

@@ -23,7 +23,7 @@ enum class CalibrationPhase : int { CountIn = 0, Sampling, Ready };
 // Constructible and updatable headless: the test-seam ctor injects an
 // IAudioStream + MusicClock::Source, and the production path falls back to a
 // fixed_dt-advanced synthetic clock that refuses to save when no audio is
-// available.
+// available. Drawn in the Cabinet look by setup_art (#97).
 class CalibrationScreen : public Screen {
 public:
     CalibrationScreen();

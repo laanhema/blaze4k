@@ -131,7 +131,7 @@ void input_remap_apply(const InputRemapModel& model, InputSettings& settings) {
     }
 }
 
-std::string remap_action_name(GameAction action) {
+std::string_view remap_action_label(GameAction action) {
     switch (action) {
         case GameAction::Left:
             return "LEFT";
@@ -152,8 +152,16 @@ std::string remap_action_name(GameAction action) {
     }
 }
 
-std::string remap_device_name(DeviceType device) {
+std::string_view remap_device_label(DeviceType device) {
     return device == DeviceType::Keyboard ? "KEYBOARD" : "PAD";
+}
+
+std::string remap_action_name(GameAction action) {
+    return std::string(remap_action_label(action));
+}
+
+std::string remap_device_name(DeviceType device) {
+    return std::string(remap_device_label(device));
 }
 
 std::string remap_row_value_text(const InputRemapModel& model, int row) {

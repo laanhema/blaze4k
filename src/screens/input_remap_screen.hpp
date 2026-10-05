@@ -14,6 +14,7 @@ namespace blaze4k {
 // main persists on clean exit (the C4/C5 model) while pushing them to the live
 // InputManager in the same tick. Escape / pad-Back are reserved and always mean
 // "cancel capture" / "Back", so a bad remap can never soft-lock the shell.
+// Drawn in the Cabinet look by setup_art (#97).
 class InputRemapScreen : public Screen {
 public:
     [[nodiscard]] ScreenId id() const override { return ScreenId::InputRemap; }
