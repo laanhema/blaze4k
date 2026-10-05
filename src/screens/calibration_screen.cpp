@@ -109,7 +109,9 @@ void CalibrationScreen::update(ScreenContext& ctx, double fixed_dt,
         phase_ = CalibrationPhase::Sampling;
     }
 
-    CalibrationResult current = calib_.result();
+    // result_ always equals calib_.result() here: enter() resets both and the
+    // end of every update re-syncs it, so no per-frame recompute is needed.
+    CalibrationResult current = result_;
     for (const InputEvent& event : events) {
         if (!event.pressed) {
             continue;

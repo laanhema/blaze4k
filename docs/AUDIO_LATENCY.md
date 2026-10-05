@@ -33,8 +33,9 @@ Numbers marked **estimate** were not measured here and must not be treated as ve
   calibration wizard after upgrading.
 - **Wizard headroom (fixed in #74).** The wizard now measures a total delay up to +420 ms (it was
   250 ms, and a slower path saved a wrong, positive offset). The WH-1000XM4 at about 222 ms has about
-  200 ms of headroom. Delays it cannot measure are shown as `OUT OF RANGE` and not saved (see
-  [Wizard headroom](#wizard-headroom)).
+  200 ms of headroom. A delay from 420 to about 450 ms, or from about −80 to −50 ms, is shown as
+  `OUT OF RANGE` and not saved. A delay above about 450 ms, or more than about 80 ms early, cannot be
+  detected and is saved wrong (see [Wizard headroom](#wizard-headroom)).
 - **Correction to the #58 technical notes.** `src/audio/audio_engine.cpp` has **no** device
   enumeration or selection. `AudioEngine::init` calls `ma_engine_init` with
   `ma_engine_config_init()` defaults, so it always opens the OS default playback device. Follow-up
@@ -49,7 +50,7 @@ Numbers marked **estimate** were not measured here and must not be treated as ve
 | Gameplay binding | `src/gameplay/gameplay_view.cpp:121-135`, offset applied at `:70` | `SamplePosition{p.frames, rate, p.timestamp_ns}` from `audio_.get_timed_position_frames()` |
 | Formula | `src/timing/music_clock.hpp:14-21`, `src/timing/music_clock.cpp:53-60` | `time = frames / rate + global_offset_seconds`. Positive offset = clock reads later |
 | Offset storage | `src/data/config.hpp:37-39`, loader `src/data/config_loader.cpp:203-210`, writer `:393` | One `offset.global_offset_seconds`, clamped to ±3600 s |
-| Calibration | `src/screens/calibration_screen.cpp:69` (clock offset forced to 0), `:98-163`; math `src/timing/offset_calibration.cpp:65-151`, sign `src/timing/offset_calibration.hpp:23-26` | The player taps to clicks played through the *same* output path. `offset = -mean(hit - beat)` (after outlier rejection), so it absorbs **output latency + input latency + player bias**. It does not include display latency, because the wizard is audio-only |
+| Calibration | `src/screens/calibration_screen.cpp:69` (clock offset forced to 0), `:98-165`; math `src/timing/offset_calibration.cpp:65-151`, sign `src/timing/offset_calibration.hpp:23-26` | The player taps to clicks played through the *same* output path. `offset = -mean(hit - beat)` (after outlier rejection), so it absorbs **output latency + input latency + player bias**. It does not include display latency, because the wizard is audio-only |
 | Input aging | `src/gameplay/judgment_input.hpp:8-27`, `src/gameplay/gameplay_view.cpp:148-149`, `src/screens/calibration_screen.cpp:106-107` | Since #81: `hit = music - (clock_ns - event_ns)`, where `(music, clock_ns)` is one consistent pair from `MusicClock::timed_time_seconds()` (the interpolated estimate and the ns it was estimated at). Sources without a timestamp (stub, injected) fall back to `App::input_reference_ns_` (`src/app/app.cpp:176`) |
 | Engine init | `src/audio/audio_engine.cpp:34-111` | `ma_engine_config_init()` defaults (OS default playback device, low-latency profile, no device ID, no notification callback) plus, since #81, `periodSizeInFrames` (default 480, `audio.period_size_frames`) and an `onProcess` hook for the clock anchor. `configure()` runs from `src/main.cpp:273` before any audio init. Logs the device name, backend, requested and negotiated period (diagnostic only) |
 
@@ -125,17 +126,25 @@ clock is still its only timing source. Three things changed in how taps are turn
    (`src/timing/offset_calibration.cpp:79-101`). So taps that jitter across the edge between two
    beats cannot split into two groups and flip the sign.
 3. **Out-of-range results are refused.** The supported total delay `L + L_in` is **−50 ms to
-   +420 ms**. A measured delay between 420 ms and about 450 ms (or below −50 ms) shows
-   `OUT OF RANGE` and a red notice, Enter does not save, and one `[Calibration]` line is logged
-   (`src/timing/offset_calibration.cpp:147-149`).
+   +420 ms**. A measured delay between 420 ms and about 450 ms, or between about −80 ms and
+   −50 ms, shows `OUT OF RANGE` and a red notice, Enter does not save, and one `[Calibration]` line
+   is logged (`src/timing/offset_calibration.cpp:147-149`).
 
 The WH-1000XM4 (about 222 ms) now has about 200 ms of headroom.
 
 **Limit above about 450 ms.** A steady click every 0.5 s cannot tell a delay `D` apart from
-`D − 0.5 s`: a tap 480 ms after one click is also 20 ms after the next. So a total delay above about
+`D − 0.5 s`: a tap 480 ms after one click is also 20 ms before the next. So a total delay above about
 450 ms aliases to a small value and is saved as if it were 0.5 s shorter. The wizard cannot detect
 this. If your output is that slow, use wired output or a lower-latency codec/profile. The owner
-accepted this limit for #74. A slower "extended range" calibration (for example 60 BPM, which would
+accepted this limit for #74.
+
+**Limit more than about 80 ms early.** The same periodic-click limit applies on the early side. A
+tap 100 ms before a click is also 400 ms after the previous one, so a net delay of −0.10 s looks
+like a late delay of +0.40 s, one beat later, and is saved as an offset of about −0.40 s instead of
++0.10 s. Any net delay more than about 80 ms early aliases like this and is saved wrong; only the
+band from about −80 to −50 ms is caught as `OUT OF RANGE`. A net early delay needs the player to
+tap well ahead of the click (wired setups measure about +23 ms), so this is rare. The owner kept
+this limit for #74 rather than shrinking the late range. A slower "extended range" calibration (for example 60 BPM, which would
 cover up to about 900 ms) could be added as a follow-up if a device that slow turns up.
 
 ## Why OBS recordings are out of sync

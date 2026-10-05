@@ -277,6 +277,24 @@ void test_out_of_range() {
     std::cout << "  - out-of-range delays flagged + not ready ok.\n";
 }
 
+void test_early_alias_documented_limit() {
+    // Documented limit (docs/AUDIO_LATENCY.md, "Limit more than about 80 ms
+    // early"): with a 0.5 s click, a net delay of -0.10 s is indistinguishable
+    // from +0.40 s one beat later. It is saved as the aliased -0.40 s offset,
+    // not flagged out_of_range. Only about -80..-50 ms is refused.
+    CalibrationConfig config;
+    OffsetCalibration calib(config);
+    for (int i = 0; i < config.min_samples; ++i) {
+        TEST_CHECK(feed(calib, config, i, -0.10));
+    }
+    const CalibrationResult result = calib.result();
+    TEST_CHECK(result.ready);
+    TEST_CHECK(!result.out_of_range);
+    TEST_CHECK(near(result.mean_delta_seconds, 0.40, 1e-9));
+    TEST_CHECK(near(result.offset_seconds, -0.40, 1e-9));
+    std::cout << "  - -0.10 s early delay aliases to -0.40 s offset (documented limit) ok.\n";
+}
+
 void test_mistap_far_from_cluster() {
     CalibrationConfig config;
     OffsetCalibration calib(config);
@@ -329,6 +347,7 @@ int main() {
     test_low_latency_unchanged();
     test_cluster_straddles_slot_edge();
     test_out_of_range();
+    test_early_alias_documented_limit();
     test_mistap_far_from_cluster();
     test_unwrap_is_identity_in_range();
     std::cout << "[offset_calibration_test] All tests passed!\n";
