@@ -79,9 +79,7 @@ void ScoreKeeper::consume(const JudgmentEvent& event) {
             apply_hold(event);
             break;
         case JudgmentKind::HitMine:
-            // Hit mine scores but never changes combo (ScoreKeeperMAX2.cpp:333-341).
-            state_.actual_dp += dp_weight(constants_->dp_weights.hit_mine);
-            state_.tap_counts[static_cast<std::size_t>(TapJudgment::HitMine)]++;
+            apply_hit_mine(event); // once per mine; never changes combo
             break;
         case JudgmentKind::AvoidedMine:
         case JudgmentKind::RollHit:
@@ -184,6 +182,23 @@ void ScoreKeeper::apply_hold(const JudgmentEvent& event) {
             break;
     }
     // Hold/roll outcomes never change combo (ScoreKeeperMAX2.cpp:414-437).
+}
+
+void ScoreKeeper::apply_hit_mine(const JudgmentEvent& event) {
+    const int index = event.note_index;
+    if (index < 0 || static_cast<std::size_t>(index) >= note_scored_.size()) {
+        return;
+    }
+    if (chart_->notes[static_cast<std::size_t>(index)].type != NoteType::Mine) {
+        return; // only mine notes score a hit mine
+    }
+    if (note_scored_[static_cast<std::size_t>(index)]) {
+        return; // duplicate guard: a mine scores at most once (OpenITG grades it, Player.cpp:1096)
+    }
+    note_scored_[static_cast<std::size_t>(index)] = true;
+    // Hit mine scores but never changes combo (ScoreKeeperMAX2.cpp:333-341).
+    state_.actual_dp += dp_weight(constants_->dp_weights.hit_mine);
+    state_.tap_counts[static_cast<std::size_t>(TapJudgment::HitMine)]++;
 }
 
 void ScoreKeeper::recompute_derived() {

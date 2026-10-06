@@ -64,6 +64,16 @@ blaze4k::JudgmentEvent make_miss(int note_index, int column) {
     return event;
 }
 
+blaze4k::JudgmentEvent make_hit_mine(int note_index, int column) {
+    blaze4k::JudgmentEvent event;
+    event.kind = blaze4k::JudgmentKind::HitMine;
+    event.column = column;
+    event.note_index = note_index;
+    event.note_type = blaze4k::NoteType::Mine;
+    event.window = blaze4k::TapJudgment::HitMine;
+    return event;
+}
+
 blaze4k::JudgmentEvent make_hold_outcome(int note_index, int column, blaze4k::NoteType type,
                                     blaze4k::JudgmentKind kind, blaze4k::HoldJudgment hold) {
     blaze4k::JudgmentEvent event;
@@ -475,6 +485,56 @@ int main() {
         keeper.consume(avoided);
         TEST_CHECK(keeper.actual_dance_points() == -1);
         std::cout << "  - Hit mine scores -6 without touching combo; avoided is neutral.\n";
+    }
+
+    // 9b. Duplicate / foreign HitMine events score once (#119; LifeKeeper parity,
+    //     OpenITG grades a hit mine once, Player.cpp:1096).
+    //   chart: idx0 Mine @0.0, idx1 Tap @1.0 -> possible DP 5
+    //   HitMine idx1 (tap) / idx99 / idx-1 -> ignored          DP  0, mine tally 0, combo 0
+    //   Tap idx1 Fantastic (guard slot not consumed)           DP  5, Fantastic 1,  combo 1
+    //   HitMine idx0                                           DP -1, mine tally 1, combo 1
+    //   HitMine idx0 again (duplicate)                         DP -1, mine tally 1, combo 1
+    {
+        blaze4k::Chart chart;
+        chart.notes.push_back(make_note(0, 0.0, blaze4k::NoteType::Mine));
+        chart.notes.push_back(make_note(1, 1.0, blaze4k::NoteType::Tap));
+        chart.tap_count = 1;
+        chart.mine_count = 1;
+        blaze4k::ScoreKeeper keeper;
+        keeper.reset(&chart, &k);
+        TEST_CHECK(keeper.possible_dance_points() == 5);
+        const auto mine_tally = [&keeper]() {
+            return keeper.state().tap_counts[static_cast<std::size_t>(blaze4k::TapJudgment::HitMine)];
+        };
+
+        keeper.consume(make_hit_mine(1, 1));  // foreign: a tap's index
+        keeper.consume(make_hit_mine(99, 0)); // out of range
+        keeper.consume(make_hit_mine(-1, 0)); // negative
+        TEST_CHECK(keeper.actual_dance_points() == 0);
+        TEST_CHECK(mine_tally() == 0);
+        TEST_CHECK(keeper.state().combo == 0);
+        TEST_CHECK(!keeper.is_complete());
+
+        // The rejected mine event did not consume the tap's guard slot.
+        keeper.consume(make_tap(1, 1, blaze4k::TapJudgment::Fantastic, 0.0));
+        TEST_CHECK(keeper.actual_dance_points() == 5);
+        TEST_CHECK(keeper.state().tap_counts[static_cast<std::size_t>(blaze4k::TapJudgment::Fantastic)] == 1);
+        TEST_CHECK(keeper.state().combo == 1);
+        TEST_CHECK(keeper.is_complete());
+
+        keeper.consume(make_hit_mine(0, 0));
+        TEST_CHECK(keeper.actual_dance_points() == -1); // 5 + (-6)
+        TEST_CHECK(mine_tally() == 1);
+        TEST_CHECK(keeper.state().combo == 1);
+        TEST_CHECK(keeper.state().max_combo == 1);
+
+        keeper.consume(make_hit_mine(0, 0)); // duplicate -> ignored
+        TEST_CHECK(keeper.actual_dance_points() == -1);
+        TEST_CHECK(mine_tally() == 1);
+        TEST_CHECK(keeper.state().combo == 1);
+        TEST_CHECK(keeper.state().max_combo == 1);
+        TEST_CHECK(approx(keeper.percent(), -0.2));
+        std::cout << "  - 9b. Duplicate / foreign HitMine events score once (DP, tally, combo).\n";
     }
 
     // 10. Percent edge cases.
