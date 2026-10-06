@@ -72,6 +72,8 @@ Per-feature recipes live in `features/`. Start at `features/README.md`.
 $B shot RUN 02-results                  # -> RUN/evidence/02-results.png
 ```
 
+If `shot` fails with `import: missing an image filename`, the window is mapped but not viewable (the owner switched workspace or covered it with a fullscreen window). Do not move the owner's windows. Report the missing shot, or wait and retry.
+
 Look at every screenshot you cite (read the PNG). A proof includes:
 
 - a screenshot of the state before the action and after it, numbered in order;
