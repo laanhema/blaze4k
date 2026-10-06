@@ -11,6 +11,8 @@
 // #110: subtitle display choice (TrueType coverage), the real-font title/subtitle
 // fit for same-title songs, and subtitled songs (one with an empty title) in the
 // render smoke.
+// #122: the meter number and ticks sit 16px right; real-font clearance from the
+// slanted tab and the first tick.
 
 #include <algorithm>
 #include <array>
@@ -580,14 +582,43 @@ void test_ticks() {
     TEST_CHECK(art::meter_ticks_lit(15) == 10);
 
     const Rect row = art::difficulty_row_rect(0, 3);
-    TEST_CHECK(rect_eq(art::tick_rect(row, false, 0), 238, 385, 20, 18));
-    TEST_CHECK(rect_eq(art::tick_rect(row, false, 9), 400, 385, 20, 18));
+    TEST_CHECK(rect_eq(art::tick_rect(row, false, 0), 254, 385, 20, 18));
+    TEST_CHECK(rect_eq(art::tick_rect(row, false, 9), 416, 385, 20, 18));
     const Rect sel = art::difficulty_row_rect(3, 3);
-    TEST_CHECK(rect_eq(art::tick_rect(sel, true, 0), 252, 550, 20, 20));
-    TEST_CHECK(rect_eq(art::tick_rect(sel, true, 9), 414, 550, 20, 20));
+    TEST_CHECK(rect_eq(art::tick_rect(sel, true, 0), 268, 550, 20, 20));
+    TEST_CHECK(rect_eq(art::tick_rect(sel, true, 9), 430, 550, 20, 20));
     // The ticks end before the best % column.
     TEST_CHECK(art::tick_rect(row, false, 9).x + 20 < row.x + art::kDiffBestRight - 60);
     std::cout << "  - meter ticks ok.\n";
+}
+
+void test_meter_clearance() {
+    // The baked tab's right edge at the cap top (diff_row_hard{,_selected}.png; the
+    // tab is slanted, so this is its widest point under the digits), and the first
+    // tick's ink inset (diff_tick.png opaque x at mid-height).
+    constexpr float kTabTopNormal = 163.5f;
+    constexpr float kTabTopSelected = 167.5f;
+    constexpr float kTickInkInset = 3.0f;
+    constexpr float kMinClear = 4.0f;
+
+    // The number and ticks moved together (spacing unchanged from 194 - 174).
+    TEST_CHECK(art::kDiffTickX - art::kDiffMeterCentreX == 20.0f);
+    // The code-drawn Edit tab is no wider than the baked one, so the baked check covers it.
+    TEST_CHECK(art::kEditTabWidth <= kTabTopNormal);
+
+    blaze4k::TextRenderer& text = loaded_text();
+    const std::pair<theme::TextStyle, float> cases[] = {
+        {theme::text::kDiffMeter, kTabTopNormal},
+        {theme::text::kDiffMeterSelected, kTabTopSelected},
+    };
+    for (const auto& [style, tab_top] : cases) {
+        for (int meter = 1; meter <= 20; ++meter) {
+            const float w = text.measure(std::to_string(meter), style);
+            TEST_CHECK(art::kDiffMeterCentreX - w * 0.5f >= tab_top + kMinClear);
+            TEST_CHECK(art::kDiffMeterCentreX + w * 0.5f <= art::kDiffTickX + kTickInkInset - kMinClear);
+        }
+    }
+    std::cout << "  - meter clearance ok.\n";
 }
 
 void test_chip_text() {
@@ -1108,6 +1139,7 @@ int main() {
     test_row_style();
     test_labels();
     test_ticks();
+    test_meter_clearance();
     test_chip_text();
     test_chip_rects();
     test_hint_layout();

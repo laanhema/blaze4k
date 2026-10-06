@@ -62,10 +62,11 @@ inline constexpr float kWheelScrollMax = static_cast<float>(kWheelMaxSlideRows) 
 // Difficulty row width (manifest diff_row_* content 1128 @2x).
 inline constexpr float kDiffRowWidth = 564.0f;
 // Inside a difficulty row, from the row's content x (measured from the mock; the
-// manifest notes say 24 / 183 / 216).
+// manifest notes say 24 / 183 / 216). The meter and ticks sit 16px right of the
+// mock (#122): the slanted tab reaches x 167.5 at the cap top of a selected row.
 inline constexpr float kDiffNameX = 15.0f;
-inline constexpr float kDiffMeterCentreX = 174.0f;
-inline constexpr float kDiffTickX = 194.0f;
+inline constexpr float kDiffMeterCentreX = 190.0f;
+inline constexpr float kDiffTickX = 210.0f;
 inline constexpr float kDiffBestRight = 547.0f; // measured from mock: 17px in from the right edge
 inline constexpr float kDiffNameBudget = 128.0f; // the tab is ~150px wide at mid-height
 inline constexpr int kDiffTickCount = 10;
@@ -206,7 +207,7 @@ struct DifficultyRowStyle {
 // Lit ticks for a meter: clamp(meter, 0, 10).
 [[nodiscard]] int meter_ticks_lit(int meter);
 
-// Tick `n` (0..9) of `row`: {row.x + 194 + n*18, centred, 20, 18 (20 selected)}.
+// Tick `n` (0..9) of `row`: {row.x + 210 + n*18, centred, 20, 18 (20 selected)}.
 [[nodiscard]] Rect tick_rect(const Rect& row, bool selected, int n);
 
 // The CSS skewX parallelogram of `rect` about its vertical centre (TL, TR, BR, BL):
