@@ -1,11 +1,11 @@
 # TODO Issues
 
-**Source**: `TODO.md` · **Generated**: 2026-10-02 · **Updated**: 2026-10-06 (TODO-30 added; 2026-10-05: TODO-27 – TODO-29 added; 2026-10-03: TODO-13 – TODO-14 added; TODO-15 – TODO-26 added from `blaze4k-cabinet-theme/IMPLEMENTATION_PLAN.md`, see "Cabinet theme" section)
+**Source**: `TODO.md` · **Generated**: 2026-10-02 · **Updated**: 2026-10-07 (TODO-31 added; 2026-10-06: TODO-30 added; 2026-10-05: TODO-27 – TODO-29 added; 2026-10-03: TODO-13 – TODO-14 added; TODO-15 – TODO-26 added from `blaze4k-cabinet-theme/IMPLEMENTATION_PLAN.md`, see "Cabinet theme" section)
 
 ## Skipped
 
 - **Done (`[x]`)** — 28 items: `TODO.md` lines 1–15, 18–30 (font capitals bug, song-select audio, difficulty order, tab legend, key-repeat scrolling, song list room, attract timeout, legend overlap, song list rendering, results delay, disappearing holds, ITG arrow colors ×2, Cel noteskin, hold-end artifact, colored difficulties, receptor/hit effects, options SFX, assist-tick toggle, calibrate → Esc, auto `songs/` folder, remap background music, white high-score flash, best % in song select, assist-tick timing, options room, remap table layout, bigger receptors).
-- **Already tracked** — none on the first run. Second run: `TODO.md:16` (#55, TODO-1), `TODO.md:35` (#60, TODO-7); lines 31–34, 36, 37 are now marked done. Third run: `TODO.md:16` (#55), `:35` (#60), `:40` (#78); lines 36–39 are now marked done. Fifth run (2026-10-05): `TODO.md:17` (#98), `:35` (#60); lines 1–16, 18–34, 36–42 are marked done. Sixth run (2026-10-06): `TODO.md:17` (#98), `:35` (#60); lines 1–16, 18–34, 36–45 are marked done.
+- **Already tracked** — none on the first run. Second run: `TODO.md:16` (#55, TODO-1), `TODO.md:35` (#60, TODO-7); lines 31–34, 36, 37 are now marked done. Third run: `TODO.md:16` (#55), `:35` (#60), `:40` (#78); lines 36–39 are now marked done. Fifth run (2026-10-05): `TODO.md:17` (#98), `:35` (#60); lines 1–16, 18–34, 36–42 are marked done. Sixth run (2026-10-06): `TODO.md:17` (#98), `:35` (#60); lines 1–16, 18–34, 36–45 are marked done. Seventh run (2026-10-07): `TODO.md:17` (#98), `:35` (#60), `:46` (#118, TODO-30); lines 1–16, 18–34, 36–45 are marked done.
 - **Deferred by user** — `TODO.md:17` "Something Blaze themed visuals would be cool" (too vague for now; ID TODO-2 left unused). Still deferred on the second and third runs. Fourth run: covered by the Cabinet theme issues (#87–#98).
 - **Non-tasks** — none.
 
@@ -1078,6 +1078,44 @@ Question: does a hit mine cost the same life in Blaze 4k as in OpenITG (and Step
 - Scoring: `src/gameplay/score_keeper.cpp` (mine hit adds DP penalty, doesn't break combo).
 - Likely reason mines feel harsh: on a full bar a mine costs 10% instead of 5%, and the next 5 positive judgments refill nothing. Both are intentional OpenITG mirrors, so the spike should confirm them against source rather than assume they're wrong.
 - Same shape as #57 (verify judgment windows against OpenITG). AGENTS.md: OpenITG is the reference authority for life behavior.
+
+### Dependencies
+
+- Blocked by: None
+- Blocks: None
+
+---
+
+## [TODO-31] Shift the difficulty meter number and ticks right in song select
+
+**Type**: Enhancement
+**GitHub Label**: enhancement
+**Priority**: Medium
+**Complexity**: Small
+**Phase**: Backlog
+**Labels**: `screens`, `frontend`
+**Source**: `TODO.md:47` — "There needs to be a little bit more room for the songs difficulty number in song select screen. What I would like to be done is move the difficulty number and the difficulty bars ever so slightly to the right, that way the numbers would have more room."
+**GitHub**: #122
+
+### Description
+
+In the song select difficulty rows, the meter number sits in a tight gap between the difficulty name tab and the first of the 10 meter ticks, so it looks cramped. Move the number and the ticks slightly to the right together, giving the number more room.
+
+### Acceptance Criteria
+
+- [ ] The meter number and the 10 meter ticks both move right by the same small amount, keeping their position relative to each other
+- [ ] A two-digit meter (e.g. `12`) in the selected row's larger font clears both the name tab and the first tick
+- [ ] The last tick still ends well before the best-% column; the existing gap check in `tests/select_art_test.cpp` passes and the `tick_rect` position checks are updated to the new x values
+- [ ] The change applies the same way to normal rows, the selected row, and the code-drawn Edit row
+- [ ] A song select screenshot (via `/verify`) shows a chart with a two-digit meter laid out cleanly
+
+### Technical Notes
+
+- Layout constants: `src/screens/select_art.hpp` — `kDiffMeterCentreX = 174` (number centre) and `kDiffTickX = 194` (first tick), both measured from the row's content x. Shift both by the same delta (assumed ~10–16 px in layout units; "ever so slightly").
+- Tick geometry: `tick_rect` in `src/screens/select_art.cpp` (pitch `layout::kDiffTickPitch` = 18, `src/render/theme.hpp`); ticks currently span x 194–376. Best % is right-aligned at `kDiffBestRight = 547`, so there is roughly 80 px of slack before the "100.00%" text.
+- Meter text styles: `theme::text::kDiffMeter` (28 px) / `kDiffMeterSelected` (32 px) in `src/render/theme.hpp`; the name tab is ~150 px wide (`kEditTabWidth`), so the number's left side is bounded by the tab edge.
+- Tests: `tests/select_art_test.cpp` `test_ticks()` hard-codes tick x positions (238/400 and 252/414) — update them to the new offsets.
+- Assumption: only these two constants change; the row art, name, and best % stay where they are.
 
 ### Dependencies
 
