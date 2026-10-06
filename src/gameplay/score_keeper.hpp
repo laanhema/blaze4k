@@ -72,6 +72,7 @@ private:
 
     void apply_tap_like(const JudgmentEvent& event, bool miss);
     void apply_hold(const JudgmentEvent& event);
+    void apply_hit_mine(const JudgmentEvent& event);
     void resolve_row(int row);
     void recompute_derived();
     [[nodiscard]] int tap_weight(TapJudgment j) const;
@@ -89,7 +90,7 @@ private:
     bool merciful_ = false; // MercifulBeginner rules apply to this chart
     std::vector<int> note_row_;     // note_index -> row id (-1 = mine/unscored)
     std::vector<RowAggregate> rows_;
-    std::vector<bool> note_scored_; // per-note idempotence guard for tap-like events
+    std::vector<bool> note_scored_; // per-note idempotence guard for tap-like events and hit mines
     std::vector<bool> hold_scored_; // per-note resolved guard (outcome or missed head)
     ScoreState state_;
 };
