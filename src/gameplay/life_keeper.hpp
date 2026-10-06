@@ -69,6 +69,7 @@ private:
 
     void consume_tap_like(const JudgmentEvent& event, bool miss);
     void consume_hold_outcome(const JudgmentEvent& event);
+    void consume_hit_mine(const JudgmentEvent& event);
     void consume_event(const JudgmentEvent& event);
     void resolve_row(int row);
     [[nodiscard]] bool is_hot() const { return state_.life >= 1.0; }
@@ -84,7 +85,7 @@ private:
     bool fail_enabled_ = true;
     std::vector<int> note_row_;     // note_index -> row id (-1 = mine/unscored)
     std::vector<RowAggregate> rows_;
-    std::vector<bool> note_scored_; // per-note idempotence guard for tap-like events
+    std::vector<bool> note_scored_; // per-note idempotence guard for tap-like events and hit mines
     std::vector<bool> hold_scored_; // per-note resolved guard for hold/roll outcomes
     int combo_to_regain_life_ = 0;  // OpenITG m_iComboToRegainLife
     LifeState state_;
