@@ -80,8 +80,10 @@ struct LifeDeltas {
 
     // OpenITG "hot" penalty: while the bar is full (life >= 1), a WayOff/Miss/
     // hit-mine/hold-NG is forced to this value instead of its table delta
-    // (LifeMeterBar.cpp:118-119,174-175). Pinned from
-    // src/PrefsManager.cpp at commit f2c129fe65c65e4a9b3a691ff35e7717b4e8de51.
+    // (LifeMeterBar.cpp:118-119,174-175). OpenITG has no preference for it: it is
+    // the hard-coded `-0.10f` literal in src/LifeMeterBar.cpp:119 (tap/mine,
+    // `score < TNS_GOOD`) and :175 (hold NG) at commit
+    // f2c129fe65c65e4a9b3a691ff35e7717b4e8de51.
     double hot_downgrade = -0.10;
     // OpenITG "combo-to-regain-life": after any life loss, the next this many
     // positive judgments grant no life (LifeMeterBar.cpp:208-227; default 5).

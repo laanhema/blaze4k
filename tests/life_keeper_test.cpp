@@ -330,6 +330,9 @@ int main() {
     // 10. Incremental == batch.
     {
         blaze4k::Chart chart = tap_rows(4);
+        chart.notes[3].type = blaze4k::NoteType::Mine; // make_mine(3, 3) targets a real mine
+        chart.tap_count = 3;
+        chart.mine_count = 1;
         std::vector<blaze4k::JudgmentEvent> events = {
             make_tap(0, 0, blaze4k::TapJudgment::Fantastic, 0.0),
             make_tap(1, 1, blaze4k::TapJudgment::Great, -20.0),
@@ -375,10 +378,13 @@ int main() {
         }
         {
             blaze4k::Chart chart = tap_rows(70);
+            chart.notes.push_back(make_note(0, 100.0, blaze4k::NoteType::Mine)); // index 70
+            chart.mine_count = 1;
             int next = 0;
             auto [keeper, idx] = full_keeper(chart, &next);
-            blaze4k::JudgmentEvent mine = make_mine(idx, idx % 4);
-            keeper.consume(mine);
+            TEST_CHECK(approx(keeper.life(), 1.0));
+            // Mine at full: base -0.050, hot -> -0.10.
+            keeper.consume(make_mine(70, 0));
             TEST_CHECK(approx(keeper.life(), 0.9));
         }
         {
@@ -627,6 +633,203 @@ int main() {
             TEST_CHECK(beginner.has_failed() == medium.has_failed());
         }
         std::cout << "  - 19. life is identical on Beginner (no MercifulBeginner branch).\n";
+    }
+
+    // 20. Mine parity with OpenITG (LifeMeterBar.cpp / Player.cpp at f2c129fe).
+    {
+        using blaze4k::JudgmentKind;
+        using blaze4k::NoteType;
+        auto count_kind = [](const std::vector<blaze4k::JudgmentEvent>& events, JudgmentKind kind) {
+            int count = 0;
+            for (const blaze4k::JudgmentEvent& e : events) {
+                if (e.kind == kind) {
+                    ++count;
+                }
+            }
+            return count;
+        };
+
+        // 20a. Duplicate / foreign HitMine events take life once. OpenITG grades a
+        // hit mine (Player.cpp:1096), so it can never explode again.
+        //   start 0.5; mine idx 0 -> -0.050 = 0.45; duplicate -> ignored = 0.45
+        //   HitMine on a tap index / out of range -> ignored             = 0.45
+        {
+            blaze4k::Chart chart;
+            chart.notes.push_back(make_note(0, 0.0, NoteType::Mine));
+            chart.notes.push_back(make_note(1, 1.0, NoteType::Tap));
+            chart.tap_count = 1;
+            chart.mine_count = 1;
+
+            blaze4k::LifeKeeper keeper;
+            keeper.reset(&chart, &k);
+            keeper.consume(make_mine(0, 0));
+            TEST_CHECK(approx(keeper.life(), 0.45));
+            keeper.consume(make_mine(0, 0));
+            TEST_CHECK(approx(keeper.life(), 0.45));
+            keeper.consume(make_mine(1, 1));  // a tap's index: not a mine
+            keeper.consume(make_mine(99, 0)); // out of range
+            keeper.consume(make_mine(-1, 0)); // negative index
+            TEST_CHECK(approx(keeper.life(), 0.45));
+
+            // Fresh keeper (debt 0): a mine event on the tap's index neither takes
+            // life nor marks the tap scored, so its real row still pays +0.008.
+            blaze4k::LifeKeeper fresh;
+            fresh.reset(&chart, &k);
+            fresh.consume(make_mine(1, 1));
+            TEST_CHECK(approx(fresh.life(), 0.5));
+            fresh.consume(make_tap(1, 1, blaze4k::TapJudgment::Fantastic, 0.0));
+            TEST_CHECK(approx(fresh.life(), 0.508));
+            std::cout << "  - 20a. duplicate / foreign HitMine events take life once.\n";
+        }
+
+        // 20b. Stepped on, then held through: life taken once (engine -> keeper).
+        {
+            blaze4k::Chart chart;
+            chart.notes.push_back(make_note(0, 2.0, NoteType::Mine));
+            chart.mine_count = 1;
+            blaze4k::JudgmentEngine engine;
+            engine.reset(&chart, &k);
+            blaze4k::LifeKeeper keeper;
+            keeper.reset(&chart, &k);
+
+            engine.handle_step(0, 2.0);
+            for (int i = 0; i <= 100; ++i) {
+                engine.update(2.0 + i * 0.01, held_col(0));
+            }
+            std::vector<blaze4k::JudgmentEvent> drained;
+            engine.drain_new_events(drained);
+            keeper.consume(drained);
+
+            TEST_CHECK(count_kind(drained, JudgmentKind::HitMine) == 1);
+            TEST_CHECK(count_kind(drained, JudgmentKind::AvoidedMine) == 0);
+            TEST_CHECK(approx(keeper.life(), 0.45));
+            std::cout << "  - 20b. stepped-on then held mine takes life once.\n";
+        }
+
+        // 20c. Held through only (press 0.5 s early, outside the 70 ms mine window,
+        // so the mine stays live): life taken once at any update rate.
+        {
+            auto held_through = [&](double grid) {
+                blaze4k::Chart chart;
+                chart.notes.push_back(make_note(0, 2.0, NoteType::Mine));
+                chart.mine_count = 1;
+                blaze4k::JudgmentEngine engine;
+                engine.reset(&chart, &k);
+                blaze4k::LifeKeeper keeper;
+                keeper.reset(&chart, &k);
+
+                engine.handle_step(0, 1.5);
+                TEST_CHECK(engine.events().empty());
+                const int steps = static_cast<int>(std::lround(1.5 / grid));
+                for (int i = 0; i <= steps; ++i) {
+                    engine.update(1.5 + i * grid, held_col(0));
+                }
+                std::vector<blaze4k::JudgmentEvent> drained;
+                engine.drain_new_events(drained);
+                keeper.consume(drained);
+
+                TEST_CHECK(count_kind(drained, JudgmentKind::HitMine) == 1);
+                TEST_CHECK(count_kind(drained, JudgmentKind::AvoidedMine) == 0);
+                TEST_CHECK(approx(keeper.life(), 0.45));
+            };
+            held_through(0.01);
+            held_through(0.1);
+            held_through(0.001);
+            std::cout << "  - 20c. held-through mine takes life once at any update rate.\n";
+        }
+
+        // 20d. Mine regain debt matches LifeMeterBar.cpp:208-226.
+        //   mine -> 0.45, debt 5; Fantastic rows 1-4: debt 4,3,2,1, suppressed = 0.45
+        //   row 5: debt 1 -> 0, pays +0.008                                   = 0.458
+        {
+            blaze4k::Chart chart;
+            chart.notes.push_back(make_note(0, 0.0, NoteType::Mine));
+            for (int i = 1; i <= 6; ++i) {
+                chart.notes.push_back(make_note(i % 4, static_cast<double>(i), NoteType::Tap));
+            }
+            chart.tap_count = 6;
+            chart.mine_count = 1;
+            blaze4k::LifeKeeper keeper;
+            keeper.reset(&chart, &k);
+            keeper.consume(make_mine(0, 0));
+            TEST_CHECK(approx(keeper.life(), 0.45));
+            for (int i = 1; i <= 4; ++i) {
+                keeper.consume(make_tap(i, i % 4, blaze4k::TapJudgment::Fantastic, 0.0));
+            }
+            TEST_CHECK(approx(keeper.life(), 0.45));
+            keeper.consume(make_tap(5, 1, blaze4k::TapJudgment::Fantastic, 0.0));
+            TEST_CHECK(approx(keeper.life(), 0.458));
+        }
+        //   Mines and misses share one debt:
+        //   mine -> 0.45, debt 5; miss -> 0.35, debt min(10, 5+5) = 10
+        //   Fantastic rows 2-10 (9 rows): debt 9..1, suppressed               = 0.35
+        //   row 11: debt 1 -> 0, pays +0.008                                  = 0.358
+        {
+            blaze4k::Chart chart;
+            chart.notes.push_back(make_note(0, 0.0, NoteType::Mine));
+            for (int i = 1; i <= 12; ++i) {
+                chart.notes.push_back(make_note(i % 4, static_cast<double>(i), NoteType::Tap));
+            }
+            chart.tap_count = 12;
+            chart.mine_count = 1;
+            blaze4k::LifeKeeper keeper;
+            keeper.reset(&chart, &k);
+            keeper.consume(make_mine(0, 0));
+            keeper.consume(make_miss(1, 1));
+            TEST_CHECK(approx(keeper.life(), 0.35));
+            for (int i = 2; i <= 10; ++i) {
+                keeper.consume(make_tap(i, i % 4, blaze4k::TapJudgment::Fantastic, 0.0));
+            }
+            TEST_CHECK(approx(keeper.life(), 0.35));
+            keeper.consume(make_tap(11, 11 % 4, blaze4k::TapJudgment::Fantastic, 0.0));
+            TEST_CHECK(approx(keeper.life(), 0.358));
+            std::cout << "  - 20d. mine regain debt: 4 suppressed, 5th pays; shared with misses.\n";
+        }
+
+        // 20e. Full bar: mine forced to the hot penalty (-0.10, not -0.05), then
+        // the regain debt. Filling 0.5 -> 1.0 takes 63 Fantastic rows (idx 63).
+        //   mine at full -> 0.9, debt 5; rows 63-66 suppressed = 0.9; row 67 = 0.908
+        {
+            blaze4k::Chart chart = tap_rows(70);
+            chart.notes.push_back(make_note(0, 100.0, NoteType::Mine)); // index 70
+            chart.mine_count = 1;
+            blaze4k::LifeKeeper keeper;
+            keeper.reset(&chart, &k);
+            int idx = 0;
+            while (keeper.life() < 1.0 && idx < 70) {
+                keeper.consume(make_tap(idx, idx % 4, blaze4k::TapJudgment::Fantastic, 0.0));
+                ++idx;
+            }
+            TEST_CHECK(idx == 63);
+            TEST_CHECK(approx(keeper.life(), 1.0));
+            keeper.consume(make_mine(70, 0));
+            TEST_CHECK(approx(keeper.life(), 0.9));
+            for (int i = idx; i < idx + 4; ++i) {
+                keeper.consume(make_tap(i, i % 4, blaze4k::TapJudgment::Fantastic, 0.0));
+            }
+            TEST_CHECK(approx(keeper.life(), 0.9));
+            keeper.consume(make_tap(idx + 4, (idx + 4) % 4, blaze4k::TapJudgment::Fantastic, 0.0));
+            TEST_CHECK(approx(keeper.life(), 0.908));
+            std::cout << "  - 20e. full-bar mine costs the hot -0.10, then the regain debt.\n";
+        }
+
+        // 20f. A mine on the same beat as a tap never joins its row
+        // (Player.cpp:1130-1134 judges rows from taps/hold heads only).
+        //   tap Fantastic -> row resolves at once = 0.508; mine -> -0.050 = 0.458
+        {
+            blaze4k::Chart chart;
+            chart.notes.push_back(make_note(0, 1.0, NoteType::Tap));
+            chart.notes.push_back(make_note(1, 1.0, NoteType::Mine));
+            chart.tap_count = 1;
+            chart.mine_count = 1;
+            blaze4k::LifeKeeper keeper;
+            keeper.reset(&chart, &k);
+            keeper.consume(make_tap(0, 0, blaze4k::TapJudgment::Fantastic, 0.0));
+            TEST_CHECK(approx(keeper.life(), 0.508));
+            keeper.consume(make_mine(1, 1));
+            TEST_CHECK(approx(keeper.life(), 0.458));
+            std::cout << "  - 20f. a same-beat mine never joins the tap row.\n";
+        }
     }
 
     std::cout << "[life_keeper_test] All life/fail tests passed successfully!\n";

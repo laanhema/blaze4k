@@ -92,7 +92,7 @@ void LifeKeeper::consume_event(const JudgmentEvent& event) {
             consume_hold_outcome(event); // one delta per hold when the tail resolves
             break;
         case JudgmentKind::HitMine:
-            apply(delta_for(event)); // immediate on trigger
+            consume_hit_mine(event); // immediate on trigger, once per mine
             break;
         case JudgmentKind::AvoidedMine:
         case JudgmentKind::RollHit:
@@ -152,6 +152,21 @@ void LifeKeeper::consume_hold_outcome(const JudgmentEvent& event) {
         return; // duplicate guard: one outcome per hold/roll
     }
     hold_scored_[static_cast<std::size_t>(index)] = true;
+    apply(delta_for(event));
+}
+
+void LifeKeeper::consume_hit_mine(const JudgmentEvent& event) {
+    const int index = event.note_index;
+    if (index < 0 || static_cast<std::size_t>(index) >= note_scored_.size()) {
+        return;
+    }
+    if (chart_->notes[static_cast<std::size_t>(index)].type != NoteType::Mine) {
+        return; // only mine notes explode
+    }
+    if (note_scored_[static_cast<std::size_t>(index)]) {
+        return; // duplicate guard: a mine takes life at most once (OpenITG grades it, Player.cpp:1096)
+    }
+    note_scored_[static_cast<std::size_t>(index)] = true;
     apply(delta_for(event));
 }
 
