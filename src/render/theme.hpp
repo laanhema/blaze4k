@@ -98,6 +98,10 @@ constexpr std::array kFontFiles = {
 };
 static_assert(kFontFiles.size() == kFontCount, "kFontFiles must list one file per Font");
 
+// Fallback for symbols the theme fonts lack (#124): a merged Noto Sans Symbols 1+2 subset
+// (U+2190-21FF, U+25A0-25FF, U+2600-26FF, U+2700-27BF). Not a theme::Font; never styled directly.
+constexpr const char* kSymbolFontFile = "assets/fonts/NotoSansSymbols-Subset.ttf";
+
 // Neither font has a real italic. The mock-ups use the browser's synthetic oblique:
 // shear glyph quads by x += kItalicShear * (baseline_y - y).
 constexpr float kItalicShear = 0.25f;

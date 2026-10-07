@@ -6,15 +6,20 @@
 //  1. FontFace: the bytes of one bundled .ttf. validate_sfnt() checks the sfnt
 //     table directory before any stb call (stb_truetype is not hardened), then
 //     the face caches the glyph index and advance of each baked code point.
-//  2. FontAtlas: one per (font, pixel size). Bakes U+0020-U+007E, U+00A0-U+00FF
-//     and U+0100-U+017F (319 code points) with stbtt_PackFontRanges at 2x2
-//     oversampling, plus an in-atlas placeholder box. The coverage uploads as
+//  2. FontAtlas: one per (font, pixel size). Bakes U+0020-U+007E, U+00A0-U+00FF,
+//     U+0100-U+017F and the symbol blocks U+2190-21FF, U+25A0-25FF,
+//     U+2600-26FF, U+2700-27BF (975 slots; absent ones skipped) with
+//     stbtt_PackFontRanges at 2x2 oversampling, plus an in-atlas placeholder box. The coverage uploads as
 //     white RGBA with the coverage in alpha, so tinting works like any sprite.
 //  3. Pure layout: measure_text / for_each_text_quad turn UTF-8 into sheared
 //     glyph quads. One shared glyph walker feeds both, so measure and draw can
 //     never disagree. Tests run them against CPU-baked atlases with no GL.
 //  4. TextRenderer: owns the 4 faces (theme::kFontFiles) and the atlases, and
 //     draws a theme::TextStyle through GlQuadRenderer::draw_quad_points.
+//  Symbol fallback (#124): TextRenderer also loads theme::kSymbolFontFile, a
+//  Noto Sans Symbols subset. Code points in the symbol blocks that a theme
+//  font lacks come from it, baked lazily into small per-size symbol atlases
+//  (only the code points actually drawn, capped per size and in count).
 //
 // Conventions:
 //  - `s` is the layout scale, theme::layout_scale_factor(w, h) (#91): the fit
@@ -31,7 +36,8 @@
 //  - Colours are straight alpha, like the rest of the renderer.
 //  - UTF-8 goes through unicode_text: zero-width code points draw nothing and
 //    take no advance; malformed bytes decode to U+FFFD; a code point the font
-//    lacks uses its ASCII fold, else the in-atlas placeholder box.
+//    lacks uses the symbol font, else its ASCII fold, else the in-atlas
+//    placeholder box.
 //  - Fallback: a missing or corrupt .ttf (or an atlas that cannot bake) logs
 //    once and draws with the 5x7 bitmap font at about 0.7em cap height.
 //  - Headless (no GL): measuring, truncation and coverage still work (font
@@ -63,8 +69,14 @@ enum class TextAlign { Left, Centre, Right };
 // Font files larger than this are rejected before reading (the bundled fonts are < 100 KB).
 inline constexpr std::uintmax_t kMaxFontBytes = 16u << 20;
 
-// U+0020-U+007E (95) + U+00A0-U+00FF (96) + U+0100-U+017F (128).
-inline constexpr std::size_t kBakedGlyphCount = 319;
+// Latin slots: U+0020-U+007E (95) + U+00A0-U+00FF (96) + U+0100-U+017F (128).
+inline constexpr std::size_t kLatinGlyphCount = 319;
+// Every slot: the Latin ones, then the symbol blocks U+2190-U+21FF (112),
+// U+25A0-U+25FF (96), U+2600-U+26FF (256) and U+2700-U+27BF (192) (#124).
+inline constexpr std::size_t kBakedGlyphCount = 975;
+
+// The code point the symbol fallback face must have (U+263A WHITE SMILING FACE).
+inline constexpr char32_t kSymbolProbeCodePoint = 0x263A;
 
 // Index of `cp` in the baked glyph table, or -1 when it is not baked. Pure.
 [[nodiscard]] int baked_glyph_slot(char32_t cp);
@@ -87,12 +99,16 @@ public:
     FontFace& operator=(const FontFace&) = delete;
     ~FontFace();
 
-    // validate_sfnt, then stbtt_InitFont, then requires a glyph for 'A'.
+    // validate_sfnt, then stbtt_InitFont, then requires a glyph for
+    // `required_cp` ('A' for the theme fonts, kSymbolProbeCodePoint for the
+    // symbol fallback face).
     [[nodiscard]] static std::optional<FontFace> from_bytes(std::vector<std::uint8_t> bytes,
-                                                            std::string* error);
+                                                            std::string* error,
+                                                            char32_t required_cp = U'A');
     // Checks the size cap before reading, then from_bytes. Never throws.
     [[nodiscard]] static std::optional<FontFace> from_file(const std::filesystem::path& path,
-                                                           std::string* error);
+                                                           std::string* error,
+                                                           char32_t required_cp = U'A');
 
     [[nodiscard]] int units_per_em() const;
     // hhea metrics in font units (descent is negative).
@@ -142,15 +158,17 @@ struct FontAtlas {
     AtlasGlyph placeholder{};
     Texture texture;
 
-    // Packs the 319 code points (absent ones are skipped) plus the placeholder
-    // box into an atlas at most `max_dim` px on each side (clamped to [256,
-    // 4096]). The width starts at the power of two that fits the estimated glyph
-    // area and doubles on failure; the height is cropped to the rows used
-    // (a multiple of 4). If 2x2 oversampling cannot fit, retries once at 1x1.
-    // Returns nullopt (with `error`) for a pixel size that is not finite, < 1 or
-    // > 1024, or when nothing fits.
+    // Packs every baked slot the face has (absent ones are skipped), or only
+    // the in-range present slots of `only_slots` when it is non-empty, plus the
+    // placeholder box into an atlas at most `max_dim` px on each side (clamped
+    // to [256, 4096]). The width starts at the power of two that fits the
+    // estimated glyph area and doubles on failure; the height is cropped to the
+    // rows used (a multiple of 4). If 2x2 oversampling cannot fit, retries once
+    // at 1x1. Returns nullopt (with `error`) for a pixel size that is not
+    // finite, < 1 or > 1024, or when nothing fits.
     [[nodiscard]] static std::optional<FontAtlas> bake(const FontFace& face, float pixel_size,
-                                                       int max_dim, std::string* error);
+                                                       int max_dim, std::string* error,
+                                                       std::span<const int> only_slots = {});
     // Uploads the coverage as white RGBA (no mipmaps, clamp, linear). On
     // success frees `coverage` and returns true. Needs a GL context.
     bool upload();
@@ -174,12 +192,19 @@ struct GlyphQuad {
     std::array<Vec2, 4> corners{};
     UVRect uv{};
     Color color{};
+    bool fallback = false; // true: the UVs index the fallback (symbol) atlas
 };
 
 // Pen advance of UTF-8 `text`: per visible glyph kern + advance + tracking.
 // Ignores the italic overhang and the shadow offset (like a CSS box). Pure.
+// Same as the fallback overload with no fallback face.
 [[nodiscard]] float measure_text(const FontFace& face, std::string_view text, float pixel_size,
                                  float tracking);
+// Code points the primary `face` lacks use `fallback` (nullable) when it has
+// them, at its own advance (no kerning across faces), before the ASCII fold
+// and the placeholder. Never depends on whether a fallback glyph is baked. Pure.
+[[nodiscard]] float measure_text(const FontFace& face, const FontFace* fallback,
+                                 std::string_view text, float pixel_size, float tracking);
 
 // Emits the glyph quads of `text` laid out at (x, y) (y = line-box top), in
 // draw order: every shadow quad first (when layout.shadow_offset > 0), then
@@ -188,6 +213,14 @@ struct GlyphQuad {
 // The atlas should be baked at layout.pixel_size (quads are scaled if not). Pure.
 void for_each_text_quad(const FontFace& face, const FontAtlas& atlas, std::string_view text,
                         float x, float y, const TextLayout& layout,
+                        const std::function<void(const GlyphQuad&)>& emit);
+// With a fallback face (nullable): its glyphs come from `fallback_atlas` with
+// GlyphQuad::fallback set; one missing from that atlas (or with no atlas)
+// draws the primary atlas placeholder at the same pen position and advance,
+// so layout matches measure_text. Pure.
+void for_each_text_quad(const FontFace& face, const FontAtlas& atlas, const FontFace* fallback,
+                        const FontAtlas* fallback_atlas, std::string_view text, float x, float y,
+                        const TextLayout& layout,
                         const std::function<void(const GlyphQuad&)>& emit);
 
 // Same as theme::layout_scale_factor(window_width, window_height) (#91):
@@ -218,6 +251,9 @@ public:
     // Loads each theme::kFontFiles entry from the cwd, else next to the
     // executable. Returns true when at least one font loaded. Idempotent
     // (calls shutdown() first). A missing/corrupt font logs one line.
+    // Also loads theme::kSymbolFontFile the same way; when it is missing or
+    // corrupt that logs one line, symbols draw as placeholder boxes, and the
+    // return value is unaffected.
     bool load();
     // Same, with every font path relative to `root` (tests).
     bool load(const std::filesystem::path& root);
@@ -241,8 +277,9 @@ public:
     [[nodiscard]] std::string truncate(std::string_view text, const theme::TextStyle& style,
                                        float max_width) const;
     // True when every visible code point of `text` has a native glyph in
-    // `font` (folds and placeholders do not count). When the font is not
-    // loaded, answers for the bitmap fallback (font_covers_text).
+    // `font` or in the symbol fallback face (folds and placeholders do not
+    // count). When the font is not loaded, answers for the bitmap fallback
+    // (font_covers_text).
     [[nodiscard]] bool covers_text(std::string_view text, theme::Font font) const;
 
     // Draws `text` with its line-box top at `y`; `x` is the anchor for `align`.
@@ -252,6 +289,8 @@ public:
               float extra_shear = 0.0f);
 
     [[nodiscard]] bool font_available(theme::Font font) const;
+    // True when the symbol fallback face (theme::kSymbolFontFile) loaded.
+    [[nodiscard]] bool symbol_font_available() const;
     [[nodiscard]] std::size_t atlas_count() const;
     // The window size last passed to set_window_size (the atlases are baked, or
     // headless recorded, for its scale()); -1 before any.
@@ -265,10 +304,25 @@ private:
         std::optional<FontAtlas> atlas;     // nullopt: the bake failed (not retried)
     };
 
-    bool load_paths(const std::array<std::filesystem::path, theme::kFontCount>& paths);
+    // Lazily baked symbol glyphs for one TextStyle size (#124).
+    struct SymbolAtlasSlot {
+        float size_px = 0.0f;           // at 720p
+        std::vector<int> slots;         // sorted, unique, <= kMaxSymbolGlyphsPerAtlas
+        std::optional<FontAtlas> atlas; // nullopt: bake failed (glyphs draw the placeholder)
+    };
+
+    bool load_paths(const std::array<std::filesystem::path, theme::kFontCount>& paths,
+                    const std::filesystem::path& symbol_path);
     // Queries GL_MAX_TEXTURE_SIZE once (GL only) and caps it at 4096.
     void ensure_max_texture_size();
     [[nodiscard]] const FontFace* face(theme::Font font) const;
+    // The symbol fallback face, or null when it did not load.
+    [[nodiscard]] const FontFace* symbol_face() const;
+    // The symbol atlas for `size_px` holding every symbol glyph of `text` that
+    // fits the caps, baking or rebaking it when a new code point appears (GL
+    // only). Null when `text` has no symbol glyph or nothing is baked.
+    [[nodiscard]] const FontAtlas* symbol_atlas_for(const FontFace& primary, float size_px,
+                                                    std::string_view text);
     // Finds the atlas for (font, size_px), baking it on a miss (GL only). Null
     // when unavailable.
     [[nodiscard]] const FontAtlas* atlas_for(theme::Font font, float size_px, bool lazy);
@@ -279,6 +333,8 @@ private:
 
     std::array<std::optional<FontFace>, theme::kFontCount> faces_{};
     std::vector<AtlasSlot> atlases_;
+    std::optional<FontFace> symbol_face_;
+    std::vector<SymbolAtlasSlot> symbol_atlases_;
     int baked_width_ = -1;
     int baked_height_ = -1;
     bool sized_ = false; // set_window_size called since construction / shutdown()
@@ -286,6 +342,7 @@ private:
     int max_texture_size_ = 0; // 0 until queried (GL only)
     bool warned_headless_ = false;
     bool warned_atlas_cap_ = false;
+    bool warned_symbol_cap_ = false;
     std::array<bool, theme::kFontCount> warned_fallback_{};
 };
 

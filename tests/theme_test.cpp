@@ -4,6 +4,7 @@
 #include <iostream>
 #include <set>
 #include <string>
+#include <vector>
 
 #include <nlohmann/json.hpp>
 
@@ -37,7 +38,10 @@ fs::path cabinet_dir() {
 }
 
 void test_font_files_present() {
-    for (const char* f : blaze4k::theme::kFontFiles) {
+    std::vector<const char*> files(blaze4k::theme::kFontFiles.begin(),
+                                   blaze4k::theme::kFontFiles.end());
+    files.push_back(blaze4k::theme::kSymbolFontFile); // #124 symbol fallback
+    for (const char* f : files) {
         const fs::path p = kAssets / fs::path(f).lexically_relative("assets");
         TEST_CHECK(fs::is_regular_file(p));
         TEST_CHECK(fs::file_size(p) > 0);
@@ -52,7 +56,8 @@ void test_font_files_present() {
     }
     TEST_CHECK(fs::is_regular_file(kAssets / "fonts" / "OFL-Audiowide.txt"));
     TEST_CHECK(fs::is_regular_file(kAssets / "fonts" / "OFL-SairaCondensed.txt"));
-    std::cout << "  - theme font files and OFL licences present ok.\n";
+    TEST_CHECK(fs::is_regular_file(kAssets / "fonts" / "OFL-NotoSansSymbols.txt"));
+    std::cout << "  - theme + symbol font files and OFL licences present ok.\n";
 }
 
 nlohmann::json load_manifest() {

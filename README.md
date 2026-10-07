@@ -95,5 +95,6 @@ Bundled third-party assets keep their own licenses:
 - `assets/noteskins/cel/explosions/Fallback HitMine Explosion.png` is from StepMania and is distributed under [StepMania's license](assets/noteskins/cel/explosions/LICENSE-StepMania.txt).
 - The Audiowide font (`assets/fonts/Audiowide-Regular.ttf`) is distributed under the [SIL Open Font License 1.1](assets/fonts/OFL-Audiowide.txt).
 - The Saira Condensed fonts (`assets/fonts/SairaCondensed-*.ttf`) are distributed under the [SIL Open Font License 1.1](assets/fonts/OFL-SairaCondensed.txt).
+- The Noto Sans Symbols subset (`assets/fonts/NotoSansSymbols-Subset.ttf`, built from Noto Sans Symbols and Noto Sans Symbols 2 by `scripts/build-symbol-font.sh`) is distributed under the [SIL Open Font License 1.1](assets/fonts/OFL-NotoSansSymbols.txt).
 
 Dependencies fetched at build time (SDL3, glad, nlohmann/json, miniaudio, stb) are covered by their own licenses.
