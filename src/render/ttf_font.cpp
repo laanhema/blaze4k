@@ -362,6 +362,24 @@ std::vector<std::uint8_t> coverage_to_white_rgba(std::span<const std::uint8_t> c
     return rgba;
 }
 
+SymbolSlotMerge merge_symbol_slots(std::vector<int>& slots, std::span<const int> wanted,
+                                   std::size_t cap) {
+    SymbolSlotMerge result;
+    for (const int slot : wanted) {
+        const auto it = std::lower_bound(slots.begin(), slots.end(), slot);
+        if (it != slots.end() && *it == slot) {
+            continue;
+        }
+        if (slots.size() >= cap) {
+            result.dropped = true;
+            continue;
+        }
+        slots.insert(it, slot);
+        result.grew = true;
+    }
+    return result;
+}
+
 float text_layout_scale(int window_width, int window_height) {
     return theme::layout_scale_factor(window_width, window_height);
 }
@@ -990,7 +1008,8 @@ const FontFace* TextRenderer::symbol_face() const {
     return symbol_face_ ? &*symbol_face_ : nullptr;
 }
 
-const FontAtlas* TextRenderer::symbol_atlas_for(const FontFace& primary, float size_px,
+const FontAtlas* TextRenderer::symbol_atlas_for(GlQuadRenderer& renderer,
+                                                const FontFace& primary, float size_px,
                                                 std::string_view text) {
     const FontFace* symbols = symbol_face();
     if (symbols == nullptr || !gl_present()) {
@@ -1027,20 +1046,8 @@ const FontAtlas* TextRenderer::symbol_atlas_for(const FontFace& primary, float s
         symbol_atlases_.push_back(SymbolAtlasSlot{size_px, {}, std::nullopt});
         entry = &symbol_atlases_.back();
     }
-    bool grew = false;
-    bool dropped = false;
-    for (const int slot : wanted) {
-        const auto it = std::lower_bound(entry->slots.begin(), entry->slots.end(), slot);
-        if (it != entry->slots.end() && *it == slot) {
-            continue;
-        }
-        if (entry->slots.size() >= kMaxSymbolGlyphsPerAtlas) {
-            dropped = true;
-            continue;
-        }
-        entry->slots.insert(it, slot);
-        grew = true;
-    }
+    const auto [grew, dropped] =
+        merge_symbol_slots(entry->slots, wanted, kMaxSymbolGlyphsPerAtlas);
     if (dropped && !warned_symbol_cap_) {
         warned_symbol_cap_ = true;
         std::cerr << "[TextRenderer] Symbol glyph cap (" << kMaxSymbolGlyphsPerAtlas
@@ -1048,6 +1055,10 @@ const FontAtlas* TextRenderer::symbol_atlas_for(const FontFace& primary, float s
                   << "px; further symbols draw as placeholder boxes\n";
     }
     if (grew) {
+        // Replacing the atlas destroys its texture; draw the quads still
+        // queued against it first (the renderer only flushes on a texture
+        // change, and GL may hand the freed name to the new atlas).
+        renderer.flush();
         ensure_max_texture_size();
         const float pixel_size = size_px * scale_;
         std::string error;
@@ -1211,7 +1222,7 @@ void TextRenderer::draw(GlQuadRenderer& renderer, std::string_view text, float x
         return;
     }
     const Texture& texture = atlas->texture;
-    const FontAtlas* symbol_atlas = symbol_atlas_for(*source, style.size_px, text);
+    const FontAtlas* symbol_atlas = symbol_atlas_for(renderer, *source, style.size_px, text);
     if (symbol_atlas != nullptr && !symbol_atlas->texture.valid()) {
         symbol_atlas = nullptr;
     }

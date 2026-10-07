@@ -1093,6 +1093,49 @@ void test_symbol_fallback() {
     std::cout << "  - symbol fallback (slots, probe, measure, bake, quads, coverage) ok.\n";
 }
 
+// The symbol-atlas slot merge: dedup, sorted order, cap, growth detection (#124).
+void test_merge_symbol_slots() {
+    using blaze4k::merge_symbol_slots;
+    std::vector<int> slots;
+
+    // Empty input: nothing changes.
+    auto merged = merge_symbol_slots(slots, {}, 4);
+    TEST_CHECK(!merged.grew && !merged.dropped && slots.empty());
+
+    // New slots insert sorted; duplicates within `wanted` collapse.
+    const std::vector<int> first{585, 527, 585, 783};
+    merged = merge_symbol_slots(slots, first, 4);
+    TEST_CHECK(merged.grew && !merged.dropped);
+    TEST_CHECK((slots == std::vector<int>{527, 585, 783}));
+
+    // Already-present slots are no growth (no rebake).
+    const std::vector<int> known{783, 527};
+    merged = merge_symbol_slots(slots, known, 4);
+    TEST_CHECK(!merged.grew && !merged.dropped);
+    TEST_CHECK(slots.size() == 3);
+
+    // Filling to the cap grows; anything new past it is dropped, known ones are not.
+    const std::vector<int> over{600, 431, 585};
+    merged = merge_symbol_slots(slots, over, 4);
+    TEST_CHECK(merged.grew && merged.dropped);
+    TEST_CHECK((slots == std::vector<int>{527, 585, 600, 783}));
+
+    // At the cap: a new slot is only dropped, a known one changes nothing.
+    const std::vector<int> full_new{431};
+    merged = merge_symbol_slots(slots, full_new, 4);
+    TEST_CHECK(!merged.grew && merged.dropped);
+    const std::vector<int> full_known{600};
+    merged = merge_symbol_slots(slots, full_known, 4);
+    TEST_CHECK(!merged.grew && !merged.dropped);
+    TEST_CHECK(slots.size() == 4);
+
+    // Cap 0 never grows.
+    std::vector<int> none;
+    merged = merge_symbol_slots(none, first, 0);
+    TEST_CHECK(!merged.grew && merged.dropped && none.empty());
+    std::cout << "  - symbol slot merge (dedup, order, cap, growth) ok.\n";
+}
+
 // --- 10. Style list --------------------------------------------------------------------------
 
 void test_all_styles() {
@@ -1118,6 +1161,7 @@ int main() {
     test_fuzz();
     test_headless_renderer();
     test_symbol_fallback();
+    test_merge_symbol_slots();
     test_all_styles();
     std::cout << "[ttf_font_test] All tests passed.\n";
     return 0;

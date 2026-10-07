@@ -177,6 +177,18 @@ struct FontAtlas {
 // (255, 255, 255, c) per coverage texel c. Pure.
 [[nodiscard]] std::vector<std::uint8_t> coverage_to_white_rgba(std::span<const std::uint8_t> coverage);
 
+// Outcome of merge_symbol_slots: `grew` when a new slot was added (the symbol
+// atlas must be rebaked), `dropped` when a new slot was refused by the cap.
+struct SymbolSlotMerge {
+    bool grew = false;
+    bool dropped = false;
+};
+
+// Inserts each slot of `wanted` that `slots` (sorted, unique) lacks, keeping it
+// sorted and unique and never letting it exceed `cap` entries (#124). Pure.
+[[nodiscard]] SymbolSlotMerge merge_symbol_slots(std::vector<int>& slots,
+                                                 std::span<const int> wanted, std::size_t cap);
+
 // A TextStyle resolved at one layout scale. All values in screen pixels.
 struct TextLayout {
     float pixel_size = 0.0f;  // em size
@@ -320,8 +332,11 @@ private:
     [[nodiscard]] const FontFace* symbol_face() const;
     // The symbol atlas for `size_px` holding every symbol glyph of `text` that
     // fits the caps, baking or rebaking it when a new code point appears (GL
-    // only). Null when `text` has no symbol glyph or nothing is baked.
-    [[nodiscard]] const FontAtlas* symbol_atlas_for(const FontFace& primary, float size_px,
+    // only). A rebake first flushes `renderer`, whose pending quads may sample
+    // the old atlas texture. Null when `text` has no symbol glyph or nothing is
+    // baked.
+    [[nodiscard]] const FontAtlas* symbol_atlas_for(GlQuadRenderer& renderer,
+                                                    const FontFace& primary, float size_px,
                                                     std::string_view text);
     // Finds the atlas for (font, size_px), baking it on a miss (GL only). Null
     // when unavailable.
