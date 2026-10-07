@@ -406,6 +406,24 @@ void test_display_text_coverage() {
     TEST_CHECK(&blaze4k::song_display_title(bare, &text, font) == &bare.title);
     TEST_CHECK(&blaze4k::song_display_artist(bare, &text, font) == &bare.artist);
 
+    // #124: a symbol-only artist (Delirium's "☺") is covered by the symbol
+    // fallback font, so the native text is kept with or without a translit.
+    const theme::Font artist_font = theme::text::kArtist.font;
+    blaze4k::SongMetadata delirium;
+    delirium.title = "Delirium";
+    delirium.artist = "\xE2\x98\xBA";
+    delirium.artist_translit = "";
+    TEST_CHECK(text.symbol_font_available());
+    TEST_CHECK(text.covers_text(delirium.artist, artist_font));
+    TEST_CHECK(&blaze4k::song_display_artist(delirium, &text, artist_font) == &delirium.artist);
+    blaze4k::SongMetadata smiley = delirium;
+    smiley.artist_translit = "Smiley";
+    TEST_CHECK(&blaze4k::song_display_artist(smiley, &text, artist_font) == &smiley.artist);
+    // The bitmap rule cannot draw it, so it still picks the translit when present.
+    TEST_CHECK(&blaze4k::song_display_artist(smiley, nullptr, artist_font) ==
+               &smiley.artist_translit);
+    TEST_CHECK(&blaze4k::song_display_artist(delirium, nullptr, artist_font) == &delirium.artist);
+
     // A null renderer falls back to the bitmap rule.
     TEST_CHECK(&blaze4k::song_display_title(cafe, nullptr, font) == &cafe.title_translit);
     TEST_CHECK(&blaze4k::song_display_artist(cafe, nullptr, font) == &cafe.artist_translit);

@@ -80,6 +80,17 @@ FontFace load_face(theme::Font font) {
     return std::move(*face);
 }
 
+FontFace load_symbol_face() {
+    std::string error;
+    std::optional<FontFace> face = FontFace::from_file(kSourceDir / theme::kSymbolFontFile, &error,
+                                                       blaze4k::kSymbolProbeCodePoint);
+    if (!face) {
+        std::cerr << "could not load the symbol font: " << error << "\n";
+    }
+    TEST_CHECK(face.has_value());
+    return std::move(*face);
+}
+
 FontAtlas bake(const FontFace& face, float pixel_size) {
     std::string error;
     std::optional<FontAtlas> atlas = FontAtlas::bake(face, pixel_size, 4096, &error);
@@ -278,6 +289,8 @@ void test_corrupt_and_missing_files() {
         fs::create_directories((root / rel).parent_path());
         fs::copy_file(kSourceDir / rel, root / rel, fs::copy_options::overwrite_existing);
     }
+    fs::copy_file(kSourceDir / theme::kSymbolFontFile, root / theme::kSymbolFontFile,
+                  fs::copy_options::overwrite_existing);
     write_bytes(root / theme::kFontFiles[static_cast<std::size_t>(theme::Font::SairaBold)],
                 std::vector<std::uint8_t>(real.begin(), real.begin() + 1024));
 
@@ -338,6 +351,36 @@ void test_corrupt_and_missing_files() {
     renderer.shutdown();
     renderer.shutdown(); // safe to repeat
     TEST_CHECK(!renderer.font_available(theme::Font::SairaExtraBold));
+    TEST_CHECK(!renderer.symbol_font_available());
+
+    // A root without the symbol font (#124): load() still succeeds, logs exactly
+    // one line, and symbols fall back to the placeholder box.
+    const fs::path no_symbols = kTempRoot / "no-symbols";
+    for (std::size_t i = 0; i < theme::kFontCount; ++i) {
+        const fs::path rel = theme::kFontFiles[i];
+        fs::create_directories((no_symbols / rel).parent_path());
+        fs::copy_file(kSourceDir / rel, no_symbols / rel, fs::copy_options::overwrite_existing);
+    }
+    {
+        CerrCapture capture;
+        TEST_CHECK(renderer.load(no_symbols));
+        const std::string log = capture.text();
+        TEST_CHECK(count_of(log, "\n") == 1);
+        TEST_CHECK(count_of(log, "Symbol font unavailable") == 1);
+        TEST_CHECK(count_of(log, "NotoSansSymbols-Subset.ttf") == 1);
+    }
+    TEST_CHECK(!renderer.symbol_font_available());
+    TEST_CHECK(renderer.font_available(theme::Font::SairaBold));
+    TEST_CHECK(!renderer.covers_text("\xE2\x98\xBA", theme::Font::SairaBold));
+    {
+        CerrCapture capture; // swallow the one headless line
+        renderer.set_window_size(1280, 720);
+    }
+    const theme::TextStyle& artist = theme::text::kArtist;
+    TEST_CHECK(approx(renderer.measure("\xE2\x98\xBA", artist),
+                      0.6f * artist.size_px * renderer.scale() +
+                          artist.tracking_px * renderer.scale()));
+    renderer.shutdown();
     fs::remove_all(kTempRoot);
     std::cout << "  - corrupt/missing fonts log once and fall back to the bitmap font ok.\n";
 }
@@ -355,6 +398,23 @@ void test_atlas_bake() {
     TEST_CHECK(blaze4k::baked_glyph_slot(0x17F) == 318);
     TEST_CHECK(blaze4k::baked_glyph_slot(0x180) == -1);
     TEST_CHECK(blaze4k::baked_glyph_slot(0xFFFD) == -1);
+    // Symbol blocks (#124).
+    static_assert(blaze4k::kLatinGlyphCount == 319);
+    static_assert(blaze4k::kBakedGlyphCount == 975);
+    TEST_CHECK(blaze4k::baked_glyph_slot(0x218F) == -1);
+    TEST_CHECK(blaze4k::baked_glyph_slot(0x2190) == 319);
+    TEST_CHECK(blaze4k::baked_glyph_slot(0x21FF) == 430);
+    TEST_CHECK(blaze4k::baked_glyph_slot(0x2200) == -1);
+    TEST_CHECK(blaze4k::baked_glyph_slot(0x259F) == -1);
+    TEST_CHECK(blaze4k::baked_glyph_slot(0x25A0) == 431);
+    TEST_CHECK(blaze4k::baked_glyph_slot(0x25FF) == 526);
+    TEST_CHECK(blaze4k::baked_glyph_slot(0x2600) == 527);
+    TEST_CHECK(blaze4k::baked_glyph_slot(0x263A) == 585);
+    TEST_CHECK(blaze4k::baked_glyph_slot(0x26FF) == 782);
+    TEST_CHECK(blaze4k::baked_glyph_slot(0x2700) == 783);
+    TEST_CHECK(blaze4k::baked_glyph_slot(0x27BF) == 974);
+    TEST_CHECK(blaze4k::baked_glyph_slot(0x27C0) == -1);
+    TEST_CHECK(blaze4k::baked_glyph_slot(0x1F600) == -1);
 
     const FontFace face = load_face(theme::Font::SairaExtraBold);
     TEST_CHECK(face.units_per_em() == 1000);
@@ -366,15 +426,22 @@ void test_atlas_bake() {
     TEST_CHECK(atlas.coverage.size() ==
                static_cast<std::size_t>(atlas.width) * static_cast<std::size_t>(atlas.height));
     std::size_t present = 0;
-    for (const blaze4k::AtlasGlyph& glyph : atlas.glyphs) {
+    for (std::size_t slot = 0; slot < blaze4k::kBakedGlyphCount; ++slot) {
+        const blaze4k::AtlasGlyph& glyph = atlas.glyphs[slot];
         if (!glyph.present) {
             continue;
         }
-        ++present;
+        if (slot < blaze4k::kLatinGlyphCount) {
+            ++present;
+        }
         TEST_CHECK(glyph.uv.u0 >= 0.0f && glyph.uv.u1 <= 1.0f && glyph.uv.u0 <= glyph.uv.u1);
         TEST_CHECK(glyph.uv.v0 >= 0.0f && glyph.uv.v1 <= 1.0f && glyph.uv.v0 <= glyph.uv.v1);
     }
-    TEST_CHECK(present == blaze4k::kBakedGlyphCount); // Saira covers all 319
+    TEST_CHECK(present == blaze4k::kLatinGlyphCount); // Saira covers all 319 Latin slots
+    // Saira also has a few symbol-range glyphs (arrows, lozenge), baked from Saira itself.
+    TEST_CHECK(face.has(blaze4k::baked_glyph_slot(0x2190)));
+    TEST_CHECK(atlas.glyphs[static_cast<std::size_t>(blaze4k::baked_glyph_slot(0x2190))].present);
+    TEST_CHECK(!face.has(blaze4k::baked_glyph_slot(0x263A)));
 
     const auto& a = atlas.glyphs[static_cast<std::size_t>(blaze4k::baked_glyph_slot(U'A'))];
     const auto& e_acute = atlas.glyphs[static_cast<std::size_t>(blaze4k::baked_glyph_slot(0xE9))];
@@ -415,7 +482,7 @@ void test_atlas_bake() {
     const FontFace audiowide = load_face(theme::Font::Audiowide);
     const FontAtlas audiowide_atlas = bake(audiowide, 24.0f);
     std::size_t absent = 0;
-    for (std::size_t slot = 191; slot < blaze4k::kBakedGlyphCount; ++slot) {
+    for (std::size_t slot = 191; slot < blaze4k::kLatinGlyphCount; ++slot) {
         if (!audiowide_atlas.glyphs[slot].present) {
             ++absent;
             TEST_CHECK(!audiowide.has(static_cast<int>(slot)));
@@ -677,6 +744,12 @@ void test_fuzz() {
     TEST_CHECK(renderer.load(kSourceDir));
     const FontFace face = load_face(theme::Font::SairaBold);
     const FontAtlas atlas = bake(face, 20.0f);
+    const FontFace symbol = load_symbol_face();
+    const std::vector<int> symbol_slots{blaze4k::baked_glyph_slot(0x263A),
+                                        blaze4k::baked_glyph_slot(0x2605)};
+    std::optional<FontAtlas> symbol_atlas = FontAtlas::bake(symbol, 20.0f, 4096, nullptr,
+                                                            symbol_slots);
+    TEST_CHECK(symbol_atlas.has_value());
     blaze4k::GlQuadRenderer quads;
 
     std::mt19937 rng{90};
@@ -691,6 +764,16 @@ void test_fuzz() {
         std::string in(static_cast<std::size_t>(length_dist(rng)), '\0');
         for (char& c : in) {
             c = static_cast<char>(byte_dist(rng));
+        }
+        // Every other string is biased toward E2 98 xx / E2 9C xx so symbol code
+        // points (and truncated/malformed symbol sequences) actually occur.
+        if (i % 2 == 1) {
+            for (std::size_t j = 0; j + 2 < in.size(); j += 3) {
+                if (byte_dist(rng) < 128) {
+                    in[j] = static_cast<char>(0xE2);
+                    in[j + 1] = static_cast<char>(byte_dist(rng) < 128 ? 0x98 : 0x9C);
+                }
+            }
         }
         const theme::TextStyle& style =
             theme::text::kAllStyles[static_cast<std::size_t>(style_dist(rng))];
@@ -719,6 +802,23 @@ void test_fuzz() {
                                         }
                                     });
         TEST_CHECK(count <= 2 * in.size());
+
+        std::size_t fallback_count = 0;
+        blaze4k::for_each_text_quad(face, atlas, &symbol, &*symbol_atlas, in, 640.0f, 360.0f,
+                                    layout, [&](const GlyphQuad& quad) {
+                                        ++fallback_count;
+                                        for (const blaze4k::Vec2& corner : quad.corners) {
+                                            TEST_CHECK(std::isfinite(corner.x) &&
+                                                       std::isfinite(corner.y));
+                                        }
+                                        if (quad.fallback) {
+                                            TEST_CHECK(quad.uv.u0 >= 0.0f && quad.uv.u1 <= 1.0f &&
+                                                       quad.uv.v0 >= 0.0f && quad.uv.v1 <= 1.0f);
+                                        }
+                                    });
+        TEST_CHECK(fallback_count <= 2 * in.size());
+        const float with_symbols = blaze4k::measure_text(face, &symbol, in, 20.0f, 0.0f);
+        TEST_CHECK(std::isfinite(with_symbols) && with_symbols >= 0.0f);
     }
     std::cout << "  - fuzz (2000 random byte strings) ok.\n";
 }
@@ -804,7 +904,239 @@ void test_headless_renderer() {
     std::cout << "  - headless TextRenderer (one no-GL line, no atlases, no-op draws) ok.\n";
 }
 
-// --- 9. Style list --------------------------------------------------------------------------
+// --- 9. Symbol fallback (#124) ---------------------------------------------------------------
+
+void test_symbol_fallback() {
+    using blaze4k::baked_glyph_slot;
+    using blaze4k::measure_text;
+    const int smiley = baked_glyph_slot(0x263A);
+    const int star = baked_glyph_slot(0x2605);
+
+    // The symbol subset has no Latin: the default 'A' probe rejects it.
+    {
+        std::string error;
+        TEST_CHECK(!FontFace::from_file(kSourceDir / theme::kSymbolFontFile, &error).has_value());
+        TEST_CHECK(error.find("'A'") != std::string::npos);
+        // A theme font lacking the symbol probe reports it as U+XXXX.
+        error.clear();
+        TEST_CHECK(!FontFace::from_file(font_path(theme::Font::SairaBold), &error,
+                                        blaze4k::kSymbolProbeCodePoint)
+                        .has_value());
+        TEST_CHECK(error.find("U+263A") != std::string::npos);
+    }
+    const FontFace symbol = load_symbol_face();
+    const FontFace saira = load_face(theme::Font::SairaBold);
+    TEST_CHECK(symbol.has(smiley));
+    TEST_CHECK(!saira.has(smiley));
+    // The merge of Symbols 1 + 2 covers all of U+2600-26FF.
+    for (char32_t cp = 0x2600; cp <= 0x26FF; ++cp) {
+        TEST_CHECK(symbol.has(baked_glyph_slot(cp)));
+    }
+    TEST_CHECK(!symbol.has(baked_glyph_slot(U'A')));
+
+    // Measure: the symbol face's advance, not the 0.6em placeholder.
+    constexpr float kP = 24.0f;
+    const auto m = [&](std::string_view text) {
+        return measure_text(saira, &symbol, text, kP, 0.0f);
+    };
+    const float smiley_advance =
+        static_cast<float>(symbol.advance_units(smiley)) * symbol.em_scale(kP);
+    TEST_CHECK(smiley_advance > 0.0f);
+    TEST_CHECK(approx(m("\xE2\x98\xBA"), smiley_advance));
+    TEST_CHECK(!approx(m("\xE2\x98\xBA"), 0.6f * kP));
+    TEST_CHECK(approx(measure_text(saira, nullptr, "\xE2\x98\xBA", kP, 0.0f), 0.6f * kP));
+    TEST_CHECK(approx(measure_text(saira, "\xE2\x98\xBA", kP, 0.0f), 0.6f * kP));
+    // No kerning across faces: A and V do not kern through the symbol.
+    TEST_CHECK(approx(m("A\xE2\x98\xBAV"), m("A") + m("\xE2\x98\xBA") + m("V")));
+    TEST_CHECK(m("AV") < m("A") + m("V")); // primary kerning still applies
+    // Tracking after the symbol glyph too.
+    TEST_CHECK(approx(measure_text(saira, &symbol, "A\xE2\x98\xBA", kP, 3.0f),
+                      m("A\xE2\x98\xBA") + 6.0f));
+    // The symbol face wins over the ASCII fold: ★ is the real star, not '*'.
+    TEST_CHECK(approx(m("\xE2\x98\x85"),
+                      static_cast<float>(symbol.advance_units(star)) * symbol.em_scale(kP)));
+    TEST_CHECK(!approx(m("\xE2\x98\x85"), m("*")));
+    TEST_CHECK(approx(measure_text(saira, nullptr, "\xE2\x98\x85", kP, 0.0f), m("*")));
+    // A primary glyph in a symbol block wins over the symbol face (Saira's arrow).
+    TEST_CHECK(approx(m("\xE2\x86\x90"),
+                      static_cast<float>(saira.advance_units(baked_glyph_slot(0x2190))) *
+                          saira.em_scale(kP)));
+    // Emoji, CJK and malformed UTF-8 (U+FFFD) still draw the placeholder.
+    TEST_CHECK(approx(m("\xF0\x9F\x98\x80"), 0.6f * kP));
+    TEST_CHECK(approx(m("\xE4\xB8\xAD"), 0.6f * kP));
+    TEST_CHECK(approx(m("\xE2\x98"), 0.6f * kP));
+
+    // Bake only the selected slots: just ☺ and the placeholder.
+    std::string error;
+    const std::vector<int> only{smiley};
+    std::optional<FontAtlas> symbol_atlas = FontAtlas::bake(symbol, kP, 4096, &error, only);
+    TEST_CHECK(symbol_atlas.has_value());
+    std::size_t present = 0;
+    for (const blaze4k::AtlasGlyph& glyph : symbol_atlas->glyphs) {
+        present += glyph.present ? 1u : 0u;
+    }
+    TEST_CHECK(present == 1);
+    const blaze4k::AtlasGlyph& smiley_glyph =
+        symbol_atlas->glyphs[static_cast<std::size_t>(smiley)];
+    TEST_CHECK(smiley_glyph.present && smiley_glyph.x1 > smiley_glyph.x0 &&
+               smiley_glyph.y1 > smiley_glyph.y0);
+    TEST_CHECK(symbol_atlas->placeholder.present);
+    TEST_CHECK(symbol_atlas->width <= 256 && symbol_atlas->height <= 256);
+    // Out-of-range, absent and duplicate selections are ignored.
+    const std::vector<int> messy{-5, smiley, smiley, 99999, baked_glyph_slot(U'A')};
+    std::optional<FontAtlas> messy_atlas = FontAtlas::bake(symbol, kP, 4096, nullptr, messy);
+    TEST_CHECK(messy_atlas.has_value());
+    present = 0;
+    for (const blaze4k::AtlasGlyph& glyph : messy_atlas->glyphs) {
+        present += glyph.present ? 1u : 0u;
+    }
+    TEST_CHECK(present == 1);
+    // The per-size cap (64 glyphs) fits the 4096 cap even at the 4K song title size.
+    std::vector<int> cap_slots;
+    for (char32_t cp = 0x2600; cp < 0x2640; ++cp) {
+        cap_slots.push_back(baked_glyph_slot(cp));
+    }
+    const float title_4k = theme::text::kSongTitle.size_px * 3.0f;
+    std::optional<FontAtlas> big = FontAtlas::bake(symbol, title_4k, 4096, &error, cap_slots);
+    TEST_CHECK(big.has_value());
+    TEST_CHECK(big->width <= 4096 && big->height <= 4096);
+    TEST_CHECK(big->oversample == 2);
+
+    // Quads: the symbol glyph comes from the fallback atlas at the pen after 'A'.
+    const FontAtlas saira_atlas = bake(saira, kP);
+    const float pen_after_a = measure_text(saira, &symbol, "A", kP, 0.0f);
+    std::vector<GlyphQuad> quads;
+    const auto gather = [&](const FontAtlas* fallback_atlas, std::string_view text) {
+        quads.clear();
+        blaze4k::for_each_text_quad(saira, saira_atlas, &symbol, fallback_atlas, text, 0.0f, 0.0f,
+                                    plain_layout(kP),
+                                    [&](const GlyphQuad& quad) { quads.push_back(quad); });
+    };
+    gather(&*symbol_atlas, "A\xE2\x98\xBA");
+    TEST_CHECK(quads.size() == 2);
+    TEST_CHECK(!quads[0].fallback);
+    TEST_CHECK(quads[1].fallback);
+    TEST_CHECK(quads[1].uv.u0 >= 0.0f && quads[1].uv.u1 <= 1.0f && quads[1].uv.u0 < quads[1].uv.u1);
+    TEST_CHECK(quads[1].uv.v0 >= 0.0f && quads[1].uv.v1 <= 1.0f && quads[1].uv.v0 < quads[1].uv.v1);
+    TEST_CHECK(quads[1].corners[0].x >= pen_after_a);
+    TEST_CHECK(approx(quads[1].corners[0].x, pen_after_a + smiley_glyph.x0));
+    // Sits on the primary baseline.
+    const float baseline = static_cast<float>(saira.ascent()) * saira.em_scale(kP);
+    TEST_CHECK(approx(quads[1].corners[2].y, baseline + smiley_glyph.y1));
+    // A fallback atlas baked at another size is scaled to the layout size.
+    std::optional<FontAtlas> double_atlas = FontAtlas::bake(symbol, 2.0f * kP, 4096, nullptr, only);
+    TEST_CHECK(double_atlas.has_value());
+    gather(&*double_atlas, "A\xE2\x98\xBA");
+    TEST_CHECK(quads.size() == 2 && quads[1].fallback);
+    TEST_CHECK(std::fabs((quads[1].corners[2].y - quads[1].corners[0].y) -
+                         (smiley_glyph.y1 - smiley_glyph.y0)) <= 1.0f);
+    // No fallback atlas (or a glyph it lacks): the placeholder at the same pen.
+    for (const FontAtlas* fallback_atlas : {static_cast<const FontAtlas*>(nullptr),
+                                            static_cast<const FontAtlas*>(&*symbol_atlas)}) {
+        const std::string_view text =
+            fallback_atlas == nullptr ? "A\xE2\x98\xBA" : "A\xE2\x98\x85"; // ★ not baked
+        gather(fallback_atlas, text);
+        TEST_CHECK(quads.size() == 2);
+        TEST_CHECK(!quads[1].fallback);
+        TEST_CHECK(approx(quads[1].uv.u0, saira_atlas.placeholder.uv.u0));
+        TEST_CHECK(approx(quads[1].corners[0].x, pen_after_a + saira_atlas.placeholder.x0));
+    }
+    // The old overload never uses a fallback.
+    quads.clear();
+    blaze4k::for_each_text_quad(saira, saira_atlas, "A\xE2\x98\xBA", 0.0f, 0.0f,
+                                plain_layout(kP),
+                                [&](const GlyphQuad& quad) { quads.push_back(quad); });
+    TEST_CHECK(quads.size() == 2 && !quads[1].fallback);
+    // Right alignment uses the fallback-aware width.
+    TextLayout right = plain_layout(kP);
+    right.align = TextAlign::Right;
+    quads.clear();
+    blaze4k::for_each_text_quad(saira, saira_atlas, &symbol, &*symbol_atlas, "\xE2\x98\xBA",
+                                100.0f, 0.0f, right,
+                                [&](const GlyphQuad& quad) { quads.push_back(quad); });
+    TEST_CHECK(quads.size() == 1);
+    TEST_CHECK(approx(quads[0].corners[0].x, 100.0f - smiley_advance + smiley_glyph.x0));
+
+    // TextRenderer: the symbol face loads from the source dir and counts for coverage.
+    TextRenderer renderer;
+    {
+        CerrCapture capture;
+        TEST_CHECK(renderer.load(kSourceDir));
+        TEST_CHECK(capture.text().empty());
+    }
+    TEST_CHECK(renderer.symbol_font_available());
+    TEST_CHECK(renderer.covers_text("\xE2\x98\xBA", theme::Font::SairaBold));
+    TEST_CHECK(renderer.covers_text("\xE2\x98\xBA", theme::Font::Audiowide));
+    TEST_CHECK(renderer.covers_text("KaW feat. \xE2\x98\xBA \xE2\x9C\x93", theme::Font::SairaBold));
+    TEST_CHECK(!renderer.covers_text("\xF0\x9F\x98\x80", theme::Font::SairaBold));
+    TEST_CHECK(!renderer.covers_text("\xE2\x98\xBA\xE4\xB8\xAD", theme::Font::SairaBold));
+    {
+        CerrCapture capture; // swallow the one headless line
+        renderer.set_window_size(1280, 720);
+    }
+    const theme::TextStyle& artist = theme::text::kArtist;
+    const float measured = renderer.measure("\xE2\x98\xBA", artist);
+    TEST_CHECK(!approx(measured, 0.6f * artist.size_px));
+    TEST_CHECK(approx(measured, static_cast<float>(symbol.advance_units(smiley)) *
+                                    symbol.em_scale(artist.size_px) +
+                                    artist.tracking_px));
+    // Headless draws stay no-ops (nothing bakes, nothing logs).
+    blaze4k::GlQuadRenderer no_gl;
+    {
+        CerrCapture capture;
+        renderer.draw(no_gl, "\xE2\x98\xBA", 10.0f, 10.0f, artist);
+        TEST_CHECK(capture.text().empty());
+    }
+    TEST_CHECK(renderer.atlas_count() == 0);
+    renderer.shutdown();
+    TEST_CHECK(!renderer.symbol_font_available());
+    std::cout << "  - symbol fallback (slots, probe, measure, bake, quads, coverage) ok.\n";
+}
+
+// The symbol-atlas slot merge: dedup, sorted order, cap, growth detection (#124).
+void test_merge_symbol_slots() {
+    using blaze4k::merge_symbol_slots;
+    std::vector<int> slots;
+
+    // Empty input: nothing changes.
+    auto merged = merge_symbol_slots(slots, {}, 4);
+    TEST_CHECK(!merged.grew && !merged.dropped && slots.empty());
+
+    // New slots insert sorted; duplicates within `wanted` collapse.
+    const std::vector<int> first{585, 527, 585, 783};
+    merged = merge_symbol_slots(slots, first, 4);
+    TEST_CHECK(merged.grew && !merged.dropped);
+    TEST_CHECK((slots == std::vector<int>{527, 585, 783}));
+
+    // Already-present slots are no growth (no rebake).
+    const std::vector<int> known{783, 527};
+    merged = merge_symbol_slots(slots, known, 4);
+    TEST_CHECK(!merged.grew && !merged.dropped);
+    TEST_CHECK(slots.size() == 3);
+
+    // Filling to the cap grows; anything new past it is dropped, known ones are not.
+    const std::vector<int> over{600, 431, 585};
+    merged = merge_symbol_slots(slots, over, 4);
+    TEST_CHECK(merged.grew && merged.dropped);
+    TEST_CHECK((slots == std::vector<int>{527, 585, 600, 783}));
+
+    // At the cap: a new slot is only dropped, a known one changes nothing.
+    const std::vector<int> full_new{431};
+    merged = merge_symbol_slots(slots, full_new, 4);
+    TEST_CHECK(!merged.grew && merged.dropped);
+    const std::vector<int> full_known{600};
+    merged = merge_symbol_slots(slots, full_known, 4);
+    TEST_CHECK(!merged.grew && !merged.dropped);
+    TEST_CHECK(slots.size() == 4);
+
+    // Cap 0 never grows.
+    std::vector<int> none;
+    merged = merge_symbol_slots(none, first, 0);
+    TEST_CHECK(!merged.grew && merged.dropped && none.empty());
+    std::cout << "  - symbol slot merge (dedup, order, cap, growth) ok.\n";
+}
+
+// --- 10. Style list --------------------------------------------------------------------------
 
 void test_all_styles() {
     TEST_CHECK(theme::text::kAllStyles.size() == 30);
@@ -828,6 +1160,8 @@ int main() {
     test_truncation_real_font();
     test_fuzz();
     test_headless_renderer();
+    test_symbol_fallback();
+    test_merge_symbol_slots();
     test_all_styles();
     std::cout << "[ttf_font_test] All tests passed.\n";
     return 0;

@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
@@ -24,6 +25,10 @@ namespace blaze4k {
 namespace {
 
 constexpr std::size_t kMaxAtlases = 32;
+// Symbol fallback bounds (#124; simfile text is untrusted): one atlas per
+// distinct TextStyle size, each holding at most this many code points.
+constexpr std::size_t kMaxSymbolAtlases = 16;
+constexpr std::size_t kMaxSymbolGlyphsPerAtlas = 64;
 constexpr int kMinAtlasDim = 256;
 constexpr int kMaxAtlasDim = 4096;
 constexpr float kMinPixelSize = 1.0f;
@@ -43,12 +48,19 @@ struct BakedRange {
     int count;
     int first_slot;
 };
-constexpr std::array<BakedRange, 3> kBakedRanges = {{
+constexpr std::array<BakedRange, 7> kBakedRanges = {{
     {0x0020, 95, 0},
     {0x00A0, 96, 95},
     {0x0100, 128, 191},
+    // Symbol blocks (#124): mostly drawn from the symbol fallback face.
+    {0x2190, 112, 319}, // Arrows
+    {0x25A0, 96, 431},  // Geometric Shapes
+    {0x2600, 256, 527}, // Miscellaneous Symbols
+    {0x2700, 192, 783}, // Dingbats
 }};
-static_assert(95 + 96 + 128 == kBakedGlyphCount, "baked ranges must cover every slot");
+static_assert(95 + 96 + 128 == kLatinGlyphCount, "Latin ranges must cover the Latin slots");
+static_assert(95 + 96 + 128 + 112 + 96 + 256 + 192 == kBakedGlyphCount,
+              "baked ranges must cover every slot");
 
 [[nodiscard]] char32_t slot_code_point(int slot) {
     for (const BakedRange& range : kBakedRanges) {
@@ -103,6 +115,16 @@ bool fail(std::string* error, std::string message) {
     return false;
 }
 
+// 'A' for printable ASCII (the theme-font probe keeps its old wording), else U+XXXX.
+[[nodiscard]] std::string code_point_text(char32_t cp) {
+    if (cp >= 0x20 && cp <= 0x7E) {
+        return std::string("'") + static_cast<char>(cp) + "'";
+    }
+    char buffer[16];
+    std::snprintf(buffer, sizeof(buffer), "U+%04X", static_cast<unsigned int>(cp));
+    return buffer;
+}
+
 [[nodiscard]] bool finite_positive(float value) {
     return std::isfinite(value) && value > 0.0f;
 }
@@ -127,44 +149,71 @@ bool fail(std::string* error, std::string message) {
     return static_cast<std::size_t>(font);
 }
 
-// Baked slot for a visible code point: native glyph, else its ASCII fold,
-// else -1 (the placeholder box).
-[[nodiscard]] int resolve_slot(const FontFace& face, char32_t cp) {
+// Where a visible code point's glyph comes from (Pinned order, #124): the
+// primary face, else the symbol fallback face, else the primary face's ASCII
+// fold, else the placeholder box.
+enum class GlyphSource { Primary, Symbol, Placeholder };
+
+struct ResolvedGlyph {
+    int slot = -1; // -1 for the placeholder
+    GlyphSource source = GlyphSource::Placeholder;
+};
+
+[[nodiscard]] ResolvedGlyph resolve_glyph(const FontFace& face, const FontFace* fallback,
+                                          char32_t cp) {
     const int slot = baked_glyph_slot(cp);
     if (slot >= 0 && face.has(slot)) {
-        return slot;
+        return {slot, GlyphSource::Primary};
+    }
+    if (slot >= 0 && fallback != nullptr && fallback->has(slot)) {
+        return {slot, GlyphSource::Symbol};
     }
     const char folded = fold_to_ascii(cp);
     if (folded != '\0') {
         const int folded_slot = baked_glyph_slot(static_cast<unsigned char>(folded));
         if (folded_slot >= 0 && face.has(folded_slot)) {
-            return folded_slot;
+            return {folded_slot, GlyphSource::Primary};
         }
     }
-    return -1;
+    return {};
 }
 
 // The one glyph walker shared by measure and draw: zero-width code points are
 // skipped (no advance, kerning predecessor unchanged); every visible code point
-// yields (cp, slot or -1 for the placeholder, kern px, advance px).
+// yields (cp, slot or -1 for the placeholder, source, kern px, advance px).
+// Kerning applies only between two consecutive primary glyphs; a symbol glyph
+// or the placeholder breaks the chain. `fallback` may be null.
 template <typename Fn>
-void walk_glyphs(const FontFace& face, std::string_view text, float pixel_size, float k_em,
-                 Fn&& fn) {
-    int previous = -2; // -2: no predecessor; -1: the placeholder
+void walk_glyphs(const FontFace& face, const FontFace* fallback, std::string_view text,
+                 float pixel_size, float k_em, Fn&& fn) {
+    int previous_primary = -1; // -1: no primary predecessor
+    const float fallback_k_em = fallback != nullptr ? fallback->em_scale(pixel_size) : 0.0f;
     std::size_t pos = 0;
     while (pos < text.size()) {
         const char32_t cp = next_code_point(text, pos);
         if (is_zero_width(cp)) {
             continue;
         }
-        const int slot = resolve_slot(face, cp);
-        const float kern = (previous >= 0 && slot >= 0)
-                               ? static_cast<float>(face.kern_units(previous, slot)) * k_em
-                               : 0.0f;
-        const float advance = slot >= 0 ? static_cast<float>(face.advance_units(slot)) * k_em
-                                        : kPlaceholderAdvanceEm * pixel_size;
-        fn(cp, slot, kern, advance);
-        previous = slot;
+        const ResolvedGlyph glyph = resolve_glyph(face, fallback, cp);
+        float kern = 0.0f;
+        float advance = kPlaceholderAdvanceEm * pixel_size;
+        switch (glyph.source) {
+        case GlyphSource::Primary:
+            if (previous_primary >= 0) {
+                kern = static_cast<float>(face.kern_units(previous_primary, glyph.slot)) * k_em;
+            }
+            advance = static_cast<float>(face.advance_units(glyph.slot)) * k_em;
+            previous_primary = glyph.slot;
+            break;
+        case GlyphSource::Symbol:
+            advance = static_cast<float>(fallback->advance_units(glyph.slot)) * fallback_k_em;
+            previous_primary = -1;
+            break;
+        case GlyphSource::Placeholder:
+            previous_primary = -1;
+            break;
+        }
+        fn(cp, glyph.slot, glyph.source, kern, advance);
     }
 }
 
@@ -313,6 +362,24 @@ std::vector<std::uint8_t> coverage_to_white_rgba(std::span<const std::uint8_t> c
     return rgba;
 }
 
+SymbolSlotMerge merge_symbol_slots(std::vector<int>& slots, std::span<const int> wanted,
+                                   std::size_t cap) {
+    SymbolSlotMerge result;
+    for (const int slot : wanted) {
+        const auto it = std::lower_bound(slots.begin(), slots.end(), slot);
+        if (it != slots.end() && *it == slot) {
+            continue;
+        }
+        if (slots.size() >= cap) {
+            result.dropped = true;
+            continue;
+        }
+        slots.insert(it, slot);
+        result.grew = true;
+    }
+    return result;
+}
+
 float text_layout_scale(int window_width, int window_height) {
     return theme::layout_scale_factor(window_width, window_height);
 }
@@ -370,7 +437,8 @@ FontFace::FontFace(FontFace&&) noexcept = default;
 FontFace& FontFace::operator=(FontFace&&) noexcept = default;
 FontFace::~FontFace() = default;
 
-std::optional<FontFace> FontFace::from_bytes(std::vector<std::uint8_t> bytes, std::string* error) {
+std::optional<FontFace> FontFace::from_bytes(std::vector<std::uint8_t> bytes, std::string* error,
+                                             char32_t required_cp) {
     if (!validate_sfnt(bytes, error)) {
         return std::nullopt;
     }
@@ -381,8 +449,8 @@ std::optional<FontFace> FontFace::from_bytes(std::vector<std::uint8_t> bytes, st
         fail(error, "stb_truetype could not parse the font");
         return std::nullopt;
     }
-    if (stbtt_FindGlyphIndex(&impl->info, 'A') == 0) {
-        fail(error, "font has no glyph for 'A'");
+    if (stbtt_FindGlyphIndex(&impl->info, static_cast<int>(required_cp)) == 0) {
+        fail(error, "font has no glyph for " + code_point_text(required_cp));
         return std::nullopt;
     }
     std::uint16_t units_per_em = 0;
@@ -415,7 +483,7 @@ std::optional<FontFace> FontFace::from_bytes(std::vector<std::uint8_t> bytes, st
 }
 
 std::optional<FontFace> FontFace::from_file(const std::filesystem::path& path,
-                                            std::string* error) {
+                                            std::string* error, char32_t required_cp) {
     std::error_code ec;
     const std::uintmax_t size = std::filesystem::file_size(path, ec);
     if (ec) {
@@ -433,7 +501,7 @@ std::optional<FontFace> FontFace::from_file(const std::filesystem::path& path,
         fail(error, "could not read the file");
         return std::nullopt;
     }
-    return from_bytes(std::move(bytes), error);
+    return from_bytes(std::move(bytes), error, required_cp);
 }
 
 int FontFace::units_per_em() const { return impl_->units_per_em; }
@@ -510,7 +578,7 @@ struct PlaceholderBox {
 } // namespace
 
 std::optional<FontAtlas> FontAtlas::bake(const FontFace& face, float pixel_size, int max_dim,
-                                         std::string* error) {
+                                         std::string* error, std::span<const int> only_slots) {
     if (!std::isfinite(pixel_size) || pixel_size < kMinPixelSize || pixel_size > kMaxPixelSize) {
         fail(error, "pixel size out of range");
         return std::nullopt;
@@ -520,14 +588,34 @@ std::optional<FontAtlas> FontAtlas::bake(const FontFace& face, float pixel_size,
     const float k_em = face.em_scale(pixel_size);
     const PlaceholderBox box = placeholder_box(face, pixel_size);
 
+    // The one list of slots to pack: every present slot, or only the selected
+    // in-range present ones (sorted, unique).
+    std::vector<int> pack_slots;
+    if (only_slots.empty()) {
+        for (std::size_t slot = 0; slot < kBakedGlyphCount; ++slot) {
+            if (font.glyph[slot] != 0) {
+                pack_slots.push_back(static_cast<int>(slot));
+            }
+        }
+    } else {
+        for (const int slot : only_slots) {
+            if (face.has(slot)) {
+                pack_slots.push_back(slot);
+            }
+        }
+        std::sort(pack_slots.begin(), pack_slots.end());
+        pack_slots.erase(std::unique(pack_slots.begin(), pack_slots.end()), pack_slots.end());
+    }
+    std::vector<int> code_points(pack_slots.size());
+    for (std::size_t i = 0; i < pack_slots.size(); ++i) {
+        code_points[i] = static_cast<int>(slot_code_point(pack_slots[i]));
+    }
+
     for (const int over : {2, 1}) {
         // Estimate the packed area to size the first try.
         double area = static_cast<double>(box.width + 1) * static_cast<double>(box.height + 1);
-        for (std::size_t slot = 0; slot < kBakedGlyphCount; ++slot) {
-            const int glyph = font.glyph[slot];
-            if (glyph == 0) {
-                continue;
-            }
+        for (const int slot : pack_slots) {
+            const int glyph = font.glyph[static_cast<std::size_t>(slot)];
             int x0 = 0;
             int y0 = 0;
             int x1 = 0;
@@ -549,21 +637,18 @@ std::optional<FontAtlas> FontAtlas::bake(const FontFace& face, float pixel_size,
             stbtt_PackSetOversampling(&context, static_cast<unsigned int>(over),
                                       static_cast<unsigned int>(over));
             stbtt_PackSetSkipMissingCodepoints(&context, 1);
-            std::array<stbtt_packedchar, kBakedGlyphCount> chars{};
-            std::array<stbtt_pack_range, kBakedRanges.size()> ranges{};
-            for (std::size_t i = 0; i < kBakedRanges.size(); ++i) {
-                ranges[i].font_size = STBTT_POINT_SIZE(pixel_size);
-                ranges[i].first_unicode_codepoint_in_range =
-                    static_cast<int>(kBakedRanges[i].first);
-                ranges[i].array_of_unicode_codepoints = nullptr;
-                ranges[i].num_chars = kBakedRanges[i].count;
-                ranges[i].chardata_for_range =
-                    chars.data() + static_cast<std::size_t>(kBakedRanges[i].first_slot);
+            std::vector<stbtt_packedchar> chars(pack_slots.size());
+            if (!pack_slots.empty()) {
+                stbtt_pack_range range{};
+                range.font_size = STBTT_POINT_SIZE(pixel_size);
+                range.first_unicode_codepoint_in_range = 0;
+                range.array_of_unicode_codepoints = code_points.data();
+                range.num_chars = static_cast<int>(code_points.size());
+                range.chardata_for_range = chars.data();
+                // The return value is 0 whenever a missing code point was skipped,
+                // so success is checked per glyph below instead.
+                (void)stbtt_PackFontRanges(&context, font.bytes.data(), 0, &range, 1);
             }
-            // The return value is 0 whenever a missing code point was skipped,
-            // so success is checked per glyph below instead.
-            (void)stbtt_PackFontRanges(&context, font.bytes.data(), 0, ranges.data(),
-                                       static_cast<int>(ranges.size()));
             stbrp_rect rect{};
             rect.w = static_cast<stbrp_coord>(box.width + 1); // + padding
             rect.h = static_cast<stbrp_coord>(box.height + 1);
@@ -573,14 +658,11 @@ std::optional<FontAtlas> FontAtlas::bake(const FontFace& face, float pixel_size,
             // A packed glyph sits at x0 >= padding (1); every char starts zeroed.
             bool all_packed = rect.was_packed != 0;
             int used_height = 0;
-            for (std::size_t slot = 0; all_packed && slot < kBakedGlyphCount; ++slot) {
-                if (font.glyph[slot] == 0) {
-                    continue;
-                }
-                if (chars[slot].x0 < 1) {
+            for (std::size_t i = 0; all_packed && i < chars.size(); ++i) {
+                if (chars[i].x0 < 1) {
                     all_packed = false;
                 }
-                used_height = std::max(used_height, static_cast<int>(chars[slot].y1));
+                used_height = std::max(used_height, static_cast<int>(chars[i].y1));
             }
             if (all_packed) {
                 const int box_x = rect.x + 1;
@@ -609,11 +691,9 @@ std::optional<FontAtlas> FontAtlas::bake(const FontFace& face, float pixel_size,
                 atlas.height = height;
                 atlas.oversample = over;
                 atlas.coverage = std::move(pixels);
-                for (std::size_t slot = 0; slot < kBakedGlyphCount; ++slot) {
+                for (std::size_t i = 0; i < pack_slots.size(); ++i) {
+                    const auto slot = static_cast<std::size_t>(pack_slots[i]);
                     const int glyph = font.glyph[slot];
-                    if (glyph == 0) {
-                        continue; // absent: present stays false
-                    }
                     AtlasGlyph& out = atlas.glyphs[slot];
                     out.present = true;
                     if (stbtt_IsGlyphEmpty(&font.info, glyph) != 0) {
@@ -622,8 +702,8 @@ std::optional<FontAtlas> FontAtlas::bake(const FontFace& face, float pixel_size,
                     float pen_x = 0.0f;
                     float pen_y = 0.0f;
                     stbtt_aligned_quad quad{};
-                    stbtt_GetPackedQuad(chars.data(), width, height, static_cast<int>(slot),
-                                        &pen_x, &pen_y, &quad, 0);
+                    stbtt_GetPackedQuad(chars.data(), width, height, static_cast<int>(i), &pen_x,
+                                        &pen_y, &quad, 0);
                     out.x0 = quad.x0;
                     out.y0 = quad.y0;
                     out.x1 = quad.x1;
@@ -676,18 +756,32 @@ bool FontAtlas::upload() {
 
 float measure_text(const FontFace& face, std::string_view text, float pixel_size,
                    float tracking) {
+    return measure_text(face, nullptr, text, pixel_size, tracking);
+}
+
+float measure_text(const FontFace& face, const FontFace* fallback, std::string_view text,
+                   float pixel_size, float tracking) {
     if (text.empty() || !finite_positive(pixel_size)) {
         return 0.0f;
     }
     const float track = sanitize(tracking);
     float pen = 0.0f;
-    walk_glyphs(face, text, pixel_size, face.em_scale(pixel_size),
-                [&](char32_t, int, float kern, float advance) { pen += kern + advance + track; });
+    walk_glyphs(face, fallback, text, pixel_size, face.em_scale(pixel_size),
+                [&](char32_t, int, GlyphSource, float kern, float advance) {
+                    pen += kern + advance + track;
+                });
     return pen;
 }
 
 void for_each_text_quad(const FontFace& face, const FontAtlas& atlas, std::string_view text,
                         float x, float y, const TextLayout& layout,
+                        const std::function<void(const GlyphQuad&)>& emit) {
+    for_each_text_quad(face, atlas, nullptr, nullptr, text, x, y, layout, emit);
+}
+
+void for_each_text_quad(const FontFace& face, const FontAtlas& atlas, const FontFace* fallback,
+                        const FontAtlas* fallback_atlas, std::string_view text, float x, float y,
+                        const TextLayout& layout,
                         const std::function<void(const GlyphQuad&)>& emit) {
     const float pixel_size = layout.pixel_size;
     if (text.empty() || !std::isfinite(x) || !std::isfinite(y) || !finite_positive(pixel_size)) {
@@ -698,25 +792,39 @@ void for_each_text_quad(const FontFace& face, const FontAtlas& atlas, std::strin
     const float shear = sanitize(layout.shear);
     const float glyph_scale =
         finite_positive(atlas.pixel_size) ? pixel_size / atlas.pixel_size : 1.0f;
-    const float width = measure_text(face, text, pixel_size, tracking);
+    const float fallback_scale = (fallback_atlas != nullptr &&
+                                  finite_positive(fallback_atlas->pixel_size))
+                                     ? pixel_size / fallback_atlas->pixel_size
+                                     : 1.0f;
+    const float width = measure_text(face, fallback, text, pixel_size, tracking);
     const float start = aligned_start(x, width, layout.align);
     const float baseline = y + static_cast<float>(face.ascent()) * k_em;
     const float shadow = sanitize(layout.shadow_offset);
 
     const auto pass = [&](Color color, float pass_baseline) {
         float pen = start;
-        walk_glyphs(face, text, pixel_size, k_em,
-                    [&](char32_t, int slot, float kern, float advance) {
+        walk_glyphs(face, fallback, text, pixel_size, k_em,
+                    [&](char32_t, int slot, GlyphSource source, float kern, float advance) {
                         pen += kern;
+                        // A symbol glyph that is not baked (cap, bake failure, no
+                        // atlas) draws the placeholder at the same pen and advance.
                         const AtlasGlyph* glyph = &atlas.placeholder;
-                        if (slot >= 0 && atlas.glyphs[static_cast<std::size_t>(slot)].present) {
+                        bool from_fallback = false;
+                        if (source == GlyphSource::Primary &&
+                            atlas.glyphs[static_cast<std::size_t>(slot)].present) {
                             glyph = &atlas.glyphs[static_cast<std::size_t>(slot)];
+                        } else if (source == GlyphSource::Symbol && fallback_atlas != nullptr &&
+                                   fallback_atlas->glyphs[static_cast<std::size_t>(slot)]
+                                       .present) {
+                            glyph = &fallback_atlas->glyphs[static_cast<std::size_t>(slot)];
+                            from_fallback = true;
                         }
+                        const float scale = from_fallback ? fallback_scale : glyph_scale;
                         if (glyph->x1 > glyph->x0 && glyph->y1 > glyph->y0) {
-                            const float left = pen + glyph->x0 * glyph_scale;
-                            const float right = pen + glyph->x1 * glyph_scale;
-                            const float top = pass_baseline + glyph->y0 * glyph_scale;
-                            const float bottom = pass_baseline + glyph->y1 * glyph_scale;
+                            const float left = pen + glyph->x0 * scale;
+                            const float right = pen + glyph->x1 * scale;
+                            const float top = pass_baseline + glyph->y0 * scale;
+                            const float bottom = pass_baseline + glyph->y1 * scale;
                             const float top_shift = shear * (pass_baseline - top);
                             const float bottom_shift = shear * (pass_baseline - bottom);
                             GlyphQuad quad;
@@ -726,6 +834,7 @@ void for_each_text_quad(const FontFace& face, const FontAtlas& atlas, std::strin
                                             Vec2{left + bottom_shift, bottom}};
                             quad.uv = glyph->uv;
                             quad.color = color;
+                            quad.fallback = from_fallback;
                             const bool finite = std::all_of(
                                 quad.corners.begin(), quad.corners.end(), [](const Vec2& v) {
                                     return std::isfinite(v.x) && std::isfinite(v.y);
@@ -755,9 +864,12 @@ TextRenderer::~TextRenderer() = default;
 
 void TextRenderer::shutdown() {
     atlases_.clear();
+    symbol_atlases_.clear();
     for (std::optional<FontFace>& face : faces_) {
         face.reset();
     }
+    symbol_face_.reset();
+    warned_symbol_cap_ = false;
     baked_width_ = -1;
     baked_height_ = -1;
     sized_ = false;
@@ -775,7 +887,10 @@ bool TextRenderer::load() {
             resolve_first_existing({relative, default_executable_dir() / relative});
         paths[i] = resolved.empty() ? relative : resolved;
     }
-    return load_paths(paths);
+    const std::filesystem::path symbol_relative(theme::kSymbolFontFile);
+    const std::filesystem::path symbol_resolved = resolve_first_existing(
+        {symbol_relative, default_executable_dir() / symbol_relative});
+    return load_paths(paths, symbol_resolved.empty() ? symbol_relative : symbol_resolved);
 }
 
 bool TextRenderer::load(const std::filesystem::path& root) {
@@ -783,10 +898,11 @@ bool TextRenderer::load(const std::filesystem::path& root) {
     for (std::size_t i = 0; i < theme::kFontCount; ++i) {
         paths[i] = root / theme::kFontFiles[i];
     }
-    return load_paths(paths);
+    return load_paths(paths, root / theme::kSymbolFontFile);
 }
 
-bool TextRenderer::load_paths(const std::array<std::filesystem::path, theme::kFontCount>& paths) {
+bool TextRenderer::load_paths(const std::array<std::filesystem::path, theme::kFontCount>& paths,
+                              const std::filesystem::path& symbol_path) {
     shutdown();
     std::size_t loaded = 0;
     for (std::size_t i = 0; i < theme::kFontCount; ++i) {
@@ -800,7 +916,14 @@ bool TextRenderer::load_paths(const std::array<std::filesystem::path, theme::kFo
                       << " text uses the bitmap fallback\n";
         }
     }
-    std::cout << "[TextRenderer] Loaded " << loaded << "/" << theme::kFontCount << " fonts\n";
+    std::string symbol_error;
+    symbol_face_ = FontFace::from_file(symbol_path, &symbol_error, kSymbolProbeCodePoint);
+    if (!symbol_face_) {
+        std::cerr << "[TextRenderer] Symbol font unavailable: " << symbol_path.string() << " ("
+                  << symbol_error << "); symbols draw as placeholder boxes\n";
+    }
+    std::cout << "[TextRenderer] Loaded " << loaded << "/" << theme::kFontCount << " fonts"
+              << (symbol_face_ ? " (+ symbols)" : "") << "\n";
     return loaded > 0;
 }
 
@@ -819,6 +942,7 @@ void TextRenderer::set_window_size(int window_width, int window_height) {
     sized_ = true;
     scale_ = scale;
     atlases_.clear();
+    symbol_atlases_.clear(); // re-baked lazily at the new scale
     if (!gl_present()) {
         if (!warned_headless_) {
             warned_headless_ = true;
@@ -880,6 +1004,79 @@ const FontFace* TextRenderer::face(theme::Font font) const {
     return &*faces_[index];
 }
 
+const FontFace* TextRenderer::symbol_face() const {
+    return symbol_face_ ? &*symbol_face_ : nullptr;
+}
+
+const FontAtlas* TextRenderer::symbol_atlas_for(GlQuadRenderer& renderer,
+                                                const FontFace& primary, float size_px,
+                                                std::string_view text) {
+    const FontFace* symbols = symbol_face();
+    if (symbols == nullptr || !gl_present()) {
+        return nullptr;
+    }
+    // The slots this text draws from the symbol face (the walker's rule).
+    std::vector<int> wanted;
+    walk_glyphs(primary, symbols, text, size_px, 0.0f,
+                [&](char32_t, int slot, GlyphSource source, float, float) {
+                    if (source == GlyphSource::Symbol) {
+                        wanted.push_back(slot);
+                    }
+                });
+    SymbolAtlasSlot* entry = nullptr;
+    for (SymbolAtlasSlot& candidate : symbol_atlases_) {
+        if (candidate.size_px == size_px) {
+            entry = &candidate;
+            break;
+        }
+    }
+    if (wanted.empty()) {
+        return (entry != nullptr && entry->atlas) ? &*entry->atlas : nullptr;
+    }
+    if (entry == nullptr) {
+        if (symbol_atlases_.size() >= kMaxSymbolAtlases) {
+            if (!warned_symbol_cap_) {
+                warned_symbol_cap_ = true;
+                std::cerr << "[TextRenderer] Symbol atlas cap (" << kMaxSymbolAtlases
+                          << " sizes) reached; symbols at " << size_px
+                          << "px and later new sizes draw as placeholder boxes\n";
+            }
+            return nullptr;
+        }
+        symbol_atlases_.push_back(SymbolAtlasSlot{size_px, {}, std::nullopt});
+        entry = &symbol_atlases_.back();
+    }
+    const auto [grew, dropped] =
+        merge_symbol_slots(entry->slots, wanted, kMaxSymbolGlyphsPerAtlas);
+    if (dropped && !warned_symbol_cap_) {
+        warned_symbol_cap_ = true;
+        std::cerr << "[TextRenderer] Symbol glyph cap (" << kMaxSymbolGlyphsPerAtlas
+                  << " per size) reached at " << size_px
+                  << "px; further symbols draw as placeholder boxes\n";
+    }
+    if (grew) {
+        // Replacing the atlas destroys its texture; draw the quads still
+        // queued against it first (the renderer only flushes on a texture
+        // change, and GL may hand the freed name to the new atlas).
+        renderer.flush();
+        ensure_max_texture_size();
+        const float pixel_size = size_px * scale_;
+        std::string error;
+        entry->atlas = FontAtlas::bake(*symbols, pixel_size, max_texture_size_, &error,
+                                       entry->slots);
+        if (entry->atlas && !entry->atlas->upload()) {
+            error = "texture upload failed";
+            entry->atlas.reset();
+        }
+        if (!entry->atlas) {
+            std::cerr << "[FontAtlas] Could not bake symbols " << size_px << "px at "
+                      << pixel_size << "px (" << error
+                      << "); those symbols draw as placeholder boxes\n";
+        }
+    }
+    return entry->atlas ? &*entry->atlas : nullptr;
+}
+
 TextRenderer::AtlasSlot& TextRenderer::bake_slot(theme::Font font, float size_px) {
     AtlasSlot slot;
     slot.font = font;
@@ -933,7 +1130,7 @@ float TextRenderer::measure(std::string_view text, const theme::TextStyle& style
     const float pixel_size = style.size_px * scale_;
     const float tracking = style.tracking_px * scale_;
     if (const FontFace* source = face(style.font)) {
-        return measure_text(*source, text, pixel_size, tracking);
+        return measure_text(*source, symbol_face(), text, pixel_size, tracking);
     }
     if (!finite_positive(pixel_size)) {
         return 0.0f;
@@ -972,7 +1169,8 @@ bool TextRenderer::covers_text(std::string_view text, theme::Font font) const {
         if (is_zero_width(cp)) {
             continue;
         }
-        if (!source->has(baked_glyph_slot(cp))) {
+        const int slot = baked_glyph_slot(cp);
+        if (!source->has(slot) && !(symbol_face_ && symbol_face_->has(slot))) {
             return false;
         }
     }
@@ -981,6 +1179,10 @@ bool TextRenderer::covers_text(std::string_view text, theme::Font font) const {
 
 bool TextRenderer::font_available(theme::Font font) const {
     return face(font) != nullptr;
+}
+
+bool TextRenderer::symbol_font_available() const {
+    return symbol_face_.has_value();
 }
 
 std::size_t TextRenderer::atlas_count() const {
@@ -1020,10 +1222,21 @@ void TextRenderer::draw(GlQuadRenderer& renderer, std::string_view text, float x
         return;
     }
     const Texture& texture = atlas->texture;
-    for_each_text_quad(*source, *atlas, text, x, y, layout, [&](const GlyphQuad& quad) {
-        renderer.draw_quad_points(quad.corners, texture, quad.uv,
-                                  {quad.color, quad.color, quad.color, quad.color});
-    });
+    const FontAtlas* symbol_atlas = symbol_atlas_for(renderer, *source, style.size_px, text);
+    if (symbol_atlas != nullptr && !symbol_atlas->texture.valid()) {
+        symbol_atlas = nullptr;
+    }
+    // Quads stay in emit order (shadows first); the renderer flushes on a
+    // texture change, so a symbol costs one extra flush.
+    for_each_text_quad(*source, *atlas, symbol_face(), symbol_atlas, text, x, y, layout,
+                       [&](const GlyphQuad& quad) {
+                           const Texture& quad_texture =
+                               (quad.fallback && symbol_atlas != nullptr) ? symbol_atlas->texture
+                                                                          : texture;
+                           renderer.draw_quad_points(
+                               quad.corners, quad_texture, quad.uv,
+                               {quad.color, quad.color, quad.color, quad.color});
+                       });
 }
 
 void TextRenderer::draw_bitmap_fallback(GlQuadRenderer& renderer, const FontFace* source,
@@ -1038,8 +1251,9 @@ void TextRenderer::draw_bitmap_fallback(GlQuadRenderer& renderer, const FontFace
     const float tracking = sanitize(layout.tracking);
     // With a face (atlas bake failed) the cells follow the face's pen so the
     // draw matches measure(); without one, 6 * pixel + tracking per cell.
-    const float width = source != nullptr ? measure_text(*source, text, pixel_size, tracking)
-                                          : bitmap_measure(text, pixel_size, tracking);
+    const float width = source != nullptr
+                            ? measure_text(*source, symbol_face(), text, pixel_size, tracking)
+                            : bitmap_measure(text, pixel_size, tracking);
     const float start = aligned_start(x, width, layout.align);
     // Rows end on the baseline ascent() reports (the face's when there is one).
     const float top = y + bitmap_fallback_baseline(source, pixel_size) - 7.0f * pixel;
@@ -1063,8 +1277,8 @@ void TextRenderer::draw_bitmap_fallback(GlQuadRenderer& renderer, const FontFace
     const auto pass = [&](Color color, float row_top) {
         float pen = start;
         if (source != nullptr) {
-            walk_glyphs(*source, text, pixel_size, source->em_scale(pixel_size),
-                        [&](char32_t cp, int, float kern, float advance) {
+            walk_glyphs(*source, symbol_face(), text, pixel_size, source->em_scale(pixel_size),
+                        [&](char32_t cp, int, GlyphSource, float kern, float advance) {
                             pen += kern;
                             draw_cell(cp, pen, row_top, color);
                             pen += advance + tracking;

@@ -89,10 +89,13 @@ public:
     // Flushes any pending geometry.
     void end();
 
+    // Draws the pending batch now, keeping the blend mode and bound texture.
+    // Call it before destroying a texture that queued quads may still sample.
+    void flush();
+
 private:
     using Vertex = QuadVertex;
 
-    void flush();
     void append_quad(const Rect& rect, const UVRect& uv, Color color, float radians = 0.0f);
     void build_projection(int width, int height);
     void bind_texture(unsigned int id);
