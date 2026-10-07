@@ -1,11 +1,11 @@
 # TODO Issues
 
-**Source**: `TODO.md` · **Generated**: 2026-10-02 · **Updated**: 2026-10-07 (TODO-31 added; 2026-10-06: TODO-30 added; 2026-10-05: TODO-27 – TODO-29 added; 2026-10-03: TODO-13 – TODO-14 added; TODO-15 – TODO-26 added from `blaze4k-cabinet-theme/IMPLEMENTATION_PLAN.md`, see "Cabinet theme" section)
+**Source**: `TODO.md` · **Generated**: 2026-10-02 · **Updated**: 2026-10-07 (TODO-32 added; TODO-31 added; 2026-10-06: TODO-30 added; 2026-10-05: TODO-27 – TODO-29 added; 2026-10-03: TODO-13 – TODO-14 added; TODO-15 – TODO-26 added from `blaze4k-cabinet-theme/IMPLEMENTATION_PLAN.md`, see "Cabinet theme" section)
 
 ## Skipped
 
 - **Done (`[x]`)** — 28 items: `TODO.md` lines 1–15, 18–30 (font capitals bug, song-select audio, difficulty order, tab legend, key-repeat scrolling, song list room, attract timeout, legend overlap, song list rendering, results delay, disappearing holds, ITG arrow colors ×2, Cel noteskin, hold-end artifact, colored difficulties, receptor/hit effects, options SFX, assist-tick toggle, calibrate → Esc, auto `songs/` folder, remap background music, white high-score flash, best % in song select, assist-tick timing, options room, remap table layout, bigger receptors).
-- **Already tracked** — none on the first run. Second run: `TODO.md:16` (#55, TODO-1), `TODO.md:35` (#60, TODO-7); lines 31–34, 36, 37 are now marked done. Third run: `TODO.md:16` (#55), `:35` (#60), `:40` (#78); lines 36–39 are now marked done. Fifth run (2026-10-05): `TODO.md:17` (#98), `:35` (#60); lines 1–16, 18–34, 36–42 are marked done. Sixth run (2026-10-06): `TODO.md:17` (#98), `:35` (#60); lines 1–16, 18–34, 36–45 are marked done. Seventh run (2026-10-07): `TODO.md:17` (#98), `:35` (#60), `:46` (#118, TODO-30); lines 1–16, 18–34, 36–45 are marked done.
+- **Already tracked** — none on the first run. Second run: `TODO.md:16` (#55, TODO-1), `TODO.md:35` (#60, TODO-7); lines 31–34, 36, 37 are now marked done. Third run: `TODO.md:16` (#55), `:35` (#60), `:40` (#78); lines 36–39 are now marked done. Fifth run (2026-10-05): `TODO.md:17` (#98), `:35` (#60); lines 1–16, 18–34, 36–42 are marked done. Sixth run (2026-10-06): `TODO.md:17` (#98), `:35` (#60); lines 1–16, 18–34, 36–45 are marked done. Seventh run (2026-10-07): `TODO.md:17` (#98), `:35` (#60), `:46` (#118, TODO-30); lines 1–16, 18–34, 36–45 are marked done. Eighth run (2026-10-07): `TODO.md:17` (#98), `:35` (#60); lines 1–16, 18–34, 36–47 are marked done.
 - **Deferred by user** — `TODO.md:17` "Something Blaze themed visuals would be cool" (too vague for now; ID TODO-2 left unused). Still deferred on the second and third runs. Fourth run: covered by the Cabinet theme issues (#87–#98).
 - **Non-tasks** — none.
 
@@ -1116,6 +1116,44 @@ In the song select difficulty rows, the meter number sits in a tight gap between
 - Meter text styles: `theme::text::kDiffMeter` (28 px) / `kDiffMeterSelected` (32 px) in `src/render/theme.hpp`; the name tab is ~150 px wide (`kEditTabWidth`), so the number's left side is bounded by the tab edge.
 - Tests: `tests/select_art_test.cpp` `test_ticks()` hard-codes tick x positions (238/400 and 252/414) — update them to the new offsets.
 - Assumption: only these two constants change; the row art, name, and best % stay where they are.
+
+### Dependencies
+
+- Blocked by: None
+- Blocks: None
+
+---
+
+## [TODO-32] Render symbol characters such as ☺ in song artist names
+
+**Type**: Bug
+**GitHub Label**: bug
+**Priority**: Medium
+**Complexity**: Medium
+**Phase**: Backlog
+**Labels**: `render`, `screens`
+**Source**: `TODO.md:48` — "Special character names for artists don't render. A good example of this: there is a song called \"Delirium\" in the \"In The Groove\" pack whose artist name is just a smiley. It renders the artist name as just a plain block."
+**GitHub**: #124
+
+### Description
+
+Current: the ITG song "Delirium" has `#ARTIST:☺;` (U+263A, UTF-8 `E2 98 BA`) and an empty `#ARTISTTRANSLIT`, so song select shows the hollow placeholder box instead of the smiley. The TrueType atlas only bakes U+0020–U+017F, and none of the bundled fonts (Saira Condensed, Audiowide) has a glyph for U+263A, so the existing translit/ASCII-fold fallbacks have nothing to fall back to. Expected: common symbol characters in artist (and title) text render as the real glyph.
+
+### Acceptance Criteria
+
+- [ ] Delirium's artist shows a smiley glyph, not the placeholder box, in song select
+- [ ] The same artist text renders correctly on the results screen
+- [ ] Code points that are still missing from every loaded font keep drawing the placeholder box, and malformed UTF-8 still doesn't crash
+- [ ] Unit tests cover glyph lookup and `covers_text` for at least U+263A
+- [ ] A song select screenshot (via `/verify`) shows Delirium's artist rendered
+
+### Technical Notes
+
+- Root cause: `kBakedRanges` in `src/render/ttf_font.cpp:46` covers U+0020–U+007E, U+00A0–U+00FF, and U+0100–U+017F only (`kBakedGlyphCount = 319`, `src/render/ttf_font.hpp:67`). Missing code points use `fold_to_ascii` (`src/render/unicode_text.hpp`), else the in-atlas placeholder box (`ttf_font.cpp` ~591).
+- Font coverage (from `fc-query`): Saira Condensed and Audiowide have no Miscellaneous Symbols (U+2600–U+26FF) glyphs, so baking a wider range alone isn't enough.
+- Likely approach: bundle a small OFL symbol fallback font (e.g. a Noto Sans Symbols 2 subset, with its OFL text in `assets/fonts/`), bake a symbol range from it (at least U+2600–U+26FF), and look glyphs up in the fallback face when the primary face lacks them. Keep atlas size within the existing cap.
+- Display selection: `song_display_artist` / `song_display_title` in `src/screens/song_display_text.{hpp,cpp}` pick translit text based on `TextRenderer::covers_text`; coverage must count fallback-face glyphs so the native text is chosen when it can be drawn.
+- Assumptions: scope is symbols that show up in real ITG/SM pack metadata (Miscellaneous Symbols, and possibly Dingbats/arrows); full CJK coverage is out of scope here.
 
 ### Dependencies
 
