@@ -63,7 +63,7 @@ inline constexpr float kHintCentreX = theme::layout::kRefWidth * 0.5f;
 
 // Stat panels: x / top / width / gap from theme.hpp, heights measured (#95).
 inline constexpr std::array<float, 3> kStatPanelHeights = {111.0f, 111.0f, 102.0f};
-inline constexpr float kStatTextPadX = 20.0f;        // manifest: "label at x+20, y+14"
+inline constexpr float kStatTextPadX = 30.0f;        // manifest "label at x+20" + 10 margin (#127)
 inline constexpr float kStatLabelTop = 14.0f;        // manifest: label line top
 inline constexpr float kStatLabelCapCentre = 14.5f;  // cap centre below the label line top (mock)
 inline constexpr float kValueBaseline = 86.0f;       // MAX COMBO / DP value baseline (mock)
@@ -75,7 +75,9 @@ inline constexpr float kDigitCapHalfRef = 16.5f;
 inline constexpr float kDpMaxScale = 28.0f / 48.0f;  // "/ 2000" cap 19 vs 33 (mock)
 inline constexpr float kHoldScale = 40.0f / 48.0f;   // holds cap 28 vs 33 (mock)
 inline constexpr float kDpGap = 8.0f;                // numerator -> "/ max" (mock)
-inline constexpr float kHoldColumnGap = 34.0f;       // after max(label, value) (mock)
+inline constexpr float kHoldColumnMaxGap = 34.0f;    // after max(label, value) (mock)
+inline constexpr float kHoldColumnMinGap = 8.0f;
+inline constexpr float kHoldRowWidth = theme::layout::kStatPanelWidth - 2.0f * kStatTextPadX; // 300
 
 // Centre column.
 inline constexpr Vec2 kGradeCentre{640.0f, 286.0f};        // grade ink centre (mock)
@@ -144,10 +146,11 @@ struct TopBarLayout {
 [[nodiscard]] Rect stat_panel_rect(int i);
 
 // Text x inside a -8deg panel for an element centred at `centre_y`:
-// panel.x + 20 + skew::kStatPanel * (panel centre y - centre_y).
+// panel.x + kStatTextPadX + skew::kStatPanel * (panel centre y - centre_y).
 [[nodiscard]] float stat_text_x(const Rect& panel, float centre_y);
 
-// Holds panel column offsets {0, c1, c2}: c[i+1] = c[i] + max(label_w[i], value_w[i]) + 34.
+// Holds panel column offsets {0, c1, c2}: c[i+1] = c[i] + max(label_w[i], value_w[i]) + gap,
+// gap = the room kHoldRowWidth leaves, halved, clamped to kHoldColumnMinGap..kHoldColumnMaxGap.
 [[nodiscard]] std::array<float, 3> hold_columns(std::array<float, 3> label_w,
                                                 std::array<float, 3> value_w);
 

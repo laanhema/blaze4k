@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstdint>
@@ -578,10 +579,11 @@ void test_stat_panels() {
     TEST_CHECK(near(art::stat_panel_rect(9).y, p2.y));
 
     // Mock label ink x 69 (line top +14, cap centre +14.5) and value ink x 64 (baseline 86).
+    constexpr float kLeftMargin = 10.0f; // #127
     const float label_x = art::stat_text_x(p0, p0.y + art::kStatLabelTop + art::kStatLabelCapCentre);
     const float value_x = art::stat_text_x(p0, p0.y + art::kValueBaseline - art::kDigitCapHalfRef);
-    TEST_CHECK(near(label_x, 67.807f, 0.01f));
-    TEST_CHECK(near(value_x, 62.026f, 0.01f));
+    TEST_CHECK(near(label_x, 67.807f + kLeftMargin, 0.01f));
+    TEST_CHECK(near(value_x, 62.026f + kLeftMargin, 0.01f));
     TEST_CHECK(std::isfinite(art::stat_text_x(p0, std::numeric_limits<float>::quiet_NaN())));
 
     // Mock: HOLDS OK -> NG -> MINES ink at 69 / 192 / 246.
@@ -590,6 +592,28 @@ void test_stat_panels() {
     // A four-digit hold count wider than its label pushes the next column right.
     const std::array<float, 3> wide = art::hold_columns({89.0f, 21.0f, 56.0f}, {120.0f, 9.0f, 33.0f});
     TEST_CHECK(near(wide[1], 154.0f) && near(wide[2], 209.0f));
+    const std::array<float, 3> tight = art::hold_columns({100.0f, 100.0f, 100.0f}, {});
+    TEST_CHECK(near(tight[0], 0.0f) && near(tight[1], 100.0f + art::kHoldColumnMinGap) &&
+               near(tight[2], 200.0f + 2.0f * art::kHoldColumnMinGap));
+
+    const blaze4k::TextRenderer& text = loaded_text();
+    const blaze4k::BitmapDigits& digits = loaded_theme().digits_white();
+    constexpr std::array<std::string_view, 3> kLabels = {"HOLDS OK", "NG", "MINES"};
+    using Counts = std::array<std::string_view, 3>;
+    for (const Counts& counts : {Counts{"999", "999", "999"}, Counts{"148", "148", "152"}}) {
+        std::array<float, 3> label_w{};
+        std::array<float, 3> value_w{};
+        std::array<float, 3> col{};
+        for (std::size_t i = 0; i < 3; ++i) {
+            label_w[i] = blaze4k::ref_measure(text, kLabels[i], blaze4k::theme::text::kStatLabel);
+            value_w[i] = digits.measure(counts[i], art::kHoldScale);
+            col[i] = std::max(label_w[i], value_w[i]);
+        }
+        const std::array<float, 3> fit = art::hold_columns(label_w, value_w);
+        TEST_CHECK(fit[2] + col[2] <= art::kHoldRowWidth + 1e-3f);
+        TEST_CHECK(fit[1] - col[0] >= art::kHoldColumnMinGap - 1e-3f);
+        TEST_CHECK(fit[2] - fit[1] - col[1] >= art::kHoldColumnMinGap - 1e-3f);
+    }
     std::cout << "  - stat panels layout ok.\n";
 }
 
