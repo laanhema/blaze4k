@@ -656,6 +656,13 @@ void test_name_margin() {
     TEST_CHECK(art::kDiffNameX - kTabLeftNormal >= kMinGap);
     TEST_CHECK(art::kDiffNameSelectedX - kTabLeftSelected >= kMinGap);
     TEST_CHECK(art::kDiffNameSelectedX - kTabLeftSelected >= art::kDiffNameX - kTabLeftNormal);
+    // The draw site's x: each row state gets its own offset (row x 44, 58 selected).
+    const Rect row = art::difficulty_row_rect(0, 3);
+    const Rect sel = art::difficulty_row_rect(3, 3);
+    TEST_CHECK(art::difficulty_name_x(row, false) == 65.0f);
+    TEST_CHECK(art::difficulty_name_x(sel, true) == 83.0f);
+    TEST_CHECK(art::difficulty_name_x(row, false) - row.x == art::kDiffNameX);
+    TEST_CHECK(art::difficulty_name_x(sel, true) - sel.x == art::kDiffNameSelectedX);
 
     // The right limit did not move, so a truncated name still ends inside the tab.
     TEST_CHECK(art::kDiffNameX + art::kDiffNameBudget <= kNameRight);
@@ -664,14 +671,12 @@ void test_name_margin() {
     // the row's centre in both rows).
     TEST_CHECK(kNameRight + kMinClear <= art::kEditTabWidth - theme::skew::kRows * 8.0f);
 
+    // Every standard label is drawn untruncated in both row states (the draw site
+    // truncates to kDiffNameBudget).
     blaze4k::TextRenderer& text = loaded_text();
-    const std::pair<theme::TextStyle, float> cases[] = {
-        {theme::text::kDiffName, art::kDiffNameX},
-        {theme::text::kDiffNameSelected, art::kDiffNameSelectedX},
-    };
-    for (const auto& [style, x] : cases) {
+    for (const theme::TextStyle& style : {theme::text::kDiffName, theme::text::kDiffNameSelected}) {
         for (const char* name : {"BEGINNER", "EASY", "MEDIUM", "HARD", "CHALLENGE", "EDIT"}) {
-            TEST_CHECK(x + text.measure(name, style) <= kNameRight);
+            TEST_CHECK(text.truncate(name, style, art::kDiffNameBudget) == name);
         }
     }
     // The limit stays clear of the widest meter number.

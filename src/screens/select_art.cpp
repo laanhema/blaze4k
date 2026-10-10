@@ -227,6 +227,10 @@ Rect tick_rect(const Rect& row, bool selected, int n) {
                 row.y + (row.h - h) * 0.5f, kTickWidth, h};
 }
 
+float difficulty_name_x(const Rect& row, bool selected) {
+    return row.x + (selected ? kDiffNameSelectedX : kDiffNameX);
+}
+
 std::array<Vec2, 4> skewed_quad(const Rect& r, float skew) {
     const float shift = skew * r.h * 0.5f;
     return {Vec2{r.x + shift, r.y}, Vec2{r.x + r.w + shift, r.y},
@@ -587,7 +591,7 @@ void draw_difficulty_rows(const ThemeTextures* theme, TextRenderer* text, GlQuad
                        difficulty_row_style(*rows[i].chart).colors.ink);
         text->draw(renderer,
                    text->truncate(difficulty_row_label(*rows[i].chart), style, L.px(kDiffNameBudget)),
-                   L.x(row.x + (selected ? kDiffNameSelectedX : kDiffNameX)),
+                   L.x(difficulty_name_x(row, selected)),
                    centred_top(*text, L, row.y, row.h, style), style, TextAlign::Left);
     }
     for (std::size_t i = 0; i < rows.size(); ++i) {

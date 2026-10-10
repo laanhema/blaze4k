@@ -214,6 +214,9 @@ struct DifficultyRowStyle {
 // Tick `n` (0..9) of `row`: {row.x + 210 + n*18, centred, 20, 18 (20 selected)}.
 [[nodiscard]] Rect tick_rect(const Rect& row, bool selected, int n);
 
+// Left edge of the difficulty name in `row`: row.x + 21 (25 selected).
+[[nodiscard]] float difficulty_name_x(const Rect& row, bool selected);
+
 // The CSS skewX parallelogram of `rect` about its vertical centre (TL, TR, BR, BL):
 // the top edge shifts right by skew*h/2, the bottom edge left by the same.
 [[nodiscard]] std::array<Vec2, 4> skewed_quad(const Rect& rect, float skew);
