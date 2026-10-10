@@ -33,4 +33,5 @@ Preconditions:
 
 - Charts are sorted hardest first, so the cursor starts on the hardest chart. Left at the top is a no-op.
 - The wheel lists only songs with at least one `dance-single` chart. `[NoteParser] Skipping unsupported steps type` lines in the log are expected.
+- Keys sent right after `wait-screen RUN Select` returns can be dropped (seen with `--songs "$PWD/songs"`: 2 of 5 `Up` taps lost). Wait about 1.5 s before the first key, then read the song title in the screenshot before citing it.
 - The fixture pack has placeholder banners and audio. The banner area may show generated art and no preview plays. Use `songs/` to check real banners and previews.
