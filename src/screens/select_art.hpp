@@ -71,7 +71,8 @@ inline constexpr float kDiffNameSelectedX = 25.0f;
 inline constexpr float kDiffMeterCentreX = 190.0f;
 inline constexpr float kDiffTickX = 210.0f;
 inline constexpr float kDiffBestRight = 547.0f; // measured from mock: 17px in from the right edge
-// The name ends at x 143 in the selected row (25 + 118), inside the 150px Edit tab.
+// The name ends at x 143 in the selected row (25 + 118), inside the tab (baked and
+// Edit: it ends at x 161 at mid-height, 164 selected).
 inline constexpr float kDiffNameBudget = 118.0f;
 inline constexpr int kDiffTickCount = 10;
 // diff_tick content 40x36 @2x (manifest); 20px tall in the selected row (manifest note).
@@ -79,12 +80,19 @@ inline constexpr float kTickWidth = 20.0f;
 inline constexpr float kTickHeight = 18.0f;
 inline constexpr float kTickSelectedHeight = 20.0f;
 
-// Code-drawn Edit row (#84; there is no diff_row_edit texture).
-inline constexpr float kEditTabWidth = 150.0f; // measured from the baked rows' tab
+// Code-drawn Edit row (#84; there is no diff_row_edit texture), matched to the baked
+// rows' art (#130). Measured from diff_row_*.png / diff_row_*_selected.png (all five
+// colours agree): the art is inset inside the 564px content box. At mid-height the
+// 1px kEditEdge ring spans x 10..554; the selected row's 2px gold ring spans x 12..552
+// and stays inside the content box (no outset). The tab is 150px wide inside the ring.
+inline constexpr float kEditInsetX = 10.0f;
+inline constexpr float kEditSelectedInsetX = 12.0f;
+inline constexpr float kEditBorder = 1.0f;
+inline constexpr float kEditSelectedBorder = 2.0f;
+inline constexpr float kEditTabWidth = 150.0f; // the tab fill: x 11..161 at mid-height, 14..164 selected
 inline constexpr Color kEditBody = theme::hex(0x0B1030, 0.85f); // sampled from diff_row_beginner.png
 inline constexpr Color kEditBodySelected = theme::hex(0x0B1030, 1.0f);
-inline constexpr Color kEditEdge = theme::hex(0x27325A); // 1px top/bottom strips (sampled)
-inline constexpr float kEditSelectedOutset = 2.0f;
+inline constexpr Color kEditEdge = theme::hex(0x27325A); // the unselected row's 1px ring (sampled)
 
 // Wheel text x from the row's content x (manifest notes) and the right limit.
 inline constexpr float kWheelSongTextX = 26.0f;
@@ -221,6 +229,26 @@ struct DifficultyRowStyle {
 // the top edge shifts right by skew*h/2, the bottom edge left by the same.
 [[nodiscard]] std::array<Vec2, 4> skewed_quad(const Rect& rect, float skew);
 
+// The code-drawn Edit row's rects for `row`, before the kRows skew (reference px):
+//  frame  the ring's outer edge = the baked art's opaque extent:
+//         {row.x + 10, row.y, row.w - 20, row.h} (12 / 24 selected)
+//  inner  `frame` inset by `border` on every side (1, 2 selected)
+//  tab    the first kEditTabWidth of `inner`
+//  left, right  the ring's side strips: `border` wide and as tall as `inner`, from
+//         the frame's left edge and to its right edge (the top and bottom strips
+//         are the first and last `border` of `frame`)
+// All share the row's vertical centre, so skewed_quad() keeps their slanted sides
+// parallel and `border` px apart. Sizes never go negative.
+struct EditRowRects {
+    Rect frame;
+    Rect inner;
+    Rect tab;
+    Rect left;
+    Rect right;
+    float border = 0.0f;
+};
+[[nodiscard]] EditRowRects edit_row_rects(const Rect& row, bool selected);
+
 // Chip texts from the live config: "SPEED " + format_speed_mod (a malformed
 // speed_mod falls back to 1x), and "DOWNSCROLL" / "UPSCROLL". Null config ->
 // "SPEED 1x" / "UPSCROLL".
@@ -319,7 +347,7 @@ void draw_song_info(TextRenderer& text, GlQuadRenderer& renderer, const theme::L
                     std::string_view title, std::string_view subtitle, std::string_view artist,
                     std::string_view bpm);
 
-// One difficulty row's art: the baked slice3, or the code-drawn Edit row.
+// One difficulty row's art: the baked slice3, or the code-drawn Edit row (edit_row_rects).
 void draw_difficulty_row_art(const ThemeTextures& theme, GlQuadRenderer& renderer,
                              const theme::LayoutScale& L, const Rect& row,
                              const DifficultyRowStyle& style, bool selected);
