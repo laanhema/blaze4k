@@ -237,6 +237,20 @@ std::array<Vec2, 4> skewed_quad(const Rect& r, float skew) {
             Vec2{r.x + r.w - shift, r.y + r.h}, Vec2{r.x - shift, r.y + r.h}};
 }
 
+EditRowRects edit_row_rects(const Rect& row, bool selected) {
+    const float inset = selected ? kEditSelectedInsetX : kEditInsetX;
+    EditRowRects out;
+    out.frame = Rect{row.x + inset, row.y, std::max(0.0f, row.w - 2.0f * inset),
+                     std::max(0.0f, row.h)};
+    out.border = std::min(selected ? kEditSelectedBorder : kEditBorder,
+                          std::min(out.frame.w, out.frame.h) * 0.5f);
+    const float b = out.border;
+    out.inner = Rect{out.frame.x + b, out.frame.y + b, out.frame.w - 2.0f * b,
+                     out.frame.h - 2.0f * b};
+    out.tab = Rect{out.inner.x, out.inner.y, std::min(kEditTabWidth, out.inner.w), out.inner.h};
+    return out;
+}
+
 std::string speed_chip_text(const GameConfig* config) {
     SpeedMod mod{};
     if (config == nullptr || !parse_speed_mod(config->gameplay.speed_mod, mod)) {
@@ -526,22 +540,25 @@ void draw_difficulty_row_art(const ThemeTextures& theme, GlQuadRenderer& rendere
         theme.draw_slice3(renderer, selected ? style.texture_selected : style.texture, L.rect(row));
         return;
     }
-    // Code-drawn Edit row (#84): the baked rows' slanted body, edges and tab.
+    // Code-drawn Edit row (#84), on the baked rows' geometry (#130): the body, a ring
+    // (kEditEdge, gold when selected) and the tab inside the ring.
     const float k = theme::skew::kRows;
-    if (selected) {
-        const float o = kEditSelectedOutset;
-        draw_solid(renderer, L, skewed_quad(Rect{row.x - o, row.y - o, row.w + 2 * o, row.h + 2 * o}, k),
-                   theme::color::kGold);
+    const EditRowRects g = edit_row_rects(row, selected);
+    const Color ring = selected ? theme::color::kGold : kEditEdge;
+    const std::array<Vec2, 4> frame = skewed_quad(g.frame, k);
+    // The body runs under the opaque ring, so no seam can open between them.
+    draw_solid(renderer, L, frame, selected ? kEditBodySelected : kEditBody);
+    if (g.border > 0.0f) {
+        const float t = g.border / g.frame.h;
+        draw_solid(renderer, L, quad_band(frame, 0.0f, t), ring);
+        draw_solid(renderer, L, quad_band(frame, 1.0f - t, 1.0f), ring);
+        draw_solid(renderer, L, skewed_quad(Rect{g.frame.x, g.inner.y, g.border, g.inner.h}, k),
+                   ring);
+        draw_solid(renderer, L,
+                   skewed_quad(Rect{g.inner.x + g.inner.w, g.inner.y, g.border, g.inner.h}, k),
+                   ring);
     }
-    const std::array<Vec2, 4> body = skewed_quad(row, k);
-    draw_solid(renderer, L, body, selected ? kEditBodySelected : kEditBody);
-    if (row.h > 2.0f) {
-        const float edge = 1.0f / row.h;
-        draw_solid(renderer, L, quad_band(body, 0.0f, edge), kEditEdge);
-        draw_solid(renderer, L, quad_band(body, 1.0f - edge, 1.0f), kEditEdge);
-    }
-    draw_solid(renderer, L, skewed_quad(Rect{row.x, row.y, kEditTabWidth, row.h}, k),
-               style.colors.fill);
+    draw_solid(renderer, L, skewed_quad(g.tab, k), style.colors.fill);
 }
 
 void draw_ticks(const ThemeTextures& theme, GlQuadRenderer& renderer, const theme::LayoutScale& L,

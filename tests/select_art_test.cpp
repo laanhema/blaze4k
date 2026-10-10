@@ -15,6 +15,8 @@
 // slanted tab and the first tick.
 // #126: the difficulty name sits 6px right (10px in the selected row); gap to the
 // baked tab's left edge and the unchanged right limit.
+// #130: the code-drawn Edit row's frame, tab and height are held to the baked rows'
+// pixels (all ten diff_row PNGs, decoded with stb_image).
 
 #include <algorithm>
 #include <array>
@@ -28,6 +30,8 @@
 #include <string>
 #include <utility>
 #include <vector>
+
+#include <stb_image.h> // declarations only; blaze4k_core carries the implementation (stb_image_impl.cpp)
 
 #include "chart/chart.hpp"
 #include "chart/song_library.hpp"
@@ -623,8 +627,11 @@ void test_meter_clearance() {
 
     // The number and ticks moved together (spacing unchanged from 194 - 174).
     TEST_CHECK(art::kDiffTickX - art::kDiffMeterCentreX == 20.0f);
-    // The code-drawn Edit tab is no wider than the baked one, so the baked check covers it.
-    TEST_CHECK(art::kEditTabWidth <= kTabTopNormal);
+    // The code-drawn Edit tab is the baked tab (test_edit_row_geometry holds it to the
+    // PNGs), so the baked check covers it. Its mid-height edge: 161, 164 selected.
+    TEST_CHECK(art::kEditInsetX + art::kEditBorder + art::kEditTabWidth <= kTabTopNormal);
+    TEST_CHECK(art::kEditSelectedInsetX + art::kEditSelectedBorder + art::kEditTabWidth <=
+               kTabTopSelected);
 
     blaze4k::TextRenderer& text = loaded_text();
     const std::pair<theme::TextStyle, float> cases[] = {
@@ -667,9 +674,13 @@ void test_name_margin() {
     // The right limit did not move, so a truncated name still ends inside the tab.
     TEST_CHECK(art::kDiffNameX + art::kDiffNameBudget <= kNameRight);
     TEST_CHECK(art::kDiffNameSelectedX + art::kDiffNameBudget <= kNameRight);
-    // The code-drawn Edit tab's right edge at the name's baseline (under 8px below
-    // the row's centre in both rows).
-    TEST_CHECK(kNameRight + kMinClear <= art::kEditTabWidth - theme::skew::kRows * 8.0f);
+    // The Edit tab's right edge at the name's baseline (under 8px below the row's
+    // centre in both rows); it is the baked tab's edge (#130).
+    const float slant = theme::skew::kRows * 8.0f;
+    TEST_CHECK(kNameRight + kMinClear <=
+               art::kEditInsetX + art::kEditBorder + art::kEditTabWidth - slant);
+    TEST_CHECK(kNameRight + kMinClear <=
+               art::kEditSelectedInsetX + art::kEditSelectedBorder + art::kEditTabWidth - slant);
 
     // Every standard label is drawn untruncated in both row states (the draw site
     // truncates to kDiffNameBudget).
@@ -796,6 +807,156 @@ void test_skewed_quad() {
     TEST_CHECK(vec_eq(flat[0], 1, 2) && vec_eq(flat[1], 4, 2) && vec_eq(flat[2], 4, 6) &&
                vec_eq(flat[3], 1, 6));
     std::cout << "  - skewed quad ok.\n";
+}
+
+// x of the left / right slanted side of skewed_quad(r, kRows) at reference y.
+float side_x(const Rect& r, bool right, float y) {
+    const auto q = art::skewed_quad(r, theme::skew::kRows);
+    const Vec2 a = right ? q[1] : q[0];
+    const Vec2 b = right ? q[2] : q[3];
+    return a.x + (b.x - a.x) * ((y - a.y) / (b.y - a.y));
+}
+
+void test_edit_row_geometry() {
+    // Part A: the rects, in the list's coordinates.
+    const Rect row = art::difficulty_row_rect(0, 3);
+    const Rect sel = art::difficulty_row_rect(3, 3);
+    TEST_CHECK(rect_eq(row, 44, 372, 564, 44) && rect_eq(sel, 58, 534, 564, 52));
+    const art::EditRowRects n = art::edit_row_rects(row, false);
+    TEST_CHECK(rect_eq(n.frame, 54, 372, 544, 44));
+    TEST_CHECK(rect_eq(n.inner, 55, 373, 542, 42));
+    TEST_CHECK(rect_eq(n.tab, 55, 373, 150, 42));
+    TEST_CHECK(n.border == 1.0f);
+    const art::EditRowRects s = art::edit_row_rects(sel, true);
+    TEST_CHECK(rect_eq(s.frame, 70, 534, 540, 52));
+    TEST_CHECK(rect_eq(s.inner, 72, 536, 536, 48));
+    TEST_CHECK(rect_eq(s.tab, 72, 536, 150, 48));
+    TEST_CHECK(s.border == 2.0f);
+    // Same top and height as the row (no outset), and the slanted art stays inside it.
+    const std::pair<Rect, art::EditRowRects> placed[] = {{row, n}, {sel, s}};
+    for (const auto& [r, g] : placed) {
+        TEST_CHECK(g.frame.y == r.y && g.frame.h == r.h);
+        for (const Vec2& corner : art::skewed_quad(g.frame, theme::skew::kRows)) {
+            TEST_CHECK(corner.x >= r.x && corner.x <= r.x + r.w);
+        }
+    }
+    // A degenerate row never gives a negative size.
+    for (const Rect& tiny : {Rect{0, 0, 0, 0}, Rect{0, 0, 10, 1}, Rect{0, 0, 564, 0}}) {
+        for (const bool selected : {false, true}) {
+            const art::EditRowRects g = art::edit_row_rects(tiny, selected);
+            TEST_CHECK(g.frame.w >= 0.0f && g.frame.h >= 0.0f);
+            TEST_CHECK(g.inner.w >= 0.0f && g.inner.h >= 0.0f);
+            TEST_CHECK(g.tab.w >= 0.0f && g.tab.h >= 0.0f);
+            TEST_CHECK(g.border >= 0.0f);
+        }
+    }
+
+    // Part B: against the baked rows' pixels. The row is the content box at the origin.
+    const blaze4k::ThemeTextures& tex = loaded_theme();
+    const float px = 1.0f / tex.texture_scale(); // reference px per image px
+    constexpr float kTol = 1.0f;
+    const std::pair<const char*, theme::DifficultyColors> baked[] = {
+        {"diff_row_beginner", theme::difficulty::kBeginner},
+        {"diff_row_easy", theme::difficulty::kEasy},
+        {"diff_row_medium", theme::difficulty::kMedium},
+        {"diff_row_hard", theme::difficulty::kHard},
+        {"diff_row_challenge", theme::difficulty::kChallenge},
+    };
+    for (const auto& [base, colors] : baked) {
+        for (const bool selected : {false, true}) {
+            const std::string name = std::string(base) + (selected ? "_selected" : "");
+            const blaze4k::ThemeEntry* e = tex.entry(name);
+            TEST_CHECK(e != nullptr);
+            int w = 0;
+            int h = 0;
+            int channels = 0;
+            unsigned char* img = stbi_load((kCabinet / e->file).string().c_str(), &w, &h, &channels, 4);
+            TEST_CHECK(img != nullptr && w == e->width && h == e->height);
+            const blaze4k::PxRect c = e->content;
+            TEST_CHECK(c.x >= 0 && c.y >= 0 && c.x + c.w <= w && c.y + c.h <= h);
+
+            const Rect box{0, 0, static_cast<float>(c.w) * px, static_cast<float>(c.h) * px};
+            TEST_CHECK(box.w == art::kDiffRowWidth);
+            const art::EditRowRects g = art::edit_row_rects(box, selected);
+
+            const long fill[3] = {std::lround(colors.fill.r * 255.0f),
+                                  std::lround(colors.fill.g * 255.0f),
+                                  std::lround(colors.fill.b * 255.0f)};
+            const auto pixel = [&](int x, int y) {
+                return img + (static_cast<std::size_t>(y) * static_cast<std::size_t>(w) +
+                              static_cast<std::size_t>(x)) * 4;
+            };
+            const auto opaque = [&](int x, int y) { return pixel(x, y)[3] >= 128; };
+            // The tab's exact fill colour (+/-2 keeps Medium's #FFD23A apart from the
+            // gold ring's #FFD633).
+            const auto is_fill = [&](int x, int y) {
+                const unsigned char* p = pixel(x, y);
+                return p[3] == 255 && std::labs(p[0] - fill[0]) <= 2 &&
+                       std::labs(p[1] - fill[1]) <= 2 && std::labs(p[2] - fill[2]) <= 2;
+            };
+            const auto ref_x = [&](int x) { return static_cast<float>(x - c.x) * px; };
+            const auto ref_y = [&](int y) { return static_cast<float>(y - c.y) * px; };
+
+            // Slanted sides of the frame and the tab, 4 reference px inside the top and
+            // bottom (clear of both rings).
+            for (int y = c.y + 8; y < c.y + c.h - 8; ++y) {
+                int outer_l = -1;
+                int outer_r = -1;
+                int tab_l = -1;
+                int tab_r = -1;
+                for (int x = 0; x < w; ++x) {
+                    if (opaque(x, y)) {
+                        if (outer_l < 0) {
+                            outer_l = x;
+                        }
+                        outer_r = x + 1;
+                    }
+                    if (tab_r < 0) {
+                        if (is_fill(x, y)) {
+                            if (tab_l < 0) {
+                                tab_l = x;
+                            }
+                        } else if (tab_l >= 0) {
+                            tab_r = x;
+                        }
+                    }
+                }
+                TEST_CHECK(outer_l >= 0 && tab_l >= 0 && tab_r > tab_l);
+                const float at_y = ref_y(y) + 0.5f * px;
+                TEST_CHECK(std::fabs(ref_x(outer_l) - side_x(g.frame, false, at_y)) <= kTol);
+                TEST_CHECK(std::fabs(ref_x(outer_r) - side_x(g.frame, true, at_y)) <= kTol);
+                TEST_CHECK(std::fabs(ref_x(tab_l) - side_x(g.tab, false, at_y)) <= kTol);
+                TEST_CHECK(std::fabs(ref_x(tab_r) - side_x(g.tab, true, at_y)) <= kTol);
+            }
+
+            // First and last image row of a column that satisfies `hit`: {first, last + 1}.
+            const auto column_span = [&](int x, const auto& hit) {
+                int first = -1;
+                int end = -1;
+                for (int y = 0; y < h; ++y) {
+                    if (hit(x, y)) {
+                        if (first < 0) {
+                            first = y;
+                        }
+                        end = y + 1;
+                    }
+                }
+                TEST_CHECK(first >= 0);
+                return std::pair<int, int>{first, end};
+            };
+            // Height: the art fills the content box top to bottom (44, 52 selected).
+            const auto [top, bottom] = column_span(c.x + c.w / 2, opaque);
+            TEST_CHECK(approx(static_cast<float>(bottom - top) * px, g.frame.h, 0.5f));
+            TEST_CHECK(approx(ref_y(top), 0.0f, 0.5f));
+            // Tab height (the ring's thickness), at reference x 80, inside every tab.
+            const auto [tab_top, tab_bottom] = column_span(c.x + 160, is_fill);
+            TEST_CHECK(approx(ref_y(tab_top), g.tab.y, 0.5f));
+            TEST_CHECK(approx(ref_y(tab_bottom), g.tab.y + g.tab.h, 0.5f));
+
+            stbi_image_free(img);
+        }
+    }
+    std::cout << "  - Edit row geometry vs the baked rows ok.\n";
 }
 
 void test_chrome_layout() {
@@ -1211,6 +1372,7 @@ int main() {
     test_chip_rects();
     test_hint_layout();
     test_skewed_quad();
+    test_edit_row_geometry();
     test_chrome_layout();
     test_texture_names_exist();
     test_options_layout();
