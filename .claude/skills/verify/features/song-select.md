@@ -27,6 +27,7 @@ Preconditions:
 - **Open select.** Run `$B keys RUN Return`, `$B wait-screen RUN Select`, and `$B shot RUN 01-select`. `Aurora Borealis SSC` is highlighted with a single `HARD 7` chart.
 - **Move the wheel.** Run `$B keys RUN Down` and `$B shot RUN 02-wheel`. `Blaze Anthem` is highlighted and the left panel updates to it.
 - **Pick a chart.** On a song with several charts (e.g. `Anubis` in the owner's `songs/`), run `$B keys RUN Right Right` and `$B shot RUN 03-chart`. The highlighted row moves two steps toward Beginner.
+- **Show best saved scores.** Write `RUN/data/scores.json` before `$B launch` (`mkdir -p RUN/data` first; `launch` keeps an existing data dir). For the fixture's `Blaze Anthem`, seed Challenge `f6aa45043607306c` (`percent: 1.0`), Hard `96dd02b27954ac3b` (`1.0`), Medium `1a180a10c0d25c92` (`0.8888`) and Easy `221ef40c4dab1693` (`0.0731`), each with `dp`, `grade` and `timestamp`. Highlight `Blaze Anthem`: the rows show `100.00%`, `100.00%`, `88.88%`, `7.31%`, `---`, and `game.log` has `[Scores] Loaded`.
 - **Start.** Run `$B keys RUN Return` and `$B wait-screen RUN Gameplay`. The log shows `[GameplayScreen] started '<title>' <difficulty> <meter>` naming the highlighted chart.
 
 ## Gotchas
@@ -35,3 +36,4 @@ Preconditions:
 - The wheel lists only songs with at least one `dance-single` chart. `[NoteParser] Skipping unsupported steps type` lines in the log are expected.
 - Keys sent right after `wait-screen RUN Select` returns can be dropped (seen with `--songs "$PWD/songs"`: 2 of 5 `Up` taps lost). Wait about 1.5 s before the first key, then read the song title in the screenshot before citing it.
 - The fixture pack has placeholder banners and audio. The banner area may show generated art and no preview plays. Use `songs/` to check real banners and previews.
+- A fresh run has no scores, so every row shows `---`; the keys are content hashes of the fixture charts and change if a fixture chart's notes change.
