@@ -587,8 +587,8 @@ void draw_difficulty_rows(const ThemeTextures* theme, TextRenderer* text, GlQuad
                        difficulty_row_style(*rows[i].chart).colors.ink);
         text->draw(renderer,
                    text->truncate(difficulty_row_label(*rows[i].chart), style, L.px(kDiffNameBudget)),
-                   L.x(row.x + kDiffNameX), centred_top(*text, L, row.y, row.h, style), style,
-                   TextAlign::Left);
+                   L.x(row.x + (selected ? kDiffNameSelectedX : kDiffNameX)),
+                   centred_top(*text, L, row.y, row.h, style), style, TextAlign::Left);
     }
     for (std::size_t i = 0; i < rows.size(); ++i) {
         if (rows[i].chart == nullptr) {
