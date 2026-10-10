@@ -64,11 +64,15 @@ inline constexpr float kDiffRowWidth = 564.0f;
 // Inside a difficulty row, from the row's content x (measured from the mock; the
 // manifest notes say 24 / 183 / 216). The meter and ticks sit 16px right of the
 // mock (#122): the slanted tab reaches x 167.5 at the cap top of a selected row.
-inline constexpr float kDiffNameX = 15.0f;
+// The name sits 6px right of the mock, 10px in the selected row (#126): the baked
+// tab's fill starts at x 12.5 at the name's cap top, at 16 in the selected row.
+inline constexpr float kDiffNameX = 21.0f;
+inline constexpr float kDiffNameSelectedX = 25.0f;
 inline constexpr float kDiffMeterCentreX = 190.0f;
 inline constexpr float kDiffTickX = 210.0f;
 inline constexpr float kDiffBestRight = 547.0f; // measured from mock: 17px in from the right edge
-inline constexpr float kDiffNameBudget = 128.0f; // the tab is ~150px wide at mid-height
+// The name ends at x 143 in the selected row (25 + 118), inside the 150px Edit tab.
+inline constexpr float kDiffNameBudget = 118.0f;
 inline constexpr int kDiffTickCount = 10;
 // diff_tick content 40x36 @2x (manifest); 20px tall in the selected row (manifest note).
 inline constexpr float kTickWidth = 20.0f;
@@ -209,6 +213,9 @@ struct DifficultyRowStyle {
 
 // Tick `n` (0..9) of `row`: {row.x + 210 + n*18, centred, 20, 18 (20 selected)}.
 [[nodiscard]] Rect tick_rect(const Rect& row, bool selected, int n);
+
+// Left edge of the difficulty name in `row`: row.x + 21 (25 selected).
+[[nodiscard]] float difficulty_name_x(const Rect& row, bool selected);
 
 // The CSS skewX parallelogram of `rect` about its vertical centre (TL, TR, BR, BL):
 // the top edge shifts right by skew*h/2, the bottom edge left by the same.

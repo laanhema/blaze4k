@@ -13,6 +13,8 @@
 // render smoke.
 // #122: the meter number and ticks sit 16px right; real-font clearance from the
 // slanted tab and the first tick.
+// #126: the difficulty name sits 6px right (10px in the selected row); gap to the
+// baked tab's left edge and the unchanged right limit.
 
 #include <algorithm>
 #include <array>
@@ -639,6 +641,52 @@ void test_meter_clearance() {
     std::cout << "  - meter clearance ok.\n";
 }
 
+void test_name_margin() {
+    // The baked tab fill's left edge at the name's cap top (diff_row_hard{,_selected}.png;
+    // the tab is slanted, so this is where it cuts closest to the first letter; in the
+    // selected row the fill starts inside the gold frame), and the name's right limit
+    // before #126 (15 + 128).
+    constexpr float kTabLeftNormal = 12.5f;
+    constexpr float kTabLeftSelected = 16.0f;
+    constexpr float kMinGap = 8.0f;
+    constexpr float kNameRight = 143.0f;
+    constexpr float kMinClear = 4.0f;
+
+    // Left margin in both row states; the selected row's is at least the normal one.
+    TEST_CHECK(art::kDiffNameX - kTabLeftNormal >= kMinGap);
+    TEST_CHECK(art::kDiffNameSelectedX - kTabLeftSelected >= kMinGap);
+    TEST_CHECK(art::kDiffNameSelectedX - kTabLeftSelected >= art::kDiffNameX - kTabLeftNormal);
+    // The draw site's x: each row state gets its own offset (row x 44, 58 selected).
+    const Rect row = art::difficulty_row_rect(0, 3);
+    const Rect sel = art::difficulty_row_rect(3, 3);
+    TEST_CHECK(art::difficulty_name_x(row, false) == 65.0f);
+    TEST_CHECK(art::difficulty_name_x(sel, true) == 83.0f);
+    TEST_CHECK(art::difficulty_name_x(row, false) - row.x == art::kDiffNameX);
+    TEST_CHECK(art::difficulty_name_x(sel, true) - sel.x == art::kDiffNameSelectedX);
+
+    // The right limit did not move, so a truncated name still ends inside the tab.
+    TEST_CHECK(art::kDiffNameX + art::kDiffNameBudget <= kNameRight);
+    TEST_CHECK(art::kDiffNameSelectedX + art::kDiffNameBudget <= kNameRight);
+    // The code-drawn Edit tab's right edge at the name's baseline (under 8px below
+    // the row's centre in both rows).
+    TEST_CHECK(kNameRight + kMinClear <= art::kEditTabWidth - theme::skew::kRows * 8.0f);
+
+    // Every standard label is drawn untruncated in both row states (the draw site
+    // truncates to kDiffNameBudget).
+    blaze4k::TextRenderer& text = loaded_text();
+    for (const theme::TextStyle& style : {theme::text::kDiffName, theme::text::kDiffNameSelected}) {
+        for (const char* name : {"BEGINNER", "EASY", "MEDIUM", "HARD", "CHALLENGE", "EDIT"}) {
+            TEST_CHECK(text.truncate(name, style, art::kDiffNameBudget) == name);
+        }
+    }
+    // The limit stays clear of the widest meter number.
+    for (int meter = 1; meter <= 20; ++meter) {
+        const float w = text.measure(std::to_string(meter), theme::text::kDiffMeterSelected);
+        TEST_CHECK(art::kDiffMeterCentreX - w * 0.5f >= kNameRight + kMinClear);
+    }
+    std::cout << "  - name margin ok.\n";
+}
+
 void test_chip_text() {
     TEST_CHECK(art::speed_chip_text(nullptr) == "SPEED 1x");
     TEST_CHECK(art::scroll_chip_text(nullptr) == "UPSCROLL");
@@ -1158,6 +1206,7 @@ int main() {
     test_labels();
     test_ticks();
     test_meter_clearance();
+    test_name_margin();
     test_chip_text();
     test_chip_rects();
     test_hint_layout();
