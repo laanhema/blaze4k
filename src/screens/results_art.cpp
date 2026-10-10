@@ -114,13 +114,14 @@ float stat_text_x(const Rect& panel, float centre_y) {
 }
 
 std::array<float, 3> hold_columns(std::array<float, 3> label_w, std::array<float, 3> value_w) {
-    std::array<float, 3> out{0.0f, 0.0f, 0.0f};
-    for (std::size_t i = 0; i + 1 < out.size(); ++i) {
-        const float widest =
-            std::max(std::max(finite_or_zero(label_w[i]), finite_or_zero(value_w[i])), 0.0f);
-        out[i + 1] = out[i] + widest + kHoldColumnGap;
+    std::array<float, 3> col{};
+    for (std::size_t i = 0; i < col.size(); ++i) {
+        col[i] = std::max(std::max(finite_or_zero(label_w[i]), finite_or_zero(value_w[i])), 0.0f);
     }
-    return out;
+    const float spare = kHoldRowWidth - (col[0] + col[1] + col[2]);
+    const float gap = std::clamp(spare / 2.0f, kHoldColumnMinGap, kHoldColumnMaxGap);
+    const float c1 = col[0] + gap;
+    return {0.0f, c1, c1 + col[1] + gap};
 }
 
 Rect grade_rect(Vec2 content, float scale) {
