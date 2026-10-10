@@ -248,6 +248,8 @@ EditRowRects edit_row_rects(const Rect& row, bool selected) {
     out.inner = Rect{out.frame.x + b, out.frame.y + b, out.frame.w - 2.0f * b,
                      out.frame.h - 2.0f * b};
     out.tab = Rect{out.inner.x, out.inner.y, std::min(kEditTabWidth, out.inner.w), out.inner.h};
+    out.left = Rect{out.frame.x, out.inner.y, b, out.inner.h};
+    out.right = Rect{out.inner.x + out.inner.w, out.inner.y, b, out.inner.h};
     return out;
 }
 
@@ -552,11 +554,8 @@ void draw_difficulty_row_art(const ThemeTextures& theme, GlQuadRenderer& rendere
         const float t = g.border / g.frame.h;
         draw_solid(renderer, L, quad_band(frame, 0.0f, t), ring);
         draw_solid(renderer, L, quad_band(frame, 1.0f - t, 1.0f), ring);
-        draw_solid(renderer, L, skewed_quad(Rect{g.frame.x, g.inner.y, g.border, g.inner.h}, k),
-                   ring);
-        draw_solid(renderer, L,
-                   skewed_quad(Rect{g.inner.x + g.inner.w, g.inner.y, g.border, g.inner.h}, k),
-                   ring);
+        draw_solid(renderer, L, skewed_quad(g.left, k), ring);
+        draw_solid(renderer, L, skewed_quad(g.right, k), ring);
     }
     draw_solid(renderer, L, skewed_quad(g.tab, k), style.colors.fill);
 }

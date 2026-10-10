@@ -832,10 +832,21 @@ void test_edit_row_geometry() {
     TEST_CHECK(rect_eq(s.inner, 72, 536, 536, 48));
     TEST_CHECK(rect_eq(s.tab, 72, 536, 150, 48));
     TEST_CHECK(s.border == 2.0f);
+    // The ring's side strips (the draw code takes every quad from these rects).
+    TEST_CHECK(rect_eq(n.left, 54, 373, 1, 42) && rect_eq(n.right, 597, 373, 1, 42));
+    TEST_CHECK(rect_eq(s.left, 70, 536, 2, 48) && rect_eq(s.right, 608, 536, 2, 48));
     // Same top and height as the row (no outset), and the slanted art stays inside it.
     const std::pair<Rect, art::EditRowRects> placed[] = {{row, n}, {sel, s}};
     for (const auto& [r, g] : placed) {
         TEST_CHECK(g.frame.y == r.y && g.frame.h == r.h);
+        // The strips close the ring: `border` wide, as tall as `inner`, on the frame's
+        // left and right edges and meeting `inner` (so also the tab's left side).
+        TEST_CHECK(g.left.x == g.frame.x && g.left.x + g.left.w == g.inner.x);
+        TEST_CHECK(g.right.x == g.inner.x + g.inner.w &&
+                   g.right.x + g.right.w == g.frame.x + g.frame.w);
+        TEST_CHECK(g.left.w == g.border && g.right.w == g.border);
+        TEST_CHECK(g.left.y == g.inner.y && g.left.h == g.inner.h);
+        TEST_CHECK(g.right.y == g.inner.y && g.right.h == g.inner.h);
         for (const Vec2& corner : art::skewed_quad(g.frame, theme::skew::kRows)) {
             TEST_CHECK(corner.x >= r.x && corner.x <= r.x + r.w);
         }
@@ -847,6 +858,8 @@ void test_edit_row_geometry() {
             TEST_CHECK(g.frame.w >= 0.0f && g.frame.h >= 0.0f);
             TEST_CHECK(g.inner.w >= 0.0f && g.inner.h >= 0.0f);
             TEST_CHECK(g.tab.w >= 0.0f && g.tab.h >= 0.0f);
+            TEST_CHECK(g.left.w >= 0.0f && g.left.h >= 0.0f);
+            TEST_CHECK(g.right.w >= 0.0f && g.right.h >= 0.0f);
             TEST_CHECK(g.border >= 0.0f);
         }
     }
@@ -854,6 +867,10 @@ void test_edit_row_geometry() {
     // Part B: against the baked rows' pixels. The row is the content box at the origin.
     const blaze4k::ThemeTextures& tex = loaded_theme();
     const float px = 1.0f / tex.texture_scale(); // reference px per image px
+    // Scan offsets in image px, from reference px (so a re-bake at another scale
+    // scans the same part of the art).
+    const int edge_clear = static_cast<int>(std::lround(4.0f / px));
+    const int tab_column = static_cast<int>(std::lround(80.0f / px));
     constexpr float kTol = 1.0f;
     const std::pair<const char*, theme::DifficultyColors> baked[] = {
         {"diff_row_beginner", theme::difficulty::kBeginner},
@@ -899,7 +916,7 @@ void test_edit_row_geometry() {
 
             // Slanted sides of the frame and the tab, 4 reference px inside the top and
             // bottom (clear of both rings).
-            for (int y = c.y + 8; y < c.y + c.h - 8; ++y) {
+            for (int y = c.y + edge_clear; y < c.y + c.h - edge_clear; ++y) {
                 int outer_l = -1;
                 int outer_r = -1;
                 int tab_l = -1;
@@ -949,7 +966,7 @@ void test_edit_row_geometry() {
             TEST_CHECK(approx(static_cast<float>(bottom - top) * px, g.frame.h, 0.5f));
             TEST_CHECK(approx(ref_y(top), 0.0f, 0.5f));
             // Tab height (the ring's thickness), at reference x 80, inside every tab.
-            const auto [tab_top, tab_bottom] = column_span(c.x + 160, is_fill);
+            const auto [tab_top, tab_bottom] = column_span(c.x + tab_column, is_fill);
             TEST_CHECK(approx(ref_y(tab_top), g.tab.y, 0.5f));
             TEST_CHECK(approx(ref_y(tab_bottom), g.tab.y + g.tab.h, 0.5f));
 

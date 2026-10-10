@@ -234,12 +234,17 @@ struct DifficultyRowStyle {
 //         {row.x + 10, row.y, row.w - 20, row.h} (12 / 24 selected)
 //  inner  `frame` inset by `border` on every side (1, 2 selected)
 //  tab    the first kEditTabWidth of `inner`
-// The three share the row's vertical centre, so skewed_quad() keeps their slanted
-// sides parallel and `border` px apart. Sizes never go negative.
+//  left, right  the ring's side strips: `border` wide and as tall as `inner`, from
+//         the frame's left edge and to its right edge (the top and bottom strips
+//         are the first and last `border` of `frame`)
+// All share the row's vertical centre, so skewed_quad() keeps their slanted sides
+// parallel and `border` px apart. Sizes never go negative.
 struct EditRowRects {
     Rect frame;
     Rect inner;
     Rect tab;
+    Rect left;
+    Rect right;
     float border = 0.0f;
 };
 [[nodiscard]] EditRowRects edit_row_rects(const Rect& row, bool selected);
