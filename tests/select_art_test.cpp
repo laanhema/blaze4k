@@ -17,6 +17,8 @@
 // baked tab's left edge and the unchanged right limit.
 // #130: the code-drawn Edit row's frame, tab and height are held to the baked rows'
 // pixels (all ten diff_row PNGs, decoded with stb_image).
+// #131: the best % ends 10px further left (14px in the selected row); gap to the
+// row's right outline in both row states and room after the last tick.
 
 #include <algorithm>
 #include <array>
@@ -976,6 +978,61 @@ void test_edit_row_geometry() {
     std::cout << "  - Edit row geometry vs the baked rows ok.\n";
 }
 
+void test_best_margin() {
+    // #131: the best % ends 14-18px inside the row's right outline. The outline is
+    // edit_row_rects' ring (test_edit_row_geometry holds it to all ten baked PNGs): its
+    // inner edge is `inner`'s right side, slanted by kRows, so it is closest to the
+    // text at the baseline.
+    constexpr float kMinGap = 14.0f;
+    constexpr float kMaxGap = 18.0f;
+    // Room kept between the last tick and the widest best: three tick pitches.
+    constexpr float kMinTickGap = 3.0f * theme::layout::kDiffTickPitch;
+
+    // The draw site's x: each row state gets its own offset (row x 44, 58 selected).
+    const Rect row = art::difficulty_row_rect(0, 3);
+    const Rect sel = art::difficulty_row_rect(3, 3);
+    TEST_CHECK(art::difficulty_best_right(row, false) == 581.0f);
+    TEST_CHECK(art::difficulty_best_right(sel, true) == 591.0f);
+    TEST_CHECK(art::difficulty_best_right(row, false) - row.x == art::kDiffBestRight);
+    TEST_CHECK(art::difficulty_best_right(sel, true) - sel.x == art::kDiffBestSelectedRight);
+
+    blaze4k::TextRenderer& text = loaded_text();
+    struct Case {
+        Rect r;
+        bool selected;
+        theme::TextStyle style;
+    };
+    const Case cases[2] = {{row, false, theme::text::kDiffBest},
+                           {sel, true, theme::text::kDiffBestSelected}};
+    float gap_mid[2] = {};
+    float gap_base[2] = {};
+    for (std::size_t i = 0; i < 2; ++i) {
+        const Case& c = cases[i];
+        const Rect inner = art::edit_row_rects(c.r, c.selected).inner;
+        const float right = art::difficulty_best_right(c.r, c.selected);
+        const float mid_y = c.r.y + c.r.h * 0.5f;
+        // The line is centred in the row (centred_top in select_art.cpp).
+        const float base_y =
+            c.r.y + (c.r.h - text.line_height(c.style)) * 0.5f + text.ascent(c.style);
+        TEST_CHECK(base_y > mid_y && base_y < c.r.y + c.r.h);
+        gap_mid[i] = side_x(inner, true, mid_y) - right;
+        gap_base[i] = side_x(inner, true, base_y) - right;
+        TEST_CHECK(gap_mid[i] >= kMinGap && gap_mid[i] <= kMaxGap);
+        TEST_CHECK(gap_base[i] >= kMinGap && gap_base[i] <= kMaxGap);
+        // The widest bests start well after the last tick.
+        const float tick_end = art::tick_rect(c.r, c.selected, 9).x + art::kTickWidth;
+        for (const char* best : {"100.00%", "88.88%", "---"}) {
+            TEST_CHECK(right - text.measure(best, c.style) >= tick_end + kMinTickGap);
+        }
+    }
+    // The selected row's gap to the gold frame is at least the other rows' gap.
+    TEST_CHECK(gap_mid[1] >= gap_mid[0]);
+    TEST_CHECK(gap_base[1] >= gap_base[0]);
+    std::cout << "    best % gap " << gap_mid[0] << " / " << gap_mid[1] << " (mid), "
+              << gap_base[0] << " / " << gap_base[1] << " (baseline)\n";
+    std::cout << "  - best % margin ok.\n";
+}
+
 void test_chrome_layout() {
     const blaze4k::ThemeTextures& tex = loaded_theme();
     const Vec2 title[4] = {{40, 9}, {80, 18}, {520, 18}, {60, 73.5f}};
@@ -1390,6 +1447,7 @@ int main() {
     test_hint_layout();
     test_skewed_quad();
     test_edit_row_geometry();
+    test_best_margin();
     test_chrome_layout();
     test_texture_names_exist();
     test_options_layout();
