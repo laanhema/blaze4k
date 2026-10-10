@@ -66,11 +66,15 @@ inline constexpr float kDiffRowWidth = 564.0f;
 // mock (#122): the slanted tab reaches x 167.5 at the cap top of a selected row.
 // The name sits 6px right of the mock, 10px in the selected row (#126): the baked
 // tab's fill starts at x 12.5 at the name's cap top, at 16 in the selected row.
+// The best % ends 10px left of the mock, 14px in the selected row (#131): the baked
+// outline's inner edge is at x 553 at mid-height, 550 in the selected row (the mock's
+// is at 563), and it slants 1.5px closer at the text's baseline.
 inline constexpr float kDiffNameX = 21.0f;
 inline constexpr float kDiffNameSelectedX = 25.0f;
 inline constexpr float kDiffMeterCentreX = 190.0f;
 inline constexpr float kDiffTickX = 210.0f;
-inline constexpr float kDiffBestRight = 547.0f; // measured from mock: 17px in from the right edge
+inline constexpr float kDiffBestRight = 537.0f;
+inline constexpr float kDiffBestSelectedRight = 533.0f;
 // The name ends at x 143 in the selected row (25 + 118), inside the tab (baked and
 // Edit: it ends at x 161 at mid-height, 164 selected).
 inline constexpr float kDiffNameBudget = 118.0f;
@@ -224,6 +228,9 @@ struct DifficultyRowStyle {
 
 // Left edge of the difficulty name in `row`: row.x + 21 (25 selected).
 [[nodiscard]] float difficulty_name_x(const Rect& row, bool selected);
+
+// Right edge of the best % in `row`: row.x + 537 (533 selected).
+[[nodiscard]] float difficulty_best_right(const Rect& row, bool selected);
 
 // The CSS skewX parallelogram of `rect` about its vertical centre (TL, TR, BR, BL):
 // the top edge shifts right by skew*h/2, the bottom edge left by the same.

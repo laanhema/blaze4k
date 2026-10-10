@@ -231,6 +231,10 @@ float difficulty_name_x(const Rect& row, bool selected) {
     return row.x + (selected ? kDiffNameSelectedX : kDiffNameX);
 }
 
+float difficulty_best_right(const Rect& row, bool selected) {
+    return row.x + (selected ? kDiffBestSelectedRight : kDiffBestRight);
+}
+
 std::array<Vec2, 4> skewed_quad(const Rect& r, float skew) {
     const float shift = skew * r.h * 0.5f;
     return {Vec2{r.x + shift, r.y}, Vec2{r.x + r.w + shift, r.y},
@@ -631,7 +635,7 @@ void draw_difficulty_rows(const ThemeTextures* theme, TextRenderer* text, GlQuad
         const Rect row = difficulty_row_rect(slot, selected_slot);
         const theme::TextStyle& style =
             selected ? theme::text::kDiffBestSelected : theme::text::kDiffBest;
-        text->draw(renderer, rows[i].best, L.x(row.x + kDiffBestRight),
+        text->draw(renderer, rows[i].best, L.x(difficulty_best_right(row, selected)),
                    centred_top(*text, L, row.y, row.h, style), style, TextAlign::Right);
     }
 }
