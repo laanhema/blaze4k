@@ -33,15 +33,22 @@ Reference authority: **OpenITG source** (judgment windows, DP weights, grades, l
 ```bash
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
+ctest --test-dir build --output-on-failure   # run the tests
 ```
 
 The build produces a native, portable binary — no installer required. Dependencies are fetched via CMake FetchContent. Per-OS prerequisites, the `CMakePresets.json` preset matrix, and the fresh-clone check are documented in [docs/BUILDING.md](docs/BUILDING.md).
 
 ## Running
 
-Blaze 4k ships engine-only: you import your own song packs. Point the game at a `Songs/` folder containing SM/SSC packs (folder-per-song structure); every song with a 4-panel chart appears on the song wheel with its banner, artist, and difficulty rating.
+```bash
+./build/blaze-4k                 # scans ./songs, then ./data/songs
+./build/blaze-4k --songs <dir>   # scan another folder
+./build/blaze-4k --help          # all options
+```
 
-Settings, high scores, and the calibrated global offset persist as JSON files next to the binary.
+Blaze 4k ships engine-only: you import your own song packs. Point the game at a `songs/` folder containing SM/SSC packs (folder-per-song structure); every song with a 4-panel chart appears on the song wheel with its banner, artist, and difficulty rating.
+
+Settings, high scores, and the calibrated global offset persist as JSON files in a `data/` folder next to the binary.
 
 **Upgrading:** this version changes the music clock (a smaller audio period plus a clock that is interpolated between audio callbacks; see [docs/AUDIO_LATENCY.md](docs/AUDIO_LATENCY.md)). A previously saved offset will be off by a few milliseconds, so re-run the offset calibration once after upgrading. If audio crackles or drops out, raise `audio.period_size_frames` in `config.json` (default `480`; for example `960`, or `0` for the audio backend's default), restart the game, and calibrate again.
 
@@ -49,6 +56,8 @@ Settings, high scores, and the calibrated global offset persist as JSON files ne
 
 - Taps, holds, rolls, and mines
 - Upscroll default (downscroll option)
+- Options menu on song select: speed mod, scroll direction, fail on/off, assist tick (a tick on every note row, for timing practice), offset calibration, input remapping
+- Song select: banner, audio preview, and your best percentage per difficulty
 - Gameplay HUD: difficulty badge, life bar, judgment pops and combo
 - Score screen: grade medallion, chrome percentage, dance points, judgment bars, max combo, holds and mines, NEW RECORD / FAILED ribbon
 
@@ -59,12 +68,13 @@ Chart editor, courses/marathon modes, anything online, 5/6-panel or doubles, tur
 ## Project Layout
 
 ```
-blaze-4k/
+blaze4k/
 ├── CMakeLists.txt
+├── CMakePresets.json
 ├── src/
 │   ├── main.cpp
 │   ├── app/           # main loop, frame pacing
-│   ├── screens/       # title, attract, select, game, results
+│   ├── screens/       # title, attract, select, game, results, calibration, input remap
 │   ├── timing/        # music clock, offset, judgment windows
 │   ├── input/         # SDL3 devices, mapping, event timestamps
 │   ├── chart/         # SM/SSC parser, note model, library scanner
@@ -72,9 +82,10 @@ blaze-4k/
 │   ├── render/        # GL context, quads, sprites, fonts
 │   ├── gameplay/      # note field, judgments, scoring, life
 │   └── data/          # config, high scores (JSON)
-├── assets/            # noteskin, fonts, UI sounds, fallback bg
-├── tests/             # parser tests, timing unit tests, sync chart
-└── docs/              # PLAN.md, PRD
+├── assets/            # noteskins, fonts, theme textures, fallback bg, judgment constants
+├── scripts/           # fresh-clone check, symbol font build
+├── tests/             # parser tests, timing unit tests, sync chart, fixtures
+└── docs/              # building, audio latency, cross-platform verification, cabinet theme
 ```
 
 ## Documentation
@@ -82,6 +93,7 @@ blaze-4k/
 - [Product Requirements Document](.agents/PRDs/PRD.md) — full spec, scope, and locked decisions
 - [Building](docs/BUILDING.md) — per-OS prerequisites, presets, testing, portable data layout
 - [Cross-platform verification](docs/CROSS_PLATFORM_VERIFICATION.md) — D4 verification record + owner checklist
+- [Audio latency](docs/AUDIO_LATENCY.md) — music-clock and audio-latency measurements
 - [Cabinet theme](docs/cabinet-theme/README.md) — theme pack overview, implementation plan, and reference mock-ups
 - [AGENTS.md](AGENTS.md) — contributor/agent guidance
 

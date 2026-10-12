@@ -6,7 +6,7 @@ This file provides guidance to agents when working with code in this repository.
 
 **Blaze 4k** is a 4-panel arrow rhythm game for desktop (Windows, macOS, Linux) — a faithful homage to *In The Groove*, *Mungyodance*, and *StepMania*. Players hit scrolling arrows in time with music via keyboard or USB dance pad, judged with ITG-tight timing windows and scored with the OpenITG dance-point/grade system. Fully offline; reads SM/SSC simfiles; ships engine-only (users import their own song packs).
 
-**Status: pre-implementation.** The repo currently contains only the PRD (`.agents/PRDs/PRD.md`). All structure/commands below describe the planned layout from the PRD — create files accordingly.
+**Status: v1 feature-complete on Linux.** The PRD (`.agents/PRDs/PRD.md`) remains the spec. Windows and macOS verification are owner-run steps (`docs/CROSS_PLATFORM_VERIFICATION.md`).
 
 **Core principles (non-negotiable):**
 
@@ -36,7 +36,7 @@ Reference authority: **OpenITG source** (judgment windows, DP weights, grades, l
 
 ## Commands
 
-Planned CMake workflow (no build files exist yet):
+CMake workflow:
 
 ```bash
 # Configure & build
@@ -47,23 +47,30 @@ cmake --build build
 cmake -B build-debug -DCMAKE_BUILD_TYPE=Debug
 cmake --build build-debug
 
-# Test (once tests/ exists)
+# Test
 ctest --test-dir build --output-on-failure
+
+# Run (scans ./songs for packs; --help lists the options)
+./build/blaze-4k
 ```
+
+- Per-platform presets are in `CMakePresets.json`; `docs/BUILDING.md` lists them and the prerequisites. The Linux host has GCC only, so the Clang, MSVC and macOS presets are owner-run.
+- `audio_test` and `music_clock_test` open the default sound device. On the owner's machine, run `ctest` and test binaries inside a sandbox that hides it (`bwrap --dev-bind / / --tmpfs /run/user/$(id -u) --tmpfs /dev/snd --unshare-net <command>`), and never change system audio state. #134 makes the tests silent by default; remove this note when it lands.
 
 ---
 
 ## Architecture
 
-Planned layout (from PRD §6):
+Layout (from PRD §6):
 
 ```
-blaze-4k/
+blaze4k/
 ├── CMakeLists.txt
+├── CMakePresets.json
 ├── src/
 │   ├── main.cpp
 │   ├── app/           # main loop, frame pacing (fixed-timestep + vsync)
-│   ├── screens/       # title, attract, select, game, results
+│   ├── screens/       # title, attract, select, game, results, calibration, input remap
 │   ├── timing/        # music clock, offset, judgment windows
 │   ├── input/         # SDL3 devices, mapping, event timestamps
 │   ├── chart/         # SM/SSC parser, note model, library scanner
@@ -71,12 +78,13 @@ blaze-4k/
 │   ├── render/        # GL context, quads, sprites, fonts
 │   ├── gameplay/      # note field, judgments, scoring, life
 │   └── data/          # config, high scores (JSON)
-├── assets/            # noteskin, fonts, UI sounds, fallback bg
-├── tests/             # parser tests, timing unit tests, sync chart
-└── docs/              # PLAN.md, PRD
+├── assets/            # noteskins, fonts, theme textures, fallback bg, data (judgment constants)
+├── scripts/           # fresh-clone check, symbol font build
+├── tests/             # parser tests, timing unit tests, sync chart, fixtures
+└── docs/              # BUILDING, AUDIO_LATENCY, cross-platform verification, cabinet-theme
 ```
 
-Screen flow: **Title → Attract → Select → Gameplay → Results** (state machine; attract is just another screen).
+Screen flow: **Title → Attract → Select → Gameplay → Results** (state machine; attract is just another screen). **Calibration** and **Input Remap** are screens opened from Select's options overlay.
 
 ---
 
@@ -85,10 +93,10 @@ Screen flow: **Title → Attract → Select → Gameplay → Results** (state ma
 ### Key design patterns (from PRD §6 — follow these)
 
 1. **Music-driven clock.** Gameplay time = audio stream sample position ÷ sample rate + calibrated global offset. Between audio updates the position may be interpolated only as principle 1 allows (anchored, bounded to one device period; #71). Never wall-clock, never frame delta. No frame-timing logic in the judgment path.
-2. **Event-sourced judgments.** Every hit produces an immutable judgment event `{column, note_time, hit_time, delta_ms, window}`. Scoring, combo, life, and results all derive from the event log.
-3. **Data-driven constants.** Timing windows, DP weights, grade boundaries, and life deltas live in a config table (JSON-loaded), seeded with values verified against OpenITG source.
+2. **Event-sourced judgments.** Every hit produces an immutable judgment event `{column, note_time, hit_time, delta_ms, window}` (`JudgmentEvent` in `src/gameplay/judgment.hpp`). Scoring, combo, life, and results all derive from the event log.
+3. **Data-driven constants.** Timing windows, DP weights, grade boundaries, and life deltas live in a config table (JSON-loaded from `assets/data/judgment_constants.json`), seeded with values verified against OpenITG source.
 4. **Screen state machine.** Screens are objects with `enter/update/render/exit`; transitions are explicit.
-5. **Thin platform wrapper.** SDL3 is isolated behind input/window interfaces, keeping the core portable and testable.
+5. **Thin platform wrapper.** SDL3 is isolated behind input/window interfaces (`src/input`, `src/app`), keeping the core portable and testable. The only other SDL calls are the base path in `src/data/data_paths.cpp`, key and button names in `src/screens/input_remap_screen.cpp`, and the monotonic clock in `src/main.cpp`.
 
 ### Error handling
 
@@ -100,8 +108,8 @@ Screen flow: **Title → Attract → Select → Gameplay → Results** (state ma
 ## Testing
 
 - **Test location**: `tests/` (parser tests, timing unit tests, metronome sync-test chart)
-- **Fixtures**: reference simfile pack (provided by product owner) — parser must handle 100% of its 4-panel songs with zero crashes
-- **Regression tool**: permanent metronome sync-test chart to verify gameplay sync holds within one judgment window over a full song
+- **Fixtures**: reference simfile pack in `tests/fixtures/reference_pack` (provided by product owner) — parser must handle 100% of its 4-panel songs with zero crashes
+- **Regression tool**: permanent metronome sync-test chart (`tests/fixtures/sync_test`, `metronome_sync_test`) to verify gameplay sync holds within one judgment window over a full song
 
 ---
 
@@ -110,6 +118,9 @@ Screen flow: **Title → Attract → Select → Gameplay → Results** (state ma
 | File                   | Purpose                                                      |
 | ---------------------- | ------------------------------------------------------------ |
 | `.agents/PRDs/PRD.md`  | Product Requirements Document — full spec, scope, locked decisions |
+| `docs/BUILDING.md`     | Prerequisites per OS, presets, build and test commands       |
+| `docs/AUDIO_LATENCY.md` | Music-clock and audio-latency measurements; the record behind principle 1 (#71) |
+| `.claude/skills/verify/` | `/verify`: launches the real game window, presses keys, captures screenshots as proof |
 
 ---
 
@@ -120,3 +131,4 @@ Screen flow: **Title → Attract → Select → Gameplay → Results** (state ma
 - Note elements: taps, holds, rolls, mines.
 - Difficulty display is passthrough from the simfile (labels + foot rating).
 - Solo hobby project — no CI for v1; local cross-platform CMake builds must work from a fresh clone.
+- `TODO.md` (the owner's task list) and `songs/` (the owner's packs) are gitignored: edit `TODO.md` in place, but neither appears in a diff or a commit.
