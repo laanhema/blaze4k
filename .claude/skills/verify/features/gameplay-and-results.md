@@ -19,21 +19,25 @@ After a chart is picked, the note field scrolls arrows toward the receptors in t
 
 Preconditions:
 
-- An instance on `Select` (see `song-select.md`).
-- For music-driven play, launched with `-- --songs "$PWD/songs"`.
+- A fresh instance on `Select` (see `song-select.md`), with fail on. The steps below run in this order in one instance.
+- For music-driven play and for `play-input`, a second instance launched with `-- --songs "$PWD/songs"`.
 
-- **Start a chart.** Highlight `Blaze Anthem` (fixture) and run `$B keys RUN Return`, `$B wait-screen RUN Gameplay`, `$B keys RUN wait:4`, and `$B shot RUN 02-gameplay`. The log shows `[GameplayView] Loaded chart '<difficulty>' (meter N): taps=... holds=...` and a line with `time source audio` or `time source stub`.
-- **Press arrows.** Run `$B keys RUN Left Down Up Right` or a hold, `$B keys RUN +Left wait:0.5 -Left`. Judgment pops appear on screen.
-- **Fail.** Press nothing. With fail on, life drains and the log shows `[GameplayView] Failed: life empty at <t>s`. Then run `$B wait-screen RUN Results 180`.
-- **Results.** Run `$B keys RUN wait:3` (the counters animate) and `$B shot RUN 03-results`. Compare it with the log lines `[GameplayView] Score: DP a/b (...) grade G | combo ... | F E G D W M ...` and `[ResultsScreen] <song> <difficulty> <meter>: <grade> <percent> DP a/b FAILED`. The miss count and ribbon on screen match the log.
+- **Start a chart and fail.** Highlight `Blaze Anthem` (`CHALLENGE 10`) and run `$B keys RUN Return`, `$B wait-screen RUN Gameplay`, and `$B shot RUN 02-gameplay` at once. The shot has the badge, the life bar, and arrows crossing the receptors. The log shows `[GameplayView] Loaded chart 'Challenge' (meter 10): taps=... holds=...`, a line with `time source stub`, and `[GameplayView] Failed: life empty at 1.28333s`. Then run `$B wait-screen RUN Results 15`.
+- **Results.** Run `$B keys RUN wait:3` (the percent counts up) and `$B shot RUN 03-results`. Compare it with the log lines `[GameplayView] Score: DP -72/70 (...) grade D | combo ... | F 0 E 0 G 0 D 0 W 0 M 6 ...` and `[ResultsScreen] Blaze Anthem Challenge 10: D 0.00% DP -72/70 FAILED`. The shot has MISS `6`, DANCE POINTS `0 / 70`, and the FAILED ribbon.
 - **Back to select.** Run `$B keys RUN Return` and `$B wait-screen RUN Select`.
-- **Abort.** During gameplay, run `$B keys RUN Escape` and `$B wait-screen RUN Select`. No `[ResultsScreen]` line follows.
-- **Saved score.** After `$B stop RUN`, read `RUN/evidence/scores.json`. A failed or aborted run leaves `"scores": {}`. A passing run adds a record for the chart.
+- **Abort.** Run `$B keys RUN wait:1.5 Right Right Right Right` to highlight `BEGINNER 1`. Then run `$B keys RUN Return`, `$B wait-screen RUN Gameplay`, `$B keys RUN Escape`, and `$B wait-screen RUN Select`. The log has a `[GameplayView] Score:` line and no `[ResultsScreen]` line after it.
+- **Pass and save.** Run `$B keys RUN wait:1.5 Return`, `$B wait-screen RUN Gameplay`, press nothing, and run `$B wait-screen RUN Results 20`. The log shows `merciful beginner on`, `Score: DP 0/30 (0.00%) grade D ... M 4 ... life 0.100 alive`, and `[ResultsScreen] Blaze Anthem Beginner 1: D 0.00% DP 0/30 CLEARED NEW RECORD`. After `$B keys RUN wait:3`, `$B shot RUN 04-pass` has the NEW RECORD ribbon.
+- **Best on select.** Run `$B keys RUN Return`, `$B wait-screen RUN Select`, and `$B shot RUN 05-best`. The `BEGINNER` row reads `0.00%`. A second pass of the same chart logs `CLEARED` without `NEW RECORD`.
+- **Saved score.** After `$B stop RUN`, read `RUN/evidence/scores.json`. It has one record with `"grade": "D"`, `"percent": 0.0`, and `"dp": 0`. A run with only failed or aborted plays leaves `"scores": {}`.
+- **Press arrows.** On the real-songs instance, highlight a `BEGINNER` chart and start it. Check the log for `time source audio`. Run `$B keys RUN $(for i in $(seq 80); do printf '+Left +Down +Up +Right wait:0.05 -Left -Down -Up -Right wait:0.12 '; done)`, which presses all four arrows about six times a second for 14 s. Then run `$B keys RUN Escape`. The `[GameplayView] Score:` line has counts above zero among `F E G D W` and `max` combo above zero.
 
 ## Gotchas
 
 - The fixture pack's music files are placeholders (`[SoundStream] Failed to load audio file ...`), so fixture songs run on a synthetic stub clock. That is fine for screen-flow proofs and wrong for timing proofs.
+- Fixture charts start at chart time zero with no lead-in. Arrows are already at the receptors when `wait-screen RUN Gameplay` returns, so take the gameplay shot at once and do not expect taps to land.
+- Known defect, seen 2026-10-13: the stub clock is not reset between plays. Only the first play of an instance starts at chart time zero. Later plays start where the last one stopped, so every arrow is a miss in the first frame and the fail time grows (`1.28333s`, then `12.8333s`). The outcomes in the recipe above stay the same. Relaunch when a proof needs arrows on screen.
 - Synthetic keys are stamped on arrival, so the judgments they produce say nothing about timing accuracy.
-- Passing a chart with synthetic taps is impractical, so `results-save` is not reachable through this harness yet. Prove the save rule with `tests/` and report the on-screen path as not driven.
+- The pass above needs no taps: four misses leave life at 0.1, and Beginner charts clamp DP at zero, so the run clears at `0.00%` and is saved. An all-miss run on a harder chart has negative DP.
 - The score screen clamps the display. DP can be negative in the log and show `0` on screen.
-- Results counters animate for about 2 s. Screenshot after `wait:3`.
+- The results reveal takes about 2.4 s. Screenshot after `wait:3`. A Confirm during the reveal only skips it, and a second Confirm leaves. Escape leaves at once.
+- Do not send `Return Return` in one `keys` call on Results: the first leaves, and the second starts the same chart again.
