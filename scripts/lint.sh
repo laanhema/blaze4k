@@ -123,6 +123,26 @@ rule number-parsing \
     '(std::sto(i|l|ll|ul|ull|f|d|ld)|[^a-z_](ato[ifl]|atoll|strto(l|ll|ul|ull|d|f|ld|imax|umax))|sscanf|from_chars) *\(' \
     src ':!src/util/parse_number.cpp'
 
+# SDL stays behind the input and window interfaces (src/input, src/app), so the
+# rest of the game is portable and testable headless. The three files below are
+# the complete list of other SDL users; add to it only with the owner's approval.
+#   src/main.cpp                        the monotonic clock handed to the audio engine
+#   src/data/data_paths.cpp             the executable's base path
+#   src/screens/input_remap_screen.cpp  key and button names
+rule sdl-boundary \
+    "go through InputManager (src/input) or App / Window (src/app). If SDL has no wrapper for what you need, add it there." \
+    '#include *[<"]SDL' \
+    src ':!src/input' ':!src/app' \
+    ':!src/main.cpp' ':!src/data/data_paths.cpp' ':!src/screens/input_remap_screen.cpp'
+
+# A test that prints "skipping" and returns 0 passes while testing nothing. The
+# things tests used to skip for are always there: the audio engine's null
+# device, the headless window and renderer, and the committed fixtures.
+rule test-skip \
+    "make the missing precondition a TEST_CHECK failure. A test never skips: the null audio device and the committed fixtures are always available." \
+    '"[^"]*(SKIP|[Ss]kipping|[Ss]kipped)[^"]*(no |not |unavailable|missing)' \
+    'tests/*.cpp'
+
 # The suite grows; a count written into a doc or a script is wrong after the
 # next test is added. ctest prints the count.
 rule doc-test-count \

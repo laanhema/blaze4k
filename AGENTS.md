@@ -100,7 +100,7 @@ Screen flow: **Title → Attract → Select → Gameplay → Results** (state ma
 2. **Event-sourced judgments.** Every hit produces an immutable judgment event `{column, note_time, hit_time, delta_ms, window}` (`JudgmentEvent` in `src/gameplay/judgment.hpp`). Scoring, combo, life, and results all derive from the event log.
 3. **Data-driven constants.** Timing windows, DP weights, grade boundaries, and life deltas live in a config table (JSON-loaded from `assets/data/judgment_constants.json`), seeded with values verified against OpenITG source.
 4. **Screen state machine.** Screens are objects with `enter/update/render/exit`; transitions are explicit.
-5. **Thin platform wrapper.** SDL3 is isolated behind input/window interfaces (`src/input`, `src/app`), keeping the core portable and testable. The only other SDL calls are the base path in `src/data/data_paths.cpp`, key and button names in `src/screens/input_remap_screen.cpp`, and the monotonic clock in `src/main.cpp`.
+5. **Thin platform wrapper.** SDL3 is isolated behind input/window interfaces (`src/input`, `src/app`), keeping the core portable and testable. `scripts/lint.sh` (`sdl-boundary`) holds the complete list of the other files that may include SDL.
 
 ### Error handling
 
