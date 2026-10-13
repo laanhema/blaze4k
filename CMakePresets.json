@@ -100,7 +100,7 @@
     {
       "name": "asan-ubsan",
       "displayName": "Linux GCC AddressSanitizer + UndefinedBehaviorSanitizer",
-      "description": "Runs the tests with the project sources instrumented (BLAZE_SANITIZE). Needs build/ configured once: it builds the dependencies in its own directory from the sources in build/_deps and leaves build/ alone. docs/BUILDING.md (Sanitizer build) names the reports it expects.",
+      "description": "Runs the tests with the project sources instrumented (BLAZE_SANITIZE). Needs build/ configured first, and again after a dependency version in CMakeLists.txt changes: it builds the dependencies in its own directory from the sources in build/_deps and leaves build/ alone. docs/BUILDING.md (Sanitizer build) names the reports it expects.",
       "inherits": "base",
       "generator": "Unix Makefiles",
       "cacheVariables": {

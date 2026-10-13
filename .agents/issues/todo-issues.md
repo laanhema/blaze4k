@@ -1687,7 +1687,7 @@ Memory errors and undefined behaviour are found today only when a reviewer spots
 ### Dependencies
 
 - Blocked by: [TODO-37] (the preset runs the tests, which open the real sound device until then)
-- Blocks: None
+- Blocks: [TODO-42], [TODO-43]
 - Related: [TODO-38]
 
 ---
@@ -1815,8 +1815,8 @@ When a sound file is missing or corrupt, `ma_sound_init_from_file` (called by `S
 
 ### Dependencies
 
-- Blocked by: #136 (the `asan-ubsan` preset)
-- Blocks: TODO-43
+- Blocked by: [TODO-39] (the `asan-ubsan` preset)
+- Blocks: [TODO-43]
 
 ---
 
@@ -1852,10 +1852,11 @@ Each time a sound file fails to load, miniaudio 0.11.21 leaks 744 bytes: `ma_sou
 - Options:
   - The same pre-check as TODO-42, option (a): open the file with `ma_decoder_init_file` in `SoundStream::load` and return false when that fails, so the leaking path is not reached. Planning tried it in scratch: no leak report.
   - Move the miniaudio pin to 0.11.23 or later. The audio library drives the music clock (AGENTS.md, principle 1), so a version change needs the measurements in `docs/AUDIO_LATENCY.md` repeated.
+- After the pin changes, configure `build/` again (`cmake -B build`) before `cmake --preset asan-ubsan`. The preset builds the dependency sources in `build/_deps` and does not read the pin, so without that step it still tests miniaudio 0.11.21, shows the old leak, and prints nothing about it (`docs/BUILDING.md`, Sanitizer build).
 - Assumption: if TODO-42 lands the pre-check, this issue is verified and closed with it.
 - From the #136 sanitizer run.
 
 ### Dependencies
 
-- Blocked by: #136 (the `asan-ubsan` preset), TODO-42
+- Blocked by: [TODO-39] (the `asan-ubsan` preset), [TODO-42]
 - Blocks: None

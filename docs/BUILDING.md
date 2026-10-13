@@ -95,7 +95,9 @@ ctest --preset benchmark
 
 Presets reuse the local `build/_deps` dependency cache when it exists
 (`FETCHCONTENT_BASE_DIR`), so repeat runs are offline and deterministic. On a
-brand-new machine the first configure downloads the dependencies.
+brand-new machine the first configure downloads the dependencies. `asan-ubsan`
+is the exception: it downloads nothing and needs `build/` configured first (see
+[Sanitizer build](#sanitizer-build)).
 
 ## Testing
 
@@ -142,10 +144,14 @@ AddressSanitizer and UndefinedBehaviorSanitizer. A memory error or undefined
 behaviour then stops the test that reaches it and prints where it happened.
 
 ```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Release   # once: the preset reads the dependency sources in build/_deps
+# First, and again after a dependency version in CMakeLists.txt changes:
+# the preset reads the dependency sources in build/_deps.
+cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --preset asan-ubsan
 cmake --build --preset asan-ubsan -j"$(nproc)"
 ctest --preset asan-ubsan
+# Fails when the two canary tests are missing (the build lost BLAZE_SANITIZE):
+ctest --preset asan-ubsan -R sanitizer_canary --no-tests=error
 ```
 
 Packages it needs on top of the Linux prerequisites:
@@ -158,6 +164,10 @@ What the preset does:
 - It is a Debug build in `build-asan-ubsan/` (about 1.5 GB). It builds its own
   copy of the dependencies there from the sources in `build/_deps` and never
   writes to `build/`, so the normal builds are not changed or rebuilt.
+- It does not read the `GIT_TAG` version pins in `CMakeLists.txt`: it builds
+  whatever sources `build/_deps` holds. After a pin changes, configure `build/`
+  again (the first command above) before this preset. Otherwise it tests the
+  old dependency version and prints nothing about it.
 - Only the project's sources and tests are instrumented (`BLAZE_SANITIZE` in
   `CMakeLists.txt`). miniaudio and stb compile inside project sources, so they
   are instrumented too. SDL3 and glad are not.
@@ -166,7 +176,11 @@ What the preset does:
   `-fsanitize=undefined`. A report ends the test; it is not only printed.
 - `sanitizer_canary_use_after_free` and `sanitizer_canary_float_cast` exist
   only in this build. Each makes one deliberate error and passes only when the
-  sanitizer reports it, so a build that lost its sanitizer flags fails.
+  sanitizer reports it and the report ends the program. They prove that the
+  flags of the `BLAZE_SANITIZE` block reach the tests. They cannot prove that
+  the preset still sets `BLAZE_SANITIZE`: a build without the option has no
+  canary test and passes. So both `sanitizer_canary_*` lines must be in the
+  `ctest` output, and the last command above fails when they are not.
 - ThreadSanitizer is not part of it: it cannot be combined with
   AddressSanitizer.
 

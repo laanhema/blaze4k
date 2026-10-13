@@ -630,10 +630,14 @@ target_link_libraries(clock_probe PRIVATE
     blaze4k_core
 )
 
-# #136: proves that the sanitizers of the asan-ubsan preset are on. Each test
+# #136: proves that the flags of the BLAZE_SANITIZE block in the root
+# CMakeLists.txt reach the tests and that a report ends the program. Each test
 # passes only when the sanitizer's own report is in the output and the canary
-# did not run on past the error. Without these, a build whose sanitizer flags
-# were lost would pass every test.
+# did not run on past the error. They exist only under BLAZE_SANITIZE, so they
+# cannot show that the option itself was lost: a build without it has no canary
+# and passes every test. The two sanitizer_canary_* lines must be in the ctest
+# output: `ctest --preset asan-ubsan -R sanitizer_canary --no-tests=error`
+# fails when they are missing.
 if(BLAZE_SANITIZE)
     add_executable(sanitizer_canary
         sanitizer_canary.cpp
