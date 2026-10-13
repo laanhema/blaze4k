@@ -19,6 +19,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       # The SDL3 build dependencies that docs/BUILDING.md lists for Debian / Ubuntu.
       - name: Install SDL3 build dependencies
@@ -29,6 +31,10 @@ jobs:
             libwayland-dev wayland-protocols libxkbcommon-dev libudev-dev \
             libx11-dev libxext-dev libxrandr-dev libxi-dev \
             libxcursor-dev libxfixes-dev libgl1-mesa-dev
+
+      - name: Install clang-format
+        run: |
+          pip install --break-system-packages clang-format==23.1.1
 
       - name: Cache fetched dependencies
         uses: actions/cache@v6

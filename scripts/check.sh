@@ -67,17 +67,19 @@ run_step() {
     exit 1
 }
 
-echo "[1/4] Lint..."
+echo "[1/5] Lint..."
 run_step lint "$repo_root/scripts/lint.sh"
+echo "[2/5] Format..."
+run_step format "$repo_root/scripts/format.sh" --check
 
-echo "[2/4] Configure..."
+echo "[3/5] Configure..."
 run_step configure cmake -S "$repo_root" -B "$build_dir" -DCMAKE_BUILD_TYPE=Release \
     -DBLAZE_WERROR=ON
 
-echo "[3/4] Build (-j$jobs)..."
+echo "[4/5] Build (-j$jobs)..."
 run_step build cmake --build "$build_dir" -j"$jobs"
 
-echo "[4/4] Test..."
+echo "[5/5] Test..."
 run_step ctest ctest --test-dir "$build_dir" --output-on-failure
 
 echo ""

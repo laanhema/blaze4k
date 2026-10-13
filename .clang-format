@@ -1,0 +1,23 @@
+---
+# Blaze 4k clang-format configuration
+# Matches existing codebase style (100 columns, 4 spaces indent, attached braces)
+Language: Cpp
+Standard: c++20
+BasedOnStyle: LLVM
+IndentWidth: 4
+TabWidth: 4
+UseTab: Never
+ColumnLimit: 100
+AccessModifierOffset: -4
+PointerAlignment: Left
+ReferenceAlignment: Left
+BreakBeforeBraces: Attach
+NamespaceIndentation: None
+SortIncludes: Never
+ReflowComments: true
+AlignTrailingComments:
+  Kind: Leave
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortBlocksOnASingleLine: Empty
+AllowShortLambdasOnASingleLine: Inline
+BreakConstructorInitializers: BeforeColon
