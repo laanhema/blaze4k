@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 #
-# Configure, build, and run the full ctest suite. CI runs this same script on
-# every pull request (.github/workflows/ci.yml), so a local pass predicts CI.
+# Configure, build with warnings as errors, and run the full ctest suite. CI
+# runs this same script on every pull request (.github/workflows/ci.yml), so a
+# local pass predicts CI.
+#
+# A warning in a project source fails the build step, so it is reported again
+# on every run until it is fixed: there is no need to recompile changed files
+# by hand to look for warnings. Dependency warnings do not count.
 #
 # Usage: scripts/check.sh [--build-dir <path>]
 #
@@ -67,7 +72,7 @@ run_step() {
 
 echo "[1/3] Configure..."
 run_step configure cmake -S "$repo_root" -B "$build_dir" -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+    -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DBLAZE_WERROR=ON
 
 echo "[2/3] Build (-j$jobs)..."
 run_step build cmake --build "$build_dir" -j"$jobs"

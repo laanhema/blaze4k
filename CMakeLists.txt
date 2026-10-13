@@ -64,16 +64,30 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(SDL3 glad nlohmann_json miniaudio stb)
 
-# Create interface target for miniaudio
+# Create interface target for miniaudio. SYSTEM: its implementation compiles
+# inside a project source, and its warnings are not ours to fix.
 if(NOT TARGET miniaudio)
     add_library(miniaudio INTERFACE)
-    target_include_directories(miniaudio INTERFACE ${miniaudio_SOURCE_DIR})
+    target_include_directories(miniaudio SYSTEM INTERFACE ${miniaudio_SOURCE_DIR})
 endif()
 
-# Create interface target for stb
+# Create interface target for stb (SYSTEM for the same reason)
 if(NOT TARGET stb)
     add_library(stb INTERFACE)
-    target_include_directories(stb INTERFACE ${stb_SOURCE_DIR})
+    target_include_directories(stb SYSTEM INTERFACE ${stb_SOURCE_DIR})
+endif()
+
+# Warnings as errors for the project's own targets. Placed after the
+# dependencies so it never reaches them. scripts/check.sh (and so CI) turns it
+# on; it is off by default so the owner-run Windows and macOS presets are
+# unchanged.
+option(BLAZE_WERROR "Treat compiler warnings in project sources as errors" OFF)
+if(BLAZE_WERROR)
+    if(MSVC)
+        add_compile_options(/WX)
+    else()
+        add_compile_options(-Werror)
+    endif()
 endif()
 
 # Core library target
