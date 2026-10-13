@@ -53,6 +53,18 @@ fs::path write_music(const fs::path& dir) {
     return wav;
 }
 
+// True once the view's clock advances with no update() call, which only the
+// audio clock does: the stub clock stands still without update(). Waits up to 2 s.
+bool clock_advances_without_update(const blaze4k::GameplayView& view) {
+    for (int i = 0; i < 200; ++i) {
+        if (view.music_time_seconds() > 0.01) {
+            return true;
+        }
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    }
+    return false;
+}
+
 // #138: GameplayScreen reuses one GameplayView, so each load must start the stub
 // clock at chart time zero. 0.25 s steps are exact at the stub's 48 kHz.
 void test_stub_clock_starts_at_zero_on_each_load() {
@@ -97,14 +109,7 @@ void test_audio_play_after_stub_play_uses_audio_clock(const fs::path& wav) {
     view.shutdown();
 
     TEST_CHECK(view.init(chart, k, wav.string(), options));
-    bool advanced = false;
-    for (int i = 0; i < 200 && !advanced; ++i) {
-        advanced = view.music_time_seconds() > 0.01;
-        if (!advanced) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        }
-    }
-    TEST_CHECK(advanced);
+    TEST_CHECK(clock_advances_without_update(view));
     for (int i = 0; i < 30; ++i) {
         view.update(1.0, kNoneHeld);
     }
@@ -114,6 +119,8 @@ void test_audio_play_after_stub_play_uses_audio_clock(const fs::path& wav) {
 }
 
 // #138: a play without audio after a play with it runs on the stub clock, from zero.
+// init also returns true when the audio does not load, so the first play is
+// checked to be on the audio clock: without that this is "stub after stub".
 void test_stub_play_after_audio_play_uses_stub_clock(const fs::path& wav) {
     const blaze4k::JudgmentConstants& k = blaze4k::JudgmentConstants::compiled_defaults();
     const blaze4k::Chart chart = one_tap_chart();
@@ -121,6 +128,7 @@ void test_stub_play_after_audio_play_uses_stub_clock(const fs::path& wav) {
 
     blaze4k::GameplayView view;
     TEST_CHECK(view.init(chart, k, wav.string(), options));
+    TEST_CHECK(clock_advances_without_update(view));
     view.shutdown();
 
     TEST_CHECK(view.init(chart, k, "", options));
