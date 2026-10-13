@@ -165,6 +165,7 @@ void GlQuadRenderer::shutdown() {
     program_ = 0;
     white_.destroy();
     vertices_.clear();
+    recorded_quads_.clear();
     bound_texture_ = 0;
     initialized_ = false;
 }

@@ -191,11 +191,14 @@ void test_headless_recording() {
     renderer.set_blend_mode(blaze4k::BlendMode::Add);
     renderer.draw_quad_points(corners, invalid, UVRect{0.0f, 0.0f, 4.0f, 4.0f}, {c, c, c, c});
     renderer.draw_quad(Rect{5.0f, 6.0f, 20.0f, 30.0f}, Color{0.0f, 1.0f, 0.0f, 0.5f});
+    constexpr float kHalfPi = 1.57079632679f;
+    renderer.draw_textured_quad(Rect{10.0f, 20.0f, 20.0f, 20.0f}, invalid, UVRect{},
+                                Color{0.2f, 0.4f, 0.6f, 0.8f}, kHalfPi);
     renderer.end();
 
     TEST_CHECK(!renderer.is_initialized());
     const auto quads = renderer.recorded_quads();
-    TEST_CHECK(quads.size() == 3);
+    TEST_CHECK(quads.size() == 4);
 
     TEST_CHECK(quads[0].blend_mode == blaze4k::BlendMode::Alpha);
     TEST_CHECK(quads[0].texture == 0);
@@ -209,7 +212,22 @@ void test_headless_recording() {
     TEST_CHECK(approx_equal(quads[2].corners[0].x, 5.0f) && approx_equal(quads[2].corners[0].y, 6.0f));
     TEST_CHECK(approx_equal(quads[2].corners[2].x, 25.0f) && approx_equal(quads[2].corners[2].y, 36.0f));
 
+    TEST_CHECK(quads[3].blend_mode == blaze4k::BlendMode::Add);
+    TEST_CHECK(quads[3].texture == 0);
+    TEST_CHECK(approx_equal(quads[3].color.r, 0.2f) && approx_equal(quads[3].color.g, 0.4f) &&
+               approx_equal(quads[3].color.b, 0.6f) && approx_equal(quads[3].color.a, 0.8f));
+    TEST_CHECK(approx_equal(quads[3].corners[0].x, 30.0f) && approx_equal(quads[3].corners[0].y, 20.0f));
+    TEST_CHECK(approx_equal(quads[3].corners[1].x, 30.0f) && approx_equal(quads[3].corners[1].y, 40.0f));
+    TEST_CHECK(approx_equal(quads[3].corners[2].x, 10.0f) && approx_equal(quads[3].corners[2].y, 40.0f));
+    TEST_CHECK(approx_equal(quads[3].corners[3].x, 10.0f) && approx_equal(quads[3].corners[3].y, 20.0f));
+
     renderer.clear_recorded();
+    TEST_CHECK(renderer.recorded_quads().empty());
+
+    // shutdown() also clears recorded_quads_.
+    renderer.draw_quad(Rect{1.0f, 1.0f, 10.0f, 10.0f}, Color{1.0f, 1.0f, 1.0f, 1.0f});
+    TEST_CHECK(renderer.recorded_quads().size() == 1);
+    renderer.shutdown();
     TEST_CHECK(renderer.recorded_quads().empty());
     std::cout << "  - uninitialized renderer records draw calls ok.\n";
 }
