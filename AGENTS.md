@@ -50,6 +50,9 @@ cmake --build build-debug
 # Check: lint, build with warnings as errors, run every test (CI runs this on each pull request)
 scripts/check.sh
 
+# Sanitizers: every test under AddressSanitizer + UndefinedBehaviorSanitizer (needs build/ configured; docs/BUILDING.md)
+cmake --preset asan-ubsan && cmake --build --preset asan-ubsan -j"$(nproc)" && ctest --preset asan-ubsan
+
 # One test
 ctest --test-dir build --output-on-failure -R <test_name>
 
