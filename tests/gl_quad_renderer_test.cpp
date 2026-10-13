@@ -63,10 +63,7 @@ std::array<QuadVertex, 6> reference_rect_vertices(const Rect& rect, const UVRect
     return {top_left, top_right, bottom_right, top_left, bottom_right, bottom_left};
 }
 
-std::array<Vec2, 4> rect_corners(const Rect& rect) {
-    return {Vec2{rect.x, rect.y}, Vec2{rect.x + rect.w, rect.y},
-            Vec2{rect.x + rect.w, rect.y + rect.h}, Vec2{rect.x, rect.y + rect.h}};
-}
+using blaze4k::rect_corners;
 
 void test_corner_order() {
     const std::array<Vec2, 4> corners = {Vec2{10.0f, 20.0f}, Vec2{110.0f, 25.0f},
@@ -182,21 +179,39 @@ void test_layout_parity_with_append_quad() {
     std::cout << "  - layout parity with append_quad (axis-aligned) ok.\n";
 }
 
-void test_headless_noop() {
+void test_headless_recording() {
     blaze4k::GlQuadRenderer renderer;
     renderer.begin(1280, 720);
     const std::array<Vec2, 4> corners = {Vec2{0.0f, 0.0f}, Vec2{10.0f, 0.0f}, Vec2{10.0f, 10.0f},
                                          Vec2{0.0f, 10.0f}};
-    const Color c{};
+    const Color c{1.0f, 0.5f, 0.25f, 1.0f};
     const blaze4k::Texture invalid;
-    // Headless can only prove "does not crash": once in Alpha with unit UVs, then
-    // after an Add blend switch with a repeat range (UV > 1).
+    // Headless records each quad (corners, texture, colour, blend mode).
     renderer.draw_quad_points(corners, invalid, UVRect{}, {c, c, c, c});
     renderer.set_blend_mode(blaze4k::BlendMode::Add);
     renderer.draw_quad_points(corners, invalid, UVRect{0.0f, 0.0f, 4.0f, 4.0f}, {c, c, c, c});
+    renderer.draw_quad(Rect{5.0f, 6.0f, 20.0f, 30.0f}, Color{0.0f, 1.0f, 0.0f, 0.5f});
     renderer.end();
+
     TEST_CHECK(!renderer.is_initialized());
-    std::cout << "  - uninitialized renderer draw_quad_points is a no-op ok.\n";
+    const auto quads = renderer.recorded_quads();
+    TEST_CHECK(quads.size() == 3);
+
+    TEST_CHECK(quads[0].blend_mode == blaze4k::BlendMode::Alpha);
+    TEST_CHECK(quads[0].texture == 0);
+    TEST_CHECK(approx_equal(quads[0].color.r, 1.0f) && approx_equal(quads[0].color.g, 0.5f));
+    TEST_CHECK(approx_equal(quads[0].corners[1].x, 10.0f) && approx_equal(quads[0].corners[1].y, 0.0f));
+
+    TEST_CHECK(quads[1].blend_mode == blaze4k::BlendMode::Add);
+    TEST_CHECK(quads[1].texture == 0);
+
+    TEST_CHECK(quads[2].blend_mode == blaze4k::BlendMode::Add);
+    TEST_CHECK(approx_equal(quads[2].corners[0].x, 5.0f) && approx_equal(quads[2].corners[0].y, 6.0f));
+    TEST_CHECK(approx_equal(quads[2].corners[2].x, 25.0f) && approx_equal(quads[2].corners[2].y, 36.0f));
+
+    renderer.clear_recorded();
+    TEST_CHECK(renderer.recorded_quads().empty());
+    std::cout << "  - uninitialized renderer records draw calls ok.\n";
 }
 
 } // namespace
@@ -208,7 +223,7 @@ int main() {
     test_uv_mapping_repeat_range();
     test_parallelogram_skew();
     test_layout_parity_with_append_quad();
-    test_headless_noop();
+    test_headless_recording();
     std::cout << "[gl_quad_renderer_test] All tests passed!\n";
     return 0;
 }

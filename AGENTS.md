@@ -126,7 +126,7 @@ Each rule is a mistake that agents made here at least twice. `scripts/check.sh` 
 | Docs and scripts leave the test count to `ctest`. | lint `doc-test-count` |
 | Docs cite this repo's code by file and symbol name. | lint `doc-line-citation` |
 | A lint exception sits on the offending line with a reason, an expiry date and the approving human. | lint `lint-exception` |
-| A test asserts a value it did not compute with the code's own formula, and fails if the code under test does nothing. A decision made inside a draw call gets a pure helper that the test calls. | review only |
+| A test asserts a value it did not compute with the code's own formula, and fails if the code under test does nothing. A decision made inside a draw call is checked via the headless recorder (GlQuadRenderer::recorded_quads) or a pure helper. | review only |
 | Each helper, label table and constant has one definition. Search for it before writing one. | review only |
 | An owner decision is explained in plain language first, with a recommendation. | review only |
 
