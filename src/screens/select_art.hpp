@@ -236,6 +236,9 @@ struct DifficultyRowStyle {
 // the top edge shifts right by skew*h/2, the bottom edge left by the same.
 [[nodiscard]] std::array<Vec2, 4> skewed_quad(const Rect& rect, float skew);
 
+// The horizontal band [t0, t1] (0 = top, 1 = bottom) of a parallelogram.
+[[nodiscard]] std::array<Vec2, 4> quad_band(const std::array<Vec2, 4>& q, float t0, float t1);
+
 // The code-drawn Edit row's rects for `row`, before the kRows skew (reference px):
 //  frame  the ring's outer edge = the baked art's opaque extent:
 //         {row.x + 10, row.y, row.w - 20, row.h} (12 / 24 selected)

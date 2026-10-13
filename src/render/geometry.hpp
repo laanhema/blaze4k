@@ -1,5 +1,7 @@
 #pragma once
 
+#include <array>
+
 namespace blaze4k {
 
 // Straight-alpha RGBA color, components in [0, 1] (the quad renderer
@@ -24,6 +26,12 @@ struct Vec2 {
     float x = 0.0f;
     float y = 0.0f;
 };
+
+// Builds the four corners (TL, TR, BR, BL) of an axis-aligned rectangle.
+[[nodiscard]] constexpr std::array<Vec2, 4> rect_corners(const Rect& rect) {
+    return {Vec2{rect.x, rect.y}, Vec2{rect.x + rect.w, rect.y},
+            Vec2{rect.x + rect.w, rect.y + rect.h}, Vec2{rect.x, rect.y + rect.h}};
+}
 
 // Normalized texture coordinates. (0,0) is top-left of the texture.
 struct UVRect {

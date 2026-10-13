@@ -75,11 +75,6 @@ Vec2 lerp(Vec2 a, Vec2 b, float t) {
     return Vec2{a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t};
 }
 
-// The horizontal band [t0, t1] (0 = top, 1 = bottom) of a parallelogram.
-std::array<Vec2, 4> quad_band(const std::array<Vec2, 4>& q, float t0, float t1) {
-    return {lerp(q[0], q[3], t0), lerp(q[1], q[2], t0), lerp(q[1], q[2], t1), lerp(q[0], q[3], t1)};
-}
-
 // A solid quad from reference-space corners.
 void draw_solid(GlQuadRenderer& renderer, const theme::LayoutScale& L,
                 const std::array<Vec2, 4>& ref_corners, Color color) {
@@ -239,6 +234,10 @@ std::array<Vec2, 4> skewed_quad(const Rect& r, float skew) {
     const float shift = skew * r.h * 0.5f;
     return {Vec2{r.x + shift, r.y}, Vec2{r.x + r.w + shift, r.y},
             Vec2{r.x + r.w - shift, r.y + r.h}, Vec2{r.x - shift, r.y + r.h}};
+}
+
+std::array<Vec2, 4> quad_band(const std::array<Vec2, 4>& q, float t0, float t1) {
+    return {lerp(q[0], q[3], t0), lerp(q[1], q[2], t0), lerp(q[1], q[2], t1), lerp(q[0], q[3], t1)};
 }
 
 EditRowRects edit_row_rects(const Rect& row, bool selected) {

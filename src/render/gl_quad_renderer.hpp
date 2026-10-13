@@ -1,11 +1,21 @@
 #pragma once
 
 #include <array>
+#include <span>
 #include <vector>
 #include "render/geometry.hpp"
 #include "render/texture.hpp"
 
 namespace blaze4k {
+
+// One quad recorded by a headless (uninitialized) renderer.
+struct RecordedQuad {
+    std::array<Vec2, 4> corners{};
+    unsigned int texture = 0;
+    Color color{};
+    std::array<Color, 4> colors{};
+    BlendMode blend_mode = BlendMode::Alpha;
+};
 
 // One vertex of the quad batch: position (pixels), texture coordinate, and
 // premultiplied RGBA colour. The field order is the GL attribute layout.
@@ -93,6 +103,10 @@ public:
     // Call it before destroying a texture that queued quads may still sample.
     void flush();
 
+    // Returns the quads recorded while uninitialized.
+    [[nodiscard]] std::span<const RecordedQuad> recorded_quads() const { return recorded_quads_; }
+    void clear_recorded() { recorded_quads_.clear(); }
+
 private:
     using Vertex = QuadVertex;
 
@@ -110,6 +124,7 @@ private:
     Texture white_;
 
     std::vector<Vertex> vertices_;
+    std::vector<RecordedQuad> recorded_quads_;
     unsigned int bound_texture_ = 0;
     BlendMode blend_mode_ = BlendMode::Alpha;
     float projection_[16] = {0.0f};

@@ -165,6 +165,7 @@ void GlQuadRenderer::shutdown() {
     program_ = 0;
     white_.destroy();
     vertices_.clear();
+    recorded_quads_.clear();
     bound_texture_ = 0;
     initialized_ = false;
 }
@@ -182,6 +183,8 @@ void GlQuadRenderer::build_projection(int width, int height) {
 
 void GlQuadRenderer::begin(int framebuffer_width, int framebuffer_height) {
     if (!initialized_) {
+        recorded_quads_.clear();
+        blend_mode_ = BlendMode::Alpha;
         return;
     }
 
@@ -202,7 +205,11 @@ void GlQuadRenderer::begin(int framebuffer_width, int framebuffer_height) {
 }
 
 void GlQuadRenderer::set_blend_mode(BlendMode mode) {
-    if (!initialized_ || blend_mode_ == mode) {
+    if (!initialized_) {
+        blend_mode_ = mode;
+        return;
+    }
+    if (blend_mode_ == mode) {
         return;
     }
     flush();
@@ -262,6 +269,7 @@ void GlQuadRenderer::append_quad(const Rect& rect, const UVRect& uv, Color color
 
 void GlQuadRenderer::draw_quad(const Rect& rect, Color color) {
     if (!initialized_) {
+        recorded_quads_.push_back({rect_corners(rect), 0, color, {color, color, color, color}, blend_mode_});
         return;
     }
     bind_texture(white_.id());
@@ -275,6 +283,21 @@ void GlQuadRenderer::draw_textured_quad(const Rect& rect, const Texture& texture
 void GlQuadRenderer::draw_textured_quad(const Rect& rect, const Texture& texture, const UVRect& uv,
                                         Color color, float radians) {
     if (!initialized_) {
+        auto corners = rect_corners(rect);
+        if (radians != 0.0f) {
+            const float cx = rect.x + rect.w * 0.5f;
+            const float cy = rect.y + rect.h * 0.5f;
+            const float c = std::cos(radians);
+            const float s = std::sin(radians);
+            for (Vec2& v : corners) {
+                const float dx = v.x - cx;
+                const float dy = v.y - cy;
+                v.x = cx + dx * c - dy * s;
+                v.y = cy + dx * s + dy * c;
+            }
+        }
+        const unsigned int id = texture.valid() ? texture.id() : 0;
+        recorded_quads_.push_back({corners, id, color, {color, color, color, color}, blend_mode_});
         return;
     }
     const unsigned int id = texture.valid() ? texture.id() : white_.id();
@@ -285,6 +308,8 @@ void GlQuadRenderer::draw_textured_quad(const Rect& rect, const Texture& texture
 void GlQuadRenderer::draw_quad_points(const std::array<Vec2, 4>& corners, const Texture& texture,
                                       const UVRect& uv, const std::array<Color, 4>& colours) {
     if (!initialized_) {
+        const unsigned int id = texture.valid() ? texture.id() : 0;
+        recorded_quads_.push_back({corners, id, colours[0], colours, blend_mode_});
         return;
     }
     const unsigned int id = texture.valid() ? texture.id() : white_.id();
@@ -317,6 +342,7 @@ void GlQuadRenderer::flush() {
 
 void GlQuadRenderer::end() {
     if (!initialized_) {
+        blend_mode_ = BlendMode::Alpha;
         return;
     }
     flush();

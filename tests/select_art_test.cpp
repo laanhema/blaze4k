@@ -98,6 +98,15 @@ bool vec_eq(Vec2 v, float x, float y) {
     return approx(v.x, x) && approx(v.y, y);
 }
 
+bool corners_eq(const std::array<Vec2, 4>& a, const std::array<Vec2, 4>& b) {
+    for (std::size_t i = 0; i < 4; ++i) {
+        if (!approx(a[i].x, b[i].x) || !approx(a[i].y, b[i].y)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 bool same_color(blaze4k::Color a, blaze4k::Color b) {
     return a.r == b.r && a.g == b.g && a.b == b.b && a.a == b.a;
 }
@@ -978,6 +987,87 @@ void test_edit_row_geometry() {
     std::cout << "  - Edit row geometry vs the baked rows ok.\n";
 }
 
+void test_edit_row_recorded_quads() {
+    const blaze4k::ThemeTextures& tex = loaded_theme();
+    blaze4k::GlQuadRenderer renderer;
+    const theme::LayoutScale L = theme::layout_scale(1280, 720);
+    const float k = theme::skew::kRows;
+
+    art::DifficultyRowStyle style;
+    style.baked = false;
+    style.colors = theme::difficulty::kEdit;
+
+    for (const bool selected : {false, true}) {
+        const Rect row = selected ? art::difficulty_row_rect(3, 3) : art::difficulty_row_rect(0, 3);
+        renderer.clear_recorded();
+        art::draw_difficulty_row_art(tex, renderer, L, row, style, selected);
+
+        const auto quads = renderer.recorded_quads();
+        TEST_CHECK(quads.size() == 6);
+
+        const art::EditRowRects g = art::edit_row_rects(row, selected);
+        const blaze4k::Color ring = selected ? theme::color::kGold : art::kEditEdge;
+        const blaze4k::Color body = selected ? art::kEditBodySelected : art::kEditBody;
+        const std::array<Vec2, 4> frame = art::skewed_quad(g.frame, k);
+        const float t = g.border / g.frame.h;
+
+        // Quad 0: body
+        TEST_CHECK(corners_eq(quads[0].corners, frame));
+        TEST_CHECK(same_color(quads[0].color, body));
+        TEST_CHECK(quads[0].texture == 0);
+        TEST_CHECK(quads[0].blend_mode == blaze4k::BlendMode::Alpha);
+
+        // Quad 1: top ring strip
+        const auto top_strip = art::quad_band(frame, 0.0f, t);
+        TEST_CHECK(corners_eq(quads[1].corners, top_strip));
+        TEST_CHECK(same_color(quads[1].color, ring));
+        TEST_CHECK(quads[1].texture == 0);
+        TEST_CHECK(quads[1].blend_mode == blaze4k::BlendMode::Alpha);
+
+        // Quad 2: bottom ring strip
+        const auto bottom_strip = art::quad_band(frame, 1.0f - t, 1.0f);
+        TEST_CHECK(corners_eq(quads[2].corners, bottom_strip));
+        TEST_CHECK(same_color(quads[2].color, ring));
+        TEST_CHECK(quads[2].texture == 0);
+        TEST_CHECK(quads[2].blend_mode == blaze4k::BlendMode::Alpha);
+
+        // Quad 3: left ring strip
+        const auto left_strip = art::skewed_quad(g.left, k);
+        TEST_CHECK(corners_eq(quads[3].corners, left_strip));
+        TEST_CHECK(same_color(quads[3].color, ring));
+        TEST_CHECK(quads[3].texture == 0);
+        TEST_CHECK(quads[3].blend_mode == blaze4k::BlendMode::Alpha);
+
+        // Quad 4: right ring strip
+        const auto right_strip = art::skewed_quad(g.right, k);
+        TEST_CHECK(corners_eq(quads[4].corners, right_strip));
+        TEST_CHECK(same_color(quads[4].color, ring));
+        TEST_CHECK(quads[4].texture == 0);
+        TEST_CHECK(quads[4].blend_mode == blaze4k::BlendMode::Alpha);
+
+        // Quad 5: tab
+        const auto tab = art::skewed_quad(g.tab, k);
+        TEST_CHECK(corners_eq(quads[5].corners, tab));
+        TEST_CHECK(same_color(quads[5].color, style.colors.fill));
+        TEST_CHECK(quads[5].texture == 0);
+        TEST_CHECK(quads[5].blend_mode == blaze4k::BlendMode::Alpha);
+
+        // Sensitive to strip errors: different color or rectangle must not match.
+        const blaze4k::Color wrong_color = blaze4k::Color{1.0f, 0.0f, 0.0f, 1.0f};
+        TEST_CHECK(!same_color(quads[1].color, wrong_color));
+        TEST_CHECK(!same_color(quads[2].color, wrong_color));
+        TEST_CHECK(!same_color(quads[3].color, wrong_color));
+        TEST_CHECK(!same_color(quads[4].color, wrong_color));
+
+        const auto wrong_rect_quad = art::skewed_quad(g.frame, k);
+        TEST_CHECK(!corners_eq(quads[1].corners, wrong_rect_quad));
+        TEST_CHECK(!corners_eq(quads[2].corners, wrong_rect_quad));
+        TEST_CHECK(!corners_eq(quads[3].corners, wrong_rect_quad));
+        TEST_CHECK(!corners_eq(quads[4].corners, wrong_rect_quad));
+    }
+    std::cout << "  - Edit row recorded quads (body, 4 ring strips, tab) ok.\n";
+}
+
 void test_best_margin() {
     // #131: the best % ends 14-18px inside the row's right outline. The outline is
     // edit_row_rects' ring (test_edit_row_geometry holds it to all ten baked PNGs): its
@@ -1447,6 +1537,7 @@ int main() {
     test_hint_layout();
     test_skewed_quad();
     test_edit_row_geometry();
+    test_edit_row_recorded_quads();
     test_best_margin();
     test_chrome_layout();
     test_texture_names_exist();
