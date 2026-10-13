@@ -1,0 +1,205 @@
+diff --git a/.claude/skills/verify/features/gameplay-and-results.md b/.claude/skills/verify/features/gameplay-and-results.md
+index 16e1f3b..f51c586 100644
+--- a/.claude/skills/verify/features/gameplay-and-results.md
++++ b/.claude/skills/verify/features/gameplay-and-results.md
+@@ -35,7 +35,6 @@ Preconditions:
+ 
+ - The fixture pack's music files are placeholders (`[SoundStream] Failed to load audio file ...`), so fixture songs run on a synthetic stub clock. That is fine for screen-flow proofs and wrong for timing proofs.
+ - Fixture charts start at chart time zero with no lead-in. Arrows are already at the receptors when `wait-screen RUN Gameplay` returns, so take the gameplay shot at once and do not expect taps to land.
+-- Known defect, seen 2026-10-13: the stub clock is not reset between plays. Only the first play of an instance starts at chart time zero. Later plays start where the last one stopped, so every arrow is a miss in the first frame and the fail time grows (`1.28333s`, then `12.8333s`). The outcomes in the recipe above stay the same. Relaunch when a proof needs arrows on screen.
+ - Synthetic keys are stamped on arrival, so the judgments they produce say nothing about timing accuracy.
+ - The pass above needs no taps: four misses leave life at 0.1, and Beginner charts clamp DP at zero, so the run clears at `0.00%` and is saved. An all-miss run on a harder chart has negative DP.
+ - The score screen clamps the display. DP can be negative in the log and show `0` on screen.
+diff --git a/src/gameplay/gameplay_view.cpp b/src/gameplay/gameplay_view.cpp
+index 710ea62..51f638d 100644
+--- a/src/gameplay/gameplay_view.cpp
++++ b/src/gameplay/gameplay_view.cpp
+@@ -76,6 +76,11 @@ bool GameplayView::init(const Chart& chart, const JudgmentConstants& constants,
+         assist_tick_ = assist_player_.init(assist_tick_path_);
+     }
+ 
++    // The clock source belongs to one play (#138): GameplayScreen reuses this
++    // view, so each load picks its source again and starts the stub at zero.
++    stub_frames_ = 0.0;
++    use_stub_ = false;
++    audio_started_ = false;
+     clock_interpolation_ = false;
+     if (!audio_path.empty() && audio_.load(audio_path)) {
+         // #81: interpolate the music clock from audio-thread callback anchors.
+diff --git a/tests/CMakeLists.txt b/tests/CMakeLists.txt
+index c043af2..7701d2f 100644
+--- a/tests/CMakeLists.txt
++++ b/tests/CMakeLists.txt
+@@ -459,6 +459,17 @@ target_compile_definitions(gameplay_screen_test PRIVATE
+ 
+ add_test(NAME gameplay_screen_test COMMAND gameplay_screen_test)
+ 
++# #138: GameplayView is reused across plays; each load restarts its clock source.
++add_executable(gameplay_view_test
++    gameplay_view_test.cpp
++)
++
++target_link_libraries(gameplay_view_test PRIVATE
++    blaze4k_core
++)
++
++add_test(NAME gameplay_view_test COMMAND gameplay_view_test)
++
+ add_executable(assist_tick_test
+     assist_tick_test.cpp
+ )
+diff --git a/tests/gameplay_view_test.cpp b/tests/gameplay_view_test.cpp
+new file mode 100644
+index 0000000..24fd401
+--- /dev/null
++++ b/tests/gameplay_view_test.cpp
+@@ -0,0 +1,149 @@
++#include <array>
++#include <chrono>
++#include <cmath>
++#include <cstdlib>
++#include <filesystem>
++#include <iostream>
++#include <string>
++#include <thread>
++
++#include "chart/chart.hpp"
++#include "gameplay/gameplay_options.hpp"
++#include "gameplay/gameplay_view.hpp"
++#include "timing/judgment_constants.hpp"
++
++#include "test_wav_writer.hpp"
++
++#define TEST_CHECK(expr) \
++    do { \
++        if (!(expr)) { \
++            std::cerr << "Assertion failed at " << __FILE__ << ":" << __LINE__ << ": " #expr "\n"; \
++            std::abort(); \
++        } \
++    } while (0)
++
++namespace {
++
++namespace fs = std::filesystem;
++
++constexpr std::array<bool, 4> kNoneHeld{false, false, false, false};
++
++bool approx(double a, double b) {
++    return std::abs(a - b) < 1e-9;
++}
++
++// One tap at 1.0 s: it is still ahead at chart time 0.25 s and a Miss by 2.0 s.
++blaze4k::Chart one_tap_chart() {
++    blaze4k::Chart chart;
++    blaze4k::Note note;
++    note.column = 0;
++    note.beat = 1.0;
++    note.time_seconds = 1.0;
++    note.type = blaze4k::NoteType::Tap;
++    chart.notes.push_back(note);
++    chart.tap_count = 1;
++    return chart;
++}
++
++// A 1 s WAV the null audio device can play, so a play can run on the audio clock.
++fs::path write_music(const fs::path& dir) {
++    fs::create_directories(dir);
++    const fs::path wav = dir / "music_1s.wav";
++    write_test_wav(wav.string(), 1.0, 440.0);
++    return wav;
++}
++
++// #138: GameplayScreen reuses one GameplayView, so each load must start the stub
++// clock at chart time zero. 0.25 s steps are exact at the stub's 48 kHz.
++void test_stub_clock_starts_at_zero_on_each_load() {
++    const blaze4k::JudgmentConstants& k = blaze4k::JudgmentConstants::compiled_defaults();
++    const blaze4k::Chart chart = one_tap_chart();
++    const blaze4k::GameplayOptions options;
++
++    blaze4k::GameplayView view;
++    for (int play = 0; play < 2; ++play) {
++        TEST_CHECK(view.init(chart, k, "", options));
++        TEST_CHECK(approx(view.music_time_seconds(), 0.0));
++
++        view.update(0.25, kNoneHeld);
++        TEST_CHECK(approx(view.music_time_seconds(), 0.25));
++        TEST_CHECK(view.judgment_events().empty()); // the tap at 1.0 s is still ahead
++
++        for (int i = 0; i < 7; ++i) {
++            view.update(0.25, kNoneHeld);
++        }
++        TEST_CHECK(approx(view.music_time_seconds(), 2.0));
++        TEST_CHECK(view.judgment_events().size() == 1); // the tap expired as a Miss
++        view.shutdown();
++    }
++    std::cout << "  - stub clock starts at chart time zero on each load ok.\n";
++}
++
++// #138: a play with audio after a play without it runs on the audio clock. The
++// audio clock advances with no update() call and cannot pass the end of the 1 s
++// file; the stub clock stands still without update() and would read 30 s after
++// thirty 1 s steps.
++void test_audio_play_after_stub_play_uses_audio_clock(const fs::path& wav) {
++    const blaze4k::JudgmentConstants& k = blaze4k::JudgmentConstants::compiled_defaults();
++    const blaze4k::Chart chart = one_tap_chart();
++    const blaze4k::GameplayOptions options;
++
++    blaze4k::GameplayView view;
++    TEST_CHECK(view.init(chart, k, "", options));
++    for (int i = 0; i < 4; ++i) {
++        view.update(0.25, kNoneHeld);
++    }
++    TEST_CHECK(approx(view.music_time_seconds(), 1.0));
++    view.shutdown();
++
++    TEST_CHECK(view.init(chart, k, wav.string(), options));
++    bool advanced = false;
++    for (int i = 0; i < 200 && !advanced; ++i) {
++        advanced = view.music_time_seconds() > 0.01;
++        if (!advanced) {
++            std::this_thread::sleep_for(std::chrono::milliseconds(10));
++        }
++    }
++    TEST_CHECK(advanced);
++    for (int i = 0; i < 30; ++i) {
++        view.update(1.0, kNoneHeld);
++    }
++    TEST_CHECK(view.music_time_seconds() <= 1.05);
++    view.shutdown();
++    std::cout << "  - audio play after a stub play uses the audio clock ok.\n";
++}
++
++// #138: a play without audio after a play with it runs on the stub clock, from zero.
++void test_stub_play_after_audio_play_uses_stub_clock(const fs::path& wav) {
++    const blaze4k::JudgmentConstants& k = blaze4k::JudgmentConstants::compiled_defaults();
++    const blaze4k::Chart chart = one_tap_chart();
++    const blaze4k::GameplayOptions options;
++
++    blaze4k::GameplayView view;
++    TEST_CHECK(view.init(chart, k, wav.string(), options));
++    view.shutdown();
++
++    TEST_CHECK(view.init(chart, k, "", options));
++    TEST_CHECK(approx(view.music_time_seconds(), 0.0));
++    view.update(0.25, kNoneHeld);
++    view.update(0.25, kNoneHeld);
++    TEST_CHECK(approx(view.music_time_seconds(), 0.5));
++    view.shutdown();
++    std::cout << "  - stub play after an audio play uses the stub clock ok.\n";
++}
++
++} // namespace
++
++int main() {
++    std::cout << "[gameplay_view_test] Running gameplay view tests...\n";
++    test_stub_clock_starts_at_zero_on_each_load();
++
++    const fs::path temp_dir = fs::temp_directory_path() / "td_gameplay_view_test";
++    const fs::path wav = write_music(temp_dir);
++    test_audio_play_after_stub_play_uses_audio_clock(wav);
++    test_stub_play_after_audio_play_uses_stub_clock(wav);
++    fs::remove_all(temp_dir);
++
++    std::cout << "[gameplay_view_test] All tests passed!\n";
++    return 0;
++}

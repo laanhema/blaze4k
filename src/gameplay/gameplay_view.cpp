@@ -76,6 +76,11 @@ bool GameplayView::init(const Chart& chart, const JudgmentConstants& constants,
         assist_tick_ = assist_player_.init(assist_tick_path_);
     }
 
+    // The clock source belongs to one play (#138): GameplayScreen reuses this
+    // view, so each load picks its source again and starts the stub at zero.
+    stub_frames_ = 0.0;
+    use_stub_ = false;
+    audio_started_ = false;
     clock_interpolation_ = false;
     if (!audio_path.empty() && audio_.load(audio_path)) {
         // #81: interpolate the music clock from audio-thread callback anchors.

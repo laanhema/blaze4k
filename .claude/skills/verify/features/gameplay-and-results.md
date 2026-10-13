@@ -24,7 +24,7 @@ Preconditions:
 
 - **Start a chart and fail.** Highlight `Blaze Anthem` (`CHALLENGE 10`) and run `$B keys RUN Return`, `$B wait-screen RUN Gameplay`, and `$B shot RUN 02-gameplay` at once. The shot has the badge, the life bar, and arrows crossing the receptors. The log shows `[GameplayView] Loaded chart 'Challenge' (meter 10): taps=... holds=...`, a line with `time source stub`, and `[GameplayView] Failed: life empty at 1.28333s`. Then run `$B wait-screen RUN Results 15`.
 - **Results.** Run `$B keys RUN wait:3` (the percent counts up) and `$B shot RUN 03-results`. Compare it with the log lines `[GameplayView] Score: DP -72/70 (...) grade D | combo ... | F 0 E 0 G 0 D 0 W 0 M 6 ...` and `[ResultsScreen] Blaze Anthem Challenge 10: D 0.00% DP -72/70 FAILED`. The shot has MISS `6`, DANCE POINTS `0 / 70`, and the FAILED ribbon.
-- **Back to select.** Run `$B keys RUN Return` and `$B wait-screen RUN Select`.
+- **Back to select.** After the reveal has finished (the `wait:3` of the Results step), run `$B keys RUN Return` and `$B wait-screen RUN Select`.
 - **Abort.** Run `$B keys RUN wait:1.5 Right Right Right Right` to highlight `BEGINNER 1`. Then run `$B keys RUN Return`, `$B wait-screen RUN Gameplay`, `$B keys RUN Escape`, and `$B wait-screen RUN Select`. The log has a `[GameplayView] Score:` line and no `[ResultsScreen]` line after it.
 - **Pass and save.** Run `$B keys RUN wait:1.5 Return`, `$B wait-screen RUN Gameplay`, press nothing, and run `$B wait-screen RUN Results 20`. The log shows `merciful beginner on`, `Score: DP 0/30 (0.00%) grade D ... M 4 ... life 0.100 alive`, and `[ResultsScreen] Blaze Anthem Beginner 1: D 0.00% DP 0/30 CLEARED NEW RECORD`. After `$B keys RUN wait:3`, `$B shot RUN 04-pass` has the NEW RECORD ribbon.
 - **Best on select.** Run `$B keys RUN Return`, `$B wait-screen RUN Select`, and `$B shot RUN 05-best`. The `BEGINNER` row reads `0.00%`. A second pass of the same chart logs `CLEARED` without `NEW RECORD`.
@@ -35,7 +35,6 @@ Preconditions:
 
 - The fixture pack's music files are placeholders (`[SoundStream] Failed to load audio file ...`), so fixture songs run on a synthetic stub clock. That is fine for screen-flow proofs and wrong for timing proofs.
 - Fixture charts start at chart time zero with no lead-in. Arrows are already at the receptors when `wait-screen RUN Gameplay` returns, so take the gameplay shot at once and do not expect taps to land.
-- Known defect, seen 2026-10-13: the stub clock is not reset between plays. Only the first play of an instance starts at chart time zero. Later plays start where the last one stopped, so every arrow is a miss in the first frame and the fail time grows (`1.28333s`, then `12.8333s`). The outcomes in the recipe above stay the same. Relaunch when a proof needs arrows on screen.
 - Synthetic keys are stamped on arrival, so the judgments they produce say nothing about timing accuracy.
 - The pass above needs no taps: four misses leave life at 0.1, and Beginner charts clamp DP at zero, so the run clears at `0.00%` and is saved. An all-miss run on a harder chart has negative DP.
 - The score screen clamps the display. DP can be negative in the log and show `0` on screen.
