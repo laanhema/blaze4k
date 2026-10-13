@@ -47,7 +47,7 @@ cmake --build build
 cmake -B build-debug -DCMAKE_BUILD_TYPE=Debug
 cmake --build build-debug
 
-# Check: configure, build and run every test (CI runs this on each pull request)
+# Check: lint, build with warnings as errors, run every test (CI runs this on each pull request)
 scripts/check.sh
 
 # One test
@@ -134,5 +134,5 @@ Screen flow: **Title → Attract → Select → Gameplay → Results** (state ma
 - Mods in scope: C-mod, X-mod, M-mod speed mods + scroll direction only.
 - Note elements: taps, holds, rolls, mines.
 - Difficulty display is passthrough from the simfile (labels + foot rating).
-- Solo hobby project — no CI for v1; local cross-platform CMake builds must work from a fresh clone.
+- Solo hobby project. CI runs `scripts/check.sh` on Linux only; local cross-platform CMake builds must work from a fresh clone.
 - `TODO.md` (the owner's task list) and `songs/` (the owner's packs) are gitignored: edit `TODO.md` in place, but neither appears in a diff or a commit.

@@ -85,7 +85,7 @@ required.
 ```bash
 cmake --preset linux-gcc-release
 cmake --build --preset linux-gcc-release
-ctest --preset linux-gcc-release            # expect 34/34
+ctest --preset linux-gcc-release
 
 # CPU-budget benchmark only
 cmake --preset benchmark && cmake --build --preset benchmark
@@ -99,8 +99,18 @@ brand-new machine the first configure downloads the dependencies.
 ## Testing
 
 ```bash
-ctest --test-dir build --output-on-failure   # expect 34/34
+scripts/check.sh                              # lint + build (warnings are errors) + every test
+ctest --test-dir build --output-on-failure   # the tests alone, on an existing build
 ```
+
+`scripts/check.sh` is the command to run before a commit, and CI runs the same
+script on every pull request. It runs `scripts/lint.sh` (the repo rules a
+compiler does not check; `AGENTS.md` lists them), configures `build/` with
+`-DBLAZE_WERROR=ON`, builds, and runs the suite.
+
+The tests are silent. The audio engine opens miniaudio's null device unless it
+is asked for the real one, and only the game and `tests/clock_probe.cpp` (the
+latency probe, not a ctest) ask.
 
 Notable tests:
 
@@ -114,7 +124,7 @@ Notable tests:
 ### Fresh-clone check
 
 ```bash
-./scripts/fresh-clone-check.sh              # offline: reuse build/_deps, expect 34/34
+./scripts/fresh-clone-check.sh              # offline: reuse build/_deps
 ./scripts/fresh-clone-check.sh --online     # force a real FetchContent fetch
 ./scripts/fresh-clone-check.sh --committed  # export committed HEAD only
 ```

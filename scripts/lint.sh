@@ -74,6 +74,31 @@ check_exceptions() {
     fi
 }
 
+# A doc may not cite one of this repo's files by line number: the number is
+# wrong after the next edit to that file. Lines in other projects' sources
+# (OpenITG, StepMania, miniaudio) are pinned to a release and stay allowed.
+# .agents/ holds dated plans, reports and reviews, which are records.
+check_doc_line_citations() {
+    local hits bad="" line cite path
+    hits="$("${search[@]}" -o -e '[A-Za-z0-9_./-]+\.(cpp|hpp|sh|json|md|txt|yml|cmake):[0-9]+' \
+        -- '*.md' ':!.agents' || true)"
+    while IFS= read -r line; do
+        [ -z "$line" ] && continue
+        cite="${line#*:*:}"
+        path="${cite%:*}"
+        if [ -f "$path" ]; then
+            bad+="  $line"$'\n'
+        fi
+    done <<<"$hits"
+    if [ -n "$bad" ]; then
+        echo "LINT: doc-line-citation"
+        printf '%s' "$bad"
+        echo "  Fix: cite the file with the function, type or constant by name, without a line number."
+        echo ""
+        failures=$((failures + 1))
+    fi
+}
+
 # --- Rules -------------------------------------------------------------------
 
 # The audio engine opens the silent null device unless it is asked for the real
@@ -98,6 +123,14 @@ rule number-parsing \
     '(std::sto(i|l|ll|ul|ull|f|d|ld)|[^a-z_](ato[ifl]|atoll|strto(l|ll|ul|ull|d|f|ld|imax|umax))|sscanf|from_chars) *\(' \
     src ':!src/util/parse_number.cpp'
 
+# The suite grows; a count written into a doc or a script is wrong after the
+# next test is added. ctest prints the count.
+rule doc-test-count \
+    "remove the number. ctest and scripts/check.sh print how many tests ran." \
+    '(expect|expected:?) [0-9]+/[0-9]+|[0-9]+/[0-9]+ tests|tests passed out of [0-9]+' \
+    '*.md' scripts .github ':!.agents' ':!docs/CROSS_PLATFORM_VERIFICATION.md' ':!scripts/lint.sh'
+
+check_doc_line_citations
 check_exceptions
 
 if [ "$failures" -ne 0 ]; then
