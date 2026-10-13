@@ -10,11 +10,11 @@
 // PipeWire graph quantum for every app while it runs (a few seconds), so other
 // apps may glitch meanwhile.
 //
-// To measure a real device, run it OUTSIDE the bwrap test sandbox (the sandbox
-// has no audio device; without --null the engine then fails to open one).
-// `--null` uses miniaudio's silent, real-time-paced null backend instead
-// (sandbox-safe; it proves the path works, not precision: the null device's
-// thread wakes unevenly, so its residuals are not near zero).
+// It is the only test-side program that opens the real output device (the
+// tests all run on the audio engine's default, the null device; #134).
+// `--null` uses miniaudio's silent, real-time-paced null backend instead (it
+// proves the path works, not precision: the null device's thread wakes
+// unevenly, so its residuals are not near zero).
 //
 // Method (same as gran2): poll every 1 ms, recording (now_ns, raw cursor,
 // interpolated cursor). Fit a least-squares line to the raw cursor over the
@@ -114,7 +114,8 @@ int main(int argc, char** argv) {
     }
 
     blaze4k::AudioEngine& engine = blaze4k::AudioEngine::instance();
-    engine.configure({period, +[]() -> uint64_t { return steady_ns(); }, use_null});
+    engine.configure({period, +[]() -> uint64_t { return steady_ns(); },
+                      use_null ? blaze4k::AudioBackend::Null : blaze4k::AudioBackend::Device});
     if (!engine.init()) {
         std::cerr << "[clock_probe] could not open an audio device"
                   << (use_null ? " (null backend)" : "") << "\n";

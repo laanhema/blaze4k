@@ -20,12 +20,19 @@ inline constexpr uint32_t kDefaultAudioPeriodFrames = 480;
 // pointer keeps src/audio SDL-free; it is called on the audio thread.
 using MonotonicNowFn = uint64_t (*)();
 
+// Which output the engine opens. The default is the silent one, so a test
+// cannot reach the real sound device however it is built or run: opening it
+// takes an explicit request for `Device`, and scripts/lint.sh allows that only
+// in src/main.cpp (the game) and tests/clock_probe.cpp (the latency probe).
+enum class AudioBackend {
+    Null,   // miniaudio's null device: silent, real-time paced
+    Device, // the host's default output device
+};
+
 struct AudioEngineSettings {
     uint32_t period_size_frames = kDefaultAudioPeriodFrames;
     MonotonicNowFn now_ns = nullptr; // nullptr: no clock interpolation (raw cursor only)
-    // Headless tests and the clock probe only: a silent, real-time-paced
-    // miniaudio null device. Never set by main.cpp.
-    bool use_null_backend = false;
+    AudioBackend backend = AudioBackend::Null;
 };
 
 class AudioEngine {
@@ -54,6 +61,9 @@ public:
     void shutdown();
 
     [[nodiscard]] bool is_initialized() const { return initialized_; }
+    // The miniaudio backend of the open device ("Null", "PulseAudio", ...), or
+    // "" when not initialized.
+    [[nodiscard]] const char* backend_name() const;
     void set_master_volume(float volume);
     [[nodiscard]] float get_master_volume() const;
 

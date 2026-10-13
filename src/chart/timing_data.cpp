@@ -1,4 +1,5 @@
 #include "chart/timing_data.hpp"
+#include "util/parse_number.hpp"
 #include <algorithm>
 #include <sstream>
 #include <iostream>
@@ -85,20 +86,24 @@ bool TimingData::parse_bpms_string(std::string_view bpms_str) {
             continue;
         }
 
-        try {
-            double beat = std::stod(token.substr(0, eq_pos));
-            double bpm = std::stod(token.substr(eq_pos + 1));
-            if (!std::isfinite(beat) || !std::isfinite(bpm) || beat < 0.0) {
-                has_exotic_timing_ = true;
-                std::cerr << "[TimingData] Warning: Invalid or non-finite BPM segment.\n";
-            } else if (bpm <= 0.0) {
-                has_exotic_timing_ = true;
-                std::cerr << "[TimingData] Warning: Non-positive BPM " << bpm << " detected.\n";
-            } else if (bpms_.size() < 5000) {
-                bpms_.push_back({beat, bpm});
-            }
-        } catch (...) {
+        // A value that spells inf / nan parses, and is flagged as exotic below.
+        const std::string_view token_view(token);
+        const std::optional<double> beat_text = parse_leading_double(token_view.substr(0, eq_pos));
+        const std::optional<double> bpm_text = parse_leading_double(token_view.substr(eq_pos + 1));
+        if (!beat_text || !bpm_text) {
             std::cerr << "[TimingData] Warning: Failed parsing BPM token '" << token << "'\n";
+            continue;
+        }
+        const double beat = *beat_text;
+        const double bpm = *bpm_text;
+        if (!std::isfinite(beat) || !std::isfinite(bpm) || beat < 0.0) {
+            has_exotic_timing_ = true;
+            std::cerr << "[TimingData] Warning: Invalid or non-finite BPM segment.\n";
+        } else if (bpm <= 0.0) {
+            has_exotic_timing_ = true;
+            std::cerr << "[TimingData] Warning: Non-positive BPM " << bpm << " detected.\n";
+        } else if (bpms_.size() < 5000) {
+            bpms_.push_back({beat, bpm});
         }
     }
 
@@ -123,20 +128,23 @@ bool TimingData::parse_stops_string(std::string_view stops_str) {
             continue;
         }
 
-        try {
-            double beat = std::stod(token.substr(0, eq_pos));
-            double len = std::stod(token.substr(eq_pos + 1));
-            if (!std::isfinite(beat) || !std::isfinite(len) || beat < 0.0) {
-                has_exotic_timing_ = true;
-                std::cerr << "[TimingData] Warning: Invalid or non-finite Stop segment.\n";
-            } else if (len < 0.0) {
-                has_exotic_timing_ = true;
-                std::cerr << "[TimingData] Warning: Negative stop (warp) " << len << "s detected.\n";
-            } else if (len > 0.0 && stops_.size() < 5000) {
-                stops_.push_back({beat, len});
-            }
-        } catch (...) {
+        const std::string_view token_view(token);
+        const std::optional<double> beat_text = parse_leading_double(token_view.substr(0, eq_pos));
+        const std::optional<double> len_text = parse_leading_double(token_view.substr(eq_pos + 1));
+        if (!beat_text || !len_text) {
             std::cerr << "[TimingData] Warning: Failed parsing Stop token '" << token << "'\n";
+            continue;
+        }
+        const double beat = *beat_text;
+        const double len = *len_text;
+        if (!std::isfinite(beat) || !std::isfinite(len) || beat < 0.0) {
+            has_exotic_timing_ = true;
+            std::cerr << "[TimingData] Warning: Invalid or non-finite Stop segment.\n";
+        } else if (len < 0.0) {
+            has_exotic_timing_ = true;
+            std::cerr << "[TimingData] Warning: Negative stop (warp) " << len << "s detected.\n";
+        } else if (len > 0.0 && stops_.size() < 5000) {
+            stops_.push_back({beat, len});
         }
     }
 

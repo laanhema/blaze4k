@@ -98,16 +98,14 @@ void test_wav_and_player_fallbacks() {
     player.stop_all();
     player.shutdown();
 
-    // With a real device the pool loads and schedules; headless it just reports
-    // unavailable. Either way nothing may crash.
-    if (player.init(wav)) {
-        TEST_CHECK(player.is_ready());
-        for (int i = 0; i < 40; ++i) { // wraps the round-robin pool
-            player.play_in(0.01 * i);
-        }
-        player.stop_all();
-        std::cout << "    (audio device present: pool loaded + scheduled)\n";
+    // The audio engine's default null device is always available (#134), so the
+    // pool must load and schedule.
+    TEST_CHECK(player.init(wav));
+    TEST_CHECK(player.is_ready());
+    for (int i = 0; i < 40; ++i) { // wraps the round-robin pool
+        player.play_in(0.01 * i);
     }
+    player.stop_all();
     player.shutdown();
     TEST_CHECK(!player.is_ready());
 

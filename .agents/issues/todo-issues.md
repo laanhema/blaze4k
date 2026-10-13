@@ -1,7 +1,7 @@
 # TODO Issues
 
-**Source**: `TODO.md` · **Generated**: 2026-10-02 · **Updated**: 2026-10-12 (TODO-38 – TODO-39 added; TODO-37 added; 2026-10-10: TODO-35 – TODO-36 added; TODO-33 – TODO-34 added; 2026-10-07: TODO-32 added; TODO-31 added; 2026-10-06: TODO-30 added; 2026-10-05: TODO-27 – TODO-29 added; 2026-10-03: TODO-13 – TODO-14 added; TODO-15 – TODO-26 added from `blaze4k-cabinet-theme/IMPLEMENTATION_PLAN.md`, see "Cabinet theme" section)
-**Last Updated**: 2026-10-12
+**Source**: `TODO.md` · **Generated**: 2026-10-02 · **Updated**: 2026-10-13 (TODO-40 – TODO-41 added; 2026-10-12: TODO-38 – TODO-39 added; TODO-37 added; 2026-10-10: TODO-35 – TODO-36 added; TODO-33 – TODO-34 added; 2026-10-07: TODO-32 added; TODO-31 added; 2026-10-06: TODO-30 added; 2026-10-05: TODO-27 – TODO-29 added; 2026-10-03: TODO-13 – TODO-14 added; TODO-15 – TODO-26 added from `blaze4k-cabinet-theme/IMPLEMENTATION_PLAN.md`, see "Cabinet theme" section)
+**Last Updated**: 2026-10-13
 
 ## Status
 
@@ -67,6 +67,7 @@ The criteria were checked on 2026-10-12 against the code at `d11de69` and one ru
 - **Already tracked** — none on the first run. Second run: `TODO.md:16` (#55, TODO-1), `TODO.md:35` (#60, TODO-7); lines 31–34, 36, 37 are now marked done. Third run: `TODO.md:16` (#55), `:35` (#60), `:40` (#78); lines 36–39 are now marked done. Fifth run (2026-10-05): `TODO.md:17` (#98), `:35` (#60); lines 1–16, 18–34, 36–42 are marked done. Sixth run (2026-10-06): `TODO.md:17` (#98), `:35` (#60); lines 1–16, 18–34, 36–45 are marked done. Seventh run (2026-10-07): `TODO.md:17` (#98), `:35` (#60), `:46` (#118, TODO-30); lines 1–16, 18–34, 36–45 are marked done. Eighth run (2026-10-07): `TODO.md:17` (#98), `:35` (#60); lines 1–16, 18–34, 36–47 are marked done. Ninth run (2026-10-10): `TODO.md:17` (#98), `:35` (#60); lines 1–16, 18–34, 36–48 are marked done. Tenth run (2026-10-10): `TODO.md:17` (#98), `:35` (#60); lines 1–16, 18–34, 36–50 are marked done. Eleventh run (2026-10-12): `TODO.md:17` (#98), `:35` (#60); lines 1–16, 18–34, 36–52 are marked done. Twelfth run (2026-10-12): `TODO.md:17` (#98), `:35` (#60), `:53` (#134, TODO-37); lines 1–16, 18–34, 36–52 are marked done.
 - **Deferred by user** — `TODO.md:17` "Something Blaze themed visuals would be cool" (too vague for now; ID TODO-2 left unused). Still deferred on the second and third runs. Fourth run: covered by the Cabinet theme issues (#87–#98).
 - **Non-tasks** — none.
+- **2026-10-13 run** — already tracked: `TODO.md:53` (#134, TODO-37), `TODO.md:54` (#135, TODO-38), `TODO.md:55` (#136, TODO-39). Only the two new lines 56–57 became issues.
 
 ---
 
@@ -1687,3 +1688,88 @@ Memory errors and undefined behaviour are found today only when a reviewer spots
 - Blocked by: [TODO-37] (the preset runs the tests, which open the real sound device until then)
 - Blocks: None
 - Related: [TODO-38]
+
+---
+
+## [TODO-40] Record draw calls in the headless renderer so tests can check them
+
+**Type**: Technical
+**GitHub Label**: technical
+**Priority**: Medium
+**Complexity**: Medium
+**Phase**: Backlog
+**Labels**: `render`, `tests`
+**Source**: `TODO.md:56` — "Make draw calls testable without a window: let the headless renderer record what it was asked to draw (position, texture, colour), so a test can check a decision that today exists only inside a draw call."
+**GitHub**: #141
+**Status**: pending
+
+### Description
+
+Without a window, `GlQuadRenderer` does nothing and its callers return early, so a test that renders a screen passes even when the code draws the wrong thing. 18 of the 70 review reports flagged a test that cannot fail, and the fix each time was to move one decision into a small helper by hand. Let the headless renderer record the quads it is asked to draw, so a test can check the draw site itself.
+
+### Acceptance Criteria
+
+- [ ] The headless renderer records each quad it is asked to draw (corners, texture, colour, blend mode), and a test can read the recording
+- [ ] A test of the code-drawn Edit difficulty row checks the recorded quads (body, four ring strips, tab, each with its colour), selected and not selected
+- [ ] That test fails when a ring strip gets the wrong rectangle or colour
+- [ ] The real game draws the same as before, shown by a `/verify` screenshot of song select
+- [ ] The "review only" row about draw-call decisions in the `AGENTS.md` rule table is updated to name the recorder
+
+### Technical Notes
+
+- `GlQuadRenderer` (`src/render/gl_quad_renderer.hpp`) documents that "a headless (uninitialized) renderer is a safe no-op". Its draw calls all end in `quad_vertices`, which is pure, so a recording mode can keep the vertices and the texture id instead of sending them to GL.
+- 21 call sites in 8 files return early on `renderer.is_initialized()` (`src/screens/results_art.cpp` has 8; also `hud_renderer.cpp`, `judgment_animator.cpp`, `note_field_renderer.cpp`, `gameplay_view.cpp`, `background_renderer.cpp`, `ttf_font.cpp`, `main.cpp`). Decide whether a recording renderer answers true there, or the guards move behind one predicate.
+- The Edit row is drawn in `src/screens/select_art.cpp` (`draw_difficulty_row_art`, through `draw_solid` and `edit_row_rects`). `edit_row_rects` is already tested in `tests/select_art_test.cpp`; which rectangle and colour each quad gets is not.
+- Earlier per-case fixes of this class: `difficulty_name_x` and `edit_row_rects` in `src/screens/select_art.cpp`, `merge_symbol_slots` in `src/render/ttf_font.cpp`.
+- `NoteFieldRenderer::last_drawn_quads()` is an existing, narrower counter of the same idea.
+- Assumption: solid quads only. Sprites and text stay out of scope: `Texture` is invalid without GL and the text renderer checks `gl_present()`, so those draws stop before they reach the renderer.
+- The recording must cost nothing in the real game (`perf_loop_test` gates the frame budget).
+- From the 2026-10-13 `/correct` pass.
+
+### Dependencies
+
+- Blocked by: None
+- Blocks: None
+
+---
+
+## [TODO-41] Add a formatter check for changed lines
+
+**Type**: Technical
+**GitHub Label**: technical
+**Priority**: Medium
+**Complexity**: Medium
+**Phase**: Backlog
+**Labels**: `build`, `infrastructure`
+**Source**: `TODO.md:57` — "Add a formatter check for changed lines only: a `.clang-format` (100 columns, matching the current style) and a step in `scripts/check.sh` that fails when a line the change touches is not formatted, with the fix command in the error."
+**GitHub**: #142
+**Status**: pending
+
+### Description
+
+Four reviews flagged comment or code lines that were wrapped unevenly or ran past the width of their neighbours, and nothing checks it. Add a `.clang-format` that matches the current style, and make `scripts/check.sh` fail when a line that a change touches is not formatted. The existing code keeps its formatting.
+
+### Acceptance Criteria
+
+- [ ] A `.clang-format` at the repo root, 100 columns, matching the current style
+- [ ] `scripts/check.sh` fails when a line the change touches is not formatted, and the error prints the command that fixes it
+- [ ] The existing code is not reformatted
+- [ ] CI and the host use the same clang-format version
+- [ ] Formatting three existing files with the new config changes little, with the result shown in the pull request
+- [ ] The rule table in `AGENTS.md` gains the row
+
+### Technical Notes
+
+- The host has `clang-format` 23.1.1, `git-clang-format` and `clang-format-diff.py` in `~/.local/bin`. The repository has no `.clang-format`.
+- Current style, to match: 4 spaces, attached braces, `const char*` pointer alignment, namespaces not indented, includes left in their written order. 297 lines in `src/` and `tests/` are longer than 100 columns today, which is why only changed lines are checked.
+- `git clang-format --diff <base>` checks only changed lines, and needs the base commit. `.github/workflows/ci.yml` checks out with the default depth of 1, so CI has to fetch the base.
+- `scripts/check.sh` runs `scripts/lint.sh` as its first step. The new step belongs next to it and should print the rule name, the file and the fix command, like the lint rules.
+- CI installs its tools with `apt-get`. Pin the formatter there to the host's version, because two versions can format the same line differently.
+- The review findings of this class were in reports 027, 028, 035 and 037. Two of the four lines were under 100 columns, so a column limit alone would not have caught them; comment re-wrapping (`ReflowComments`) decides whether those are caught.
+- Assumption: 100 columns. The owner approved it on 2026-10-13 without naming another width.
+- From the 2026-10-13 `/correct` pass.
+
+### Dependencies
+
+- Blocked by: None
+- Blocks: None

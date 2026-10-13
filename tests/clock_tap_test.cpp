@@ -1,7 +1,7 @@
 // #81: integration test of the real onProcess -> ClockTap seqlock -> SoundStream
 // interpolation path on miniaudio's null backend (silent, real-time paced, no
-// audio device needed, so it runs inside the bwrap sandbox). Bounds are loose
-// on purpose so a loaded host does not flake it.
+// audio device needed). Bounds are loose on purpose so a loaded host does not
+// flake it.
 #include <algorithm>
 #include <chrono>
 #include <cstdint>
@@ -45,10 +45,10 @@ struct Sample {
 int main() {
     std::cout << "[clock_tap_test] Starting...\n";
     blaze4k::AudioEngine& engine = blaze4k::AudioEngine::instance();
-    engine.configure({480, +[]() -> uint64_t { return steady_ns(); }, /*use_null_backend=*/true});
+    engine.configure({480, +[]() -> uint64_t { return steady_ns(); }}); // default: null device
     if (!engine.init()) {
-        std::cout << "[clock_tap_test] SKIP: miniaudio null backend could not be initialized\n";
-        return 0;
+        std::cout << "[clock_tap_test] FAIL: miniaudio null backend could not be initialized\n";
+        return 1;
     }
     const uint32_t engine_rate = engine.engine_sample_rate();
     TEST_CHECK(engine_rate > 0);

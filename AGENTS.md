@@ -47,7 +47,7 @@ cmake --build build
 cmake -B build-debug -DCMAKE_BUILD_TYPE=Debug
 cmake --build build-debug
 
-# Check: configure, build and run every test (CI runs this on each pull request)
+# Check: lint, build with warnings as errors, run every test (CI runs this on each pull request)
 scripts/check.sh
 
 # One test
@@ -58,7 +58,7 @@ ctest --test-dir build --output-on-failure -R <test_name>
 ```
 
 - Per-platform presets are in `CMakePresets.json`; `docs/BUILDING.md` lists them and the prerequisites. The Linux host has GCC only, so the Clang, MSVC and macOS presets are owner-run.
-- `audio_test` and `music_clock_test` open the default sound device. `scripts/check.sh` hides it from the tests by itself. On the owner's machine, run a bare `ctest` or a test binary inside the same sandbox (`bwrap --dev-bind / / --tmpfs /run/user/$(id -u) --tmpfs /dev/snd --unshare-net <command>`), and never change system audio state. #134 makes the tests silent by default; remove this note when it lands.
+- The tests are silent: the audio engine opens the null device unless it is asked for the real one, so a bare `ctest` or a test binary needs no sandbox. Never change system audio state.
 
 ---
 
@@ -80,9 +80,10 @@ blaze4k/
 │   ├── audio/         # miniaudio wrapper, preview playback
 │   ├── render/        # GL context, quads, sprites, fonts
 │   ├── gameplay/      # note field, judgments, scoring, life
-│   └── data/          # config, high scores (JSON)
+│   ├── data/          # config, high scores (JSON)
+│   └── util/          # checked text -> number parsing
 ├── assets/            # noteskins, fonts, theme textures, fallback bg, data (judgment constants)
-├── scripts/           # fresh-clone check, symbol font build
+├── scripts/           # check (lint + build + tests), lint rules, fresh-clone check, symbol font build
 ├── tests/             # parser tests, timing unit tests, sync chart, fixtures
 └── docs/              # BUILDING, AUDIO_LATENCY, cross-platform verification, cabinet-theme
 ```
@@ -99,12 +100,34 @@ Screen flow: **Title → Attract → Select → Gameplay → Results** (state ma
 2. **Event-sourced judgments.** Every hit produces an immutable judgment event `{column, note_time, hit_time, delta_ms, window}` (`JudgmentEvent` in `src/gameplay/judgment.hpp`). Scoring, combo, life, and results all derive from the event log.
 3. **Data-driven constants.** Timing windows, DP weights, grade boundaries, and life deltas live in a config table (JSON-loaded from `assets/data/judgment_constants.json`), seeded with values verified against OpenITG source.
 4. **Screen state machine.** Screens are objects with `enter/update/render/exit`; transitions are explicit.
-5. **Thin platform wrapper.** SDL3 is isolated behind input/window interfaces (`src/input`, `src/app`), keeping the core portable and testable. The only other SDL calls are the base path in `src/data/data_paths.cpp`, key and button names in `src/screens/input_remap_screen.cpp`, and the monotonic clock in `src/main.cpp`.
+5. **Thin platform wrapper.** SDL3 is isolated behind input/window interfaces (`src/input`, `src/app`), keeping the core portable and testable. `scripts/lint.sh` (`sdl-boundary`) holds the complete list of the other files that may include SDL.
 
 ### Error handling
 
 - Simfiles are **untrusted input**: the parser must be bounds-checked, allocation-capped, and fuzz-tested. A corrupt `.sm` must never crash the game.
 - Reject unsupported constructs (non-4-panel charts, exotic timing) gracefully with a readable log line — never guess semantics; check StepMania source.
+
+---
+
+## Rules and what enforces them
+
+Each rule is a mistake that agents made here at least twice. `scripts/check.sh` runs every check below, locally and in CI. A lint failure prints the rule name, the file and line, and what to use instead.
+
+| Rule | Enforced by |
+| ---- | ----------- |
+| Project sources compile with zero warnings. | `-DBLAZE_WERROR=ON` in `scripts/check.sh` |
+| Tests run on the silent null audio device. Only the game and `tests/clock_probe.cpp` open the real one. | `AudioBackend` defaults to `Null` (`src/audio/audio_engine.hpp`); lint `audio-device`, `audio-device-open`; `audio_test` |
+| Text becomes a number through `src/util/parse_number.hpp`. | lint `number-parsing`; `parse_number_test` |
+| SDL is included from `src/input` and `src/app`, plus the files the lint lists. | lint `sdl-boundary` |
+| A test fails when its precondition is missing. | lint `test-skip` |
+| Docs and scripts leave the test count to `ctest`. | lint `doc-test-count` |
+| Docs cite this repo's code by file and symbol name. | lint `doc-line-citation` |
+| A lint exception sits on the offending line with a reason, an expiry date and the approving human. | lint `lint-exception` |
+| A test asserts a value it did not compute with the code's own formula, and fails if the code under test does nothing. A decision made inside a draw call gets a pure helper that the test calls. | review only |
+| Each helper, label table and constant has one definition. Search for it before writing one. | review only |
+| An owner decision is explained in plain language first, with a recommendation. | review only |
+
+When the operator corrects you: fix the mistake and add its rule to this table. If the rule is already here as "review only", add a check for it in the same change. Remove a row once its mistake can no longer be written.
 
 ---
 
@@ -133,5 +156,5 @@ Screen flow: **Title → Attract → Select → Gameplay → Results** (state ma
 - Mods in scope: C-mod, X-mod, M-mod speed mods + scroll direction only.
 - Note elements: taps, holds, rolls, mines.
 - Difficulty display is passthrough from the simfile (labels + foot rating).
-- Solo hobby project — no CI for v1; local cross-platform CMake builds must work from a fresh clone.
+- Solo hobby project. CI runs `scripts/check.sh` on Linux only; local cross-platform CMake builds must work from a fresh clone.
 - `TODO.md` (the owner's task list) and `songs/` (the owner's packs) are gitignored: edit `TODO.md` in place, but neither appears in a diff or a commit.

@@ -53,7 +53,7 @@ bool AudioEngine::init() {
     config.onProcess = &on_process_thunk;
     config.pProcessUserData = this;
 
-    if (settings_.use_null_backend) {
+    if (settings_.backend == AudioBackend::Null) {
         null_context_ = std::make_unique<ma_context>();
         const ma_backend backends[] = {ma_backend_null};
         if (ma_context_init(backends, 1, nullptr, null_context_.get()) != MA_SUCCESS) {
@@ -122,6 +122,15 @@ void AudioEngine::shutdown() {
     }
     now_ns_ = nullptr;
     engine_rate_.store(0, std::memory_order_relaxed);
+}
+
+const char* AudioEngine::backend_name() const {
+    if (initialized_ && engine_) {
+        if (ma_device* device = ma_engine_get_device(engine_.get()); device != nullptr) {
+            return ma_get_backend_name(ma_device_get_context(device)->backend);
+        }
+    }
+    return "";
 }
 
 void AudioEngine::set_master_volume(float volume) {

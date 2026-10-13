@@ -138,6 +138,22 @@ int main() {
     TEST_CHECK(std::abs(malformed_parser.timing().get_bpm_at_beat(0.0) - 150.0) < 1e-6);
     std::cout << "  - Malformed and corrupt headers handled gracefully without crash.\n";
 
+    // 5b. A header number that spells "nan" or "inf" must not reach the timing
+    // data (a NaN offset makes every note time NaN). It falls back like any
+    // other unparsable value.
+    for (const char* junk : {"nan", "inf", "-inf", "NaN", "Infinity"}) {
+        blaze4k::SimfileParser parser;
+        TEST_CHECK(parser.parse_string(std::string("#TITLE:Junk;\n#OFFSET:") + junk +
+                                           ";\n#SAMPLESTART:" + junk + ";\n#SAMPLELENGTH:" +
+                                           junk + ";\n#BPMS:0.000=150.000;\n",
+                                       ".sm"));
+        TEST_CHECK(parser.metadata().offset == 0.0);
+        TEST_CHECK(parser.timing().offset() == 0.0);
+        TEST_CHECK(parser.metadata().sample_start == 0.0);
+        TEST_CHECK(parser.metadata().sample_length == 12.0);
+    }
+    std::cout << "  - Non-finite header numbers fall back to the defaults.\n";
+
     // 6. Named Edit charts (#84): SM #NOTES description and SSC
     // #DESCRIPTION/#CHARTNAME/#VERSION precedence per SM5 NotesLoaderSSC.cpp:319-349.
     {
