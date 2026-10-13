@@ -5,8 +5,8 @@
 #include <array>
 #include <cstdlib>
 #include <cmath>
-#include <exception>
 #include <filesystem>
+#include <optional>
 #include <SDL3/SDL_timer.h>
 #include "app/app.hpp"
 #include "audio/audio_engine.hpp"
@@ -29,6 +29,7 @@
 #include "screens/select_screen.hpp"
 #include "screens/screen_manager.hpp"
 #include "screens/title_screen.hpp"
+#include "util/parse_number.hpp"
 
 namespace fs = std::filesystem;
 
@@ -85,7 +86,13 @@ int main(int argc, char* argv[]) {
         } else if (arg == "--smoke-test") {
             int frames = 10;
             if (i + 1 < argc && argv[i + 1][0] != '-') {
-                frames = std::stoi(argv[++i]);
+                const std::string value = argv[++i];
+                if (const std::optional<int> parsed = blaze4k::parse_int(value)) {
+                    frames = *parsed;
+                } else {
+                    std::cerr << "[main] Invalid --smoke-test '" << value
+                              << "'; using default " << frames << " frames\n";
+                }
             }
             config.smoke_test_frames = frames;
         } else if (arg == "--no-vsync") {
@@ -94,9 +101,9 @@ int main(int argc, char* argv[]) {
             attract_timeout_given = true;
             if (i + 1 < argc) {
                 const std::string value = argv[++i];
-                try {
-                    attract_timeout = std::stod(value);
-                } catch (const std::exception&) {
+                if (const std::optional<double> parsed = blaze4k::parse_double(value)) {
+                    attract_timeout = *parsed;
+                } else {
                     std::cerr << "[main] Invalid --attract-timeout '" << value
                               << "'; using default 120s\n";
                 }
@@ -145,16 +152,10 @@ int main(int argc, char* argv[]) {
         } else if (arg == "--perf-budget-ms") {
             if (i + 1 < argc) {
                 const std::string value = argv[++i];
-                try {
-                    std::size_t consumed = 0;
-                    const double parsed = std::stod(value, &consumed);
-                    if (std::isfinite(parsed) && parsed > 0.0 && consumed == value.size()) {
-                        config.perf_budget_ms = parsed;
-                    } else {
-                        std::cerr << "[main] Invalid --perf-budget-ms '" << value
-                                  << "'; using default " << config.perf_budget_ms << "ms\n";
-                    }
-                } catch (const std::exception&) {
+                const std::optional<double> parsed = blaze4k::parse_double(value);
+                if (parsed && *parsed > 0.0) {
+                    config.perf_budget_ms = *parsed;
+                } else {
                     std::cerr << "[main] Invalid --perf-budget-ms '" << value
                               << "'; using default " << config.perf_budget_ms << "ms\n";
                 }

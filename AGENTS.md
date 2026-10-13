@@ -80,7 +80,8 @@ blaze4k/
 │   ├── audio/         # miniaudio wrapper, preview playback
 │   ├── render/        # GL context, quads, sprites, fonts
 │   ├── gameplay/      # note field, judgments, scoring, life
-│   └── data/          # config, high scores (JSON)
+│   ├── data/          # config, high scores (JSON)
+│   └── util/          # checked text -> number parsing
 ├── assets/            # noteskins, fonts, theme textures, fallback bg, data (judgment constants)
 ├── scripts/           # fresh-clone check, symbol font build
 ├── tests/             # parser tests, timing unit tests, sync chart, fixtures

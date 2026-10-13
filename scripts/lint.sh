@@ -90,6 +90,14 @@ rule audio-device-open \
     'ma_(engine|device|context)_init\(' \
     src tests ':!src/audio/audio_engine.cpp'
 
+# Text from a simfile, the command line or a config is untrusted. The raw
+# conversions throw, abort, accept trailing junk or return NaN, each in its own
+# way; src/util/parse_number.hpp is the one checked path.
+rule number-parsing \
+    "use src/util/parse_number.hpp: parse_double / parse_int for a whole value (CLI, config), parse_leading_finite / parse_leading_int for a simfile field." \
+    '(std::sto(i|l|ll|ul|ull|f|d|ld)|[^a-z_](ato[ifl]|atoll|strto(l|ll|ul|ull|d|f|ld|imax|umax))|sscanf|from_chars) *\(' \
+    src ':!src/util/parse_number.cpp'
+
 check_exceptions
 
 if [ "$failures" -ne 0 ]; then

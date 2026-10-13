@@ -158,6 +158,7 @@ add_library(blaze4k_core STATIC
     src/screens/input_remap.cpp
     src/screens/input_remap_screen.cpp
     src/screens/select_placeholder_screen.cpp
+    src/util/parse_number.cpp
 )
 
 target_include_directories(blaze4k_core PUBLIC

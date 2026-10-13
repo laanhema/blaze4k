@@ -1,6 +1,7 @@
 #include "gameplay/speed_mod.hpp"
 
-#include <charconv>
+#include "util/parse_number.hpp"
+
 #include <cmath>
 #include <cstddef>
 #include <iostream>
@@ -33,24 +34,12 @@ std::string_view trim(std::string_view text) {
 }
 
 bool parse_positive_double(std::string_view text, double& out) {
-    if (text.empty()) {
+    const std::optional<double> value = parse_double(text);
+    if (!value || *value <= 0.0) {
         return false;
     }
 
-    std::string buffer(text);
-    double value = 0.0;
-    const char* first = buffer.data();
-    const char* last = buffer.data() + buffer.size();
-    const std::from_chars_result result = std::from_chars(first, last, value);
-
-    if (result.ec != std::errc{} || result.ptr != last) {
-        return false;
-    }
-    if (!std::isfinite(value) || value <= 0.0) {
-        return false;
-    }
-
-    out = value;
+    out = *value;
     return true;
 }
 

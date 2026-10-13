@@ -606,6 +606,18 @@ target_link_libraries(clock_tap_test PRIVATE
 
 add_test(NAME clock_tap_test COMMAND clock_tap_test)
 
+# util/parse_number.hpp: the one text -> number path (scripts/lint.sh bans the
+# raw std::sto* / strto* / ato* / from_chars calls elsewhere under src/).
+add_executable(parse_number_test
+    parse_number_test.cpp
+)
+
+target_link_libraries(parse_number_test PRIVATE
+    blaze4k_core
+)
+
+add_test(NAME parse_number_test COMMAND parse_number_test)
+
 # #81: silent music-clock measurement tool (successor of the #71 scratch `gran2`
 # probe). Built but NOT registered with ctest: it measures a real device
 # (docs/AUDIO_LATENCY.md) and is the only test-side program allowed to open one

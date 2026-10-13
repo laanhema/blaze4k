@@ -1,11 +1,10 @@
 #include "chart/simfile_parser.hpp"
 #include "chart/msd_file.hpp"
 #include "chart/note_parser.hpp"
+#include "util/parse_number.hpp"
 #include <iostream>
 #include <algorithm>
 #include <cctype>
-#include <cmath>
-#include <cstdlib>
 
 namespace blaze4k {
 
@@ -23,11 +22,7 @@ bool iequals(std::string_view a, std::string_view b) {
 }
 
 double parse_double_safe(std::string_view s, double fallback = 0.0) {
-    try {
-        return std::stod(std::string(s));
-    } catch (...) {
-        return fallback;
-    }
+    return parse_leading_finite(s).value_or(fallback);
 }
 
 // SM5 Song.h:25 (STEPFILE_VERSION_NUMBER): the SSC version assumed until a
@@ -41,17 +36,11 @@ constexpr float kSscChartNameTagVersion = 0.74f;
 // Float precision matters at the edges: "0.73999999" rounds to 0.74f (modern)
 // and "1e39" overflows to inf (-> 0, old), exactly as SM5 compares them.
 float parse_ssc_version(std::string_view s) {
-    const std::string text(s); // strtof needs a NUL-terminated string
-    const float v = std::strtof(text.c_str(), nullptr);
-    return std::isfinite(v) ? v : 0.0f;
+    return parse_leading_finite_float(s).value_or(0.0f);
 }
 
 int parse_int_safe(std::string_view s, int fallback = 1) {
-    try {
-        return std::stoi(std::string(s));
-    } catch (...) {
-        return fallback;
-    }
+    return parse_leading_int(s).value_or(fallback);
 }
 
 } // namespace
