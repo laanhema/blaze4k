@@ -83,7 +83,7 @@ blaze4k/
 │   ├── data/          # config, high scores (JSON)
 │   └── util/          # checked text -> number parsing
 ├── assets/            # noteskins, fonts, theme textures, fallback bg, data (judgment constants)
-├── scripts/           # fresh-clone check, symbol font build
+├── scripts/           # check (lint + build + tests), lint rules, fresh-clone check, symbol font build
 ├── tests/             # parser tests, timing unit tests, sync chart, fixtures
 └── docs/              # BUILDING, AUDIO_LATENCY, cross-platform verification, cabinet-theme
 ```
@@ -106,6 +106,28 @@ Screen flow: **Title → Attract → Select → Gameplay → Results** (state ma
 
 - Simfiles are **untrusted input**: the parser must be bounds-checked, allocation-capped, and fuzz-tested. A corrupt `.sm` must never crash the game.
 - Reject unsupported constructs (non-4-panel charts, exotic timing) gracefully with a readable log line — never guess semantics; check StepMania source.
+
+---
+
+## Rules and what enforces them
+
+Each rule is a mistake that agents made here at least twice. `scripts/check.sh` runs every check below, locally and in CI. A lint failure prints the rule name, the file and line, and what to use instead.
+
+| Rule | Enforced by |
+| ---- | ----------- |
+| Project sources compile with zero warnings. | `-DBLAZE_WERROR=ON` in `scripts/check.sh` |
+| Tests run on the silent null audio device. Only the game and `tests/clock_probe.cpp` open the real one. | `AudioBackend` defaults to `Null` (`src/audio/audio_engine.hpp`); lint `audio-device`, `audio-device-open`; `audio_test` |
+| Text becomes a number through `src/util/parse_number.hpp`. | lint `number-parsing`; `parse_number_test` |
+| SDL is included from `src/input` and `src/app`, plus the files the lint lists. | lint `sdl-boundary` |
+| A test fails when its precondition is missing. | lint `test-skip` |
+| Docs and scripts leave the test count to `ctest`. | lint `doc-test-count` |
+| Docs cite this repo's code by file and symbol name. | lint `doc-line-citation` |
+| A lint exception sits on the offending line with a reason, an expiry date and the approving human. | lint `lint-exception` |
+| A test asserts a value it did not compute with the code's own formula, and fails if the code under test does nothing. A decision made inside a draw call gets a pure helper that the test calls. | review only |
+| Each helper, label table and constant has one definition. Search for it before writing one. | review only |
+| An owner decision is explained in plain language first, with a recommendation. | review only |
+
+When the operator corrects you: fix the mistake and add its rule to this table. If the rule is already here as "review only", add a check for it in the same change. Remove a row once its mistake can no longer be written.
 
 ---
 
