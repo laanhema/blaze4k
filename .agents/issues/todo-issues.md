@@ -1,6 +1,6 @@
 # TODO Issues
 
-**Source**: `TODO.md` · **Generated**: 2026-10-02 · **Updated**: 2026-10-13 (TODO-42 – TODO-43 added; TODO-40 – TODO-41 added; 2026-10-12: TODO-38 – TODO-39 added; TODO-37 added; 2026-10-10: TODO-35 – TODO-36 added; TODO-33 – TODO-34 added; 2026-10-07: TODO-32 added; TODO-31 added; 2026-10-06: TODO-30 added; 2026-10-05: TODO-27 – TODO-29 added; 2026-10-03: TODO-13 – TODO-14 added; TODO-15 – TODO-26 added from `blaze4k-cabinet-theme/IMPLEMENTATION_PLAN.md`, see "Cabinet theme" section)
+**Source**: `TODO.md` · **Generated**: 2026-10-02 · **Updated**: 2026-10-13 (TODO-44 – TODO-45 added; TODO-42 – TODO-43 added; TODO-40 – TODO-41 added; 2026-10-12: TODO-38 – TODO-39 added; TODO-37 added; 2026-10-10: TODO-35 – TODO-36 added; TODO-33 – TODO-34 added; 2026-10-07: TODO-32 added; TODO-31 added; 2026-10-06: TODO-30 added; 2026-10-05: TODO-27 – TODO-29 added; 2026-10-03: TODO-13 – TODO-14 added; TODO-15 – TODO-26 added from `blaze4k-cabinet-theme/IMPLEMENTATION_PLAN.md`, see "Cabinet theme" section)
 **Last Updated**: 2026-10-13
 
 ## Status
@@ -69,6 +69,7 @@ The criteria were checked on 2026-10-12 against the code at `d11de69` and one ru
 - **Non-tasks** — none.
 - **2026-10-13 run** — already tracked: `TODO.md:53` (#134, TODO-37), `TODO.md:54` (#135, TODO-38), `TODO.md:55` (#136, TODO-39). Only the two new lines 56–57 became issues.
 - **2026-10-13 run, second** — already tracked: `TODO.md:55` (#136, TODO-39), `:56` (#141, TODO-40), `:57` (#142, TODO-41). Only the two new lines 58–59 became issues.
+- **2026-10-13 run, third** — already tracked: `TODO.md:58` (#144, TODO-42), `:59` (#145, TODO-43). Only the two new lines 60–61 became issues.
 
 ---
 
@@ -1860,3 +1861,90 @@ Each time a sound file fails to load, miniaudio 0.11.21 leaks 744 bytes: `ma_sou
 
 - Blocked by: [TODO-39] (the `asan-ubsan` preset), [TODO-42]
 - Blocks: None
+
+---
+
+## [TODO-44] Run the sanitizer build in CI
+
+**Type**: Technical
+**GitHub Label**: technical
+**Priority**: Medium
+**Complexity**: Medium
+**Phase**: Backlog
+**Labels**: `build`, `infrastructure`, `tests`
+**Source**: `TODO.md:60` — "Run the sanitizer build in CI: add a second CI job that configures, builds and tests the `asan-ubsan` preset on every pull request, so memory errors and undefined behaviour are caught automatically and not only when someone remembers to run the preset."
+**GitHub**: #147
+**Status**: pending
+
+### Description
+
+The `asan-ubsan` preset ([TODO-39]) finds memory errors and undefined behaviour, but only when someone runs it by hand. Add a second CI job that builds and tests the preset on every pull request, so that these bugs are caught automatically. `scripts/check.sh` stays as it is, so the local check stays fast.
+
+### Acceptance Criteria
+
+- [ ] A second CI job configures, builds and tests the `asan-ubsan` preset on every pull request and on every push to `main`
+- [ ] The job fails when a test fails under the preset, and when the two canary tests are missing (`ctest --preset asan-ubsan -R sanitizer_canary --no-tests=error`)
+- [ ] `scripts/check.sh` does not run the preset
+- [ ] The job installs the sanitizer packages that `docs/BUILDING.md` lists for Debian/Ubuntu, and that line is corrected if the job shows it is wrong
+- [ ] The rule table in `AGENTS.md` has a row for the sanitizer run, with the CI job as what enforces it
+
+### Technical Notes
+
+- `.github/workflows/ci.yml` has one job, `check` ("Build & Test"), on `ubuntu-latest`. It installs the SDL3 build packages, caches `build/_deps` with a key made from `CMakeLists.txt`, and runs `scripts/check.sh`. A separate job runs beside it and does not slow it down.
+- The preset reads the dependency sources in `build/_deps` (the `FETCHCONTENT_SOURCE_DIR_*` lines in `CMakePresets.json`) and stops with "Manually specified source directory is missing" without them. The job therefore configures `build/` first (`cmake -B build`, which downloads the sources or finds them in the cache), and then runs `cmake --preset asan-ubsan`, `cmake --build --preset asan-ubsan` and `ctest --preset asan-ubsan`.
+- Cost measured on the Linux host in [TODO-39]: about 2 minutes for a build from nothing at 16 cores, and about 10 seconds for the tests. A CI runner has fewer cores, so expect several minutes.
+- The host has GCC 16.2.1 and `ubuntu-latest` has an older GCC, so the first run may show reports that the host does not. Each one is fixed or filed as its own issue, as [TODO-39] did.
+- `audio_test`, `select_screen_test` and `preview_player_test` pass under the preset on the expected report of [TODO-42] until that is fixed (`tests/CMakeLists.txt`, the `BLAZE_SANITIZE` block). This issue does not wait for it.
+- The Debian/Ubuntu package line in `docs/BUILDING.md` (Sanitizer build) comes from package metadata (`libgcc-13-dev` depends on `libasan8` and `libubsan1`) and was never run on an Ubuntu host. This job is its first real run.
+- The new row goes in the table "Rules and what enforces them" in `AGENTS.md`. The lint `doc-test-count` forbids writing the number of tests in docs and scripts.
+- Assumption: whether the job becomes a required check on `main` is the owner's decision and not part of this issue.
+- Follow-up from [TODO-39].
+
+### Dependencies
+
+- Blocked by: None
+- Blocks: None
+- Related: [TODO-39], [TODO-42], [TODO-45]
+
+---
+
+## [TODO-45] Give each build preset its own dependency build directory
+
+**Type**: Technical
+**GitHub Label**: technical
+**Priority**: Low
+**Complexity**: Medium
+**Phase**: Backlog
+**Labels**: `build`
+**Source**: `TODO.md:61` — "Give each build preset its own dependency build directory."
+**GitHub**: #148
+**Status**: pending
+
+### Description
+
+The hidden `base` preset in `CMakePresets.json` points every preset's `FETCHCONTENT_BASE_DIR` at `build/_deps`. That shares the downloaded dependency sources, which is wanted, and also the dependencies' build directories, which is not. Configuring a preset rewrites the dependency builds that `build/` uses, so the next `scripts/check.sh` rebuilds SDL, and a Debug and a Release configure overwrite each other's dependency libraries. Give each preset its own dependency build directory and keep the sources shared.
+
+### Acceptance Criteria
+
+- [ ] Configuring any preset (for example `cmake --preset linux-gcc-release`) changes no file under `build/`, and a `scripts/check.sh` run afterwards rebuilds no dependency
+- [ ] A Debug preset and a Release preset can be configured and built one after the other without rebuilding each other's dependency libraries
+- [ ] The dependency sources are still downloaded only once and shared; a preset that downloads them on a new machine today still does
+- [ ] `scripts/fresh-clone-check.sh` still passes in its offline mode
+- [ ] `docs/BUILDING.md` says where each preset keeps its dependency sources and its dependency builds
+
+### Technical Notes
+
+- `CMakePresets.json`: the hidden `base` preset sets `binaryDir` to `${sourceDir}/build-${presetName}` and `FETCHCONTENT_BASE_DIR` to `${sourceDir}/build/_deps`. The presets that inherit it without their own `FETCHCONTENT_BASE_DIR` share both the `*-src` and the `*-build` directories with `build/`.
+- Evidence from the [TODO-39] planning run: `build-linux-gcc-release/` was configured and never built, and the next `scripts/check.sh` rebuilt `build/_deps/sdl3-build/libSDL3.a`, though SDL's sources had not changed.
+- The `asan-ubsan` preset already keeps its builds apart: it has its own `FETCHCONTENT_BASE_DIR` (`build-asan-ubsan/_deps`) and points `FETCHCONTENT_SOURCE_DIR_<NAME>` at the five source trees in `build/_deps`. That way has two costs. It stops when `build/` was never configured, and it does not read the `GIT_TAG` pins in `CMakeLists.txt`, so after a pin change it builds the old sources until `build/` is configured again (`docs/BUILDING.md`, Sanitizer build). The third acceptance criterion rules out spreading the first cost to the other presets. If the solution removes either cost for `asan-ubsan` too, update that section.
+- `scripts/fresh-clone-check.sh` passes `-DFETCHCONTENT_BASE_DIR=$repo_root/build/_deps` in its offline mode, so it shares the build directories in the same way.
+- `.github/workflows/ci.yml` caches `build/_deps`; its cache path and key must still fit.
+- `docs/BUILDING.md` describes the shared cache in the paragraph under the preset table ("Presets reuse the local `build/_deps` dependency cache").
+- The Clang, MSVC and macOS presets are owner-run (`docs/CROSS_PLATFORM_VERIFICATION.md`). On the Linux host only the GCC presets can be configured and built.
+- Found by the [TODO-39] plan.
+
+### Dependencies
+
+- Blocked by: None
+- Blocks: None
+- Related: [TODO-39], [TODO-44]
