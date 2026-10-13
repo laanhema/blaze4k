@@ -6,6 +6,9 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
+# compile_commands.json for editors and tools, from every configure (#135).
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # Compiler warnings
 if(MSVC)
     add_compile_options(/W4 /permissive-)

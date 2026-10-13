@@ -72,7 +72,7 @@ run_step lint "$repo_root/scripts/lint.sh"
 
 echo "[2/4] Configure..."
 run_step configure cmake -S "$repo_root" -B "$build_dir" -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DBLAZE_WERROR=ON
+    -DBLAZE_WERROR=ON
 
 echo "[3/4] Build (-j$jobs)..."
 run_step build cmake --build "$build_dir" -j"$jobs"
