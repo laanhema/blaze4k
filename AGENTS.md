@@ -47,15 +47,18 @@ cmake --build build
 cmake -B build-debug -DCMAKE_BUILD_TYPE=Debug
 cmake --build build-debug
 
-# Test
-ctest --test-dir build --output-on-failure
+# Check: configure, build and run every test (CI runs this on each pull request)
+scripts/check.sh
+
+# One test
+ctest --test-dir build --output-on-failure -R <test_name>
 
 # Run (scans ./songs for packs; --help lists the options)
 ./build/blaze-4k
 ```
 
 - Per-platform presets are in `CMakePresets.json`; `docs/BUILDING.md` lists them and the prerequisites. The Linux host has GCC only, so the Clang, MSVC and macOS presets are owner-run.
-- `audio_test` and `music_clock_test` open the default sound device. On the owner's machine, run `ctest` and test binaries inside a sandbox that hides it (`bwrap --dev-bind / / --tmpfs /run/user/$(id -u) --tmpfs /dev/snd --unshare-net <command>`), and never change system audio state. #134 makes the tests silent by default; remove this note when it lands.
+- `audio_test` and `music_clock_test` open the default sound device. `scripts/check.sh` hides it from the tests by itself. On the owner's machine, run a bare `ctest` or a test binary inside the same sandbox (`bwrap --dev-bind / / --tmpfs /run/user/$(id -u) --tmpfs /dev/snd --unshare-net <command>`), and never change system audio state. #134 makes the tests silent by default; remove this note when it lands.
 
 ---
 
