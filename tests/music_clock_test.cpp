@@ -195,11 +195,11 @@ int main() {
         std::cout << "  - Global offset applied once through clock -> input -> engine, OpenITG sign.\n";
     }
 
-    // 8. Guarded audio integration (End-to-End)
+    // 8. Audio integration (End-to-End) on the engine's default null device,
+    // which is always available (#134), so this part never skips.
     blaze4k::AudioEngine& engine = blaze4k::AudioEngine::instance();
-    if (!engine.init()) {
-        std::cout << "[music_clock_test] skipping audio integration (no audio device)\n";
-    } else {
+    TEST_CHECK(engine.init());
+    {
         fs::path temp_dir = fs::temp_directory_path() / "td_music_clock_test";
         fs::create_directories(temp_dir);
         fs::path wav_path = temp_dir / "clock_1s.wav";

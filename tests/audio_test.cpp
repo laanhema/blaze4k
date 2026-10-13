@@ -5,6 +5,7 @@
 #include <cassert>
 #include <cmath>
 #include <filesystem>
+#include <string>
 #include "audio/audio_engine.hpp"
 #include "audio/sound_stream.hpp"
 #include "test_wav_writer.hpp"
@@ -24,8 +25,12 @@ int main() {
 
     // 1. AudioEngine instance test
     blaze4k::AudioEngine& engine = blaze4k::AudioEngine::instance();
-    bool engine_ok = engine.init();
-    std::cout << "  - AudioEngine init result: " << (engine_ok ? "SUCCESS" : "FALLBACK") << "\n";
+    // #134: default settings must open the silent null device, never the host's
+    // sound device. This is what keeps every test quiet without a sandbox.
+    TEST_CHECK(engine.settings().backend == blaze4k::AudioBackend::Null);
+    TEST_CHECK(engine.init());
+    TEST_CHECK(std::string(engine.backend_name()) == "Null");
+    std::cout << "  - AudioEngine opened the '" << engine.backend_name() << "' backend.\n";
     engine.set_master_volume(0.9f);
     TEST_CHECK(std::abs(engine.get_master_volume() - 0.9f) < 1e-4);
 

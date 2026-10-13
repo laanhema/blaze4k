@@ -494,8 +494,8 @@ PipeWire-reported latency. To run them, with the headset connected **as the defa
 
 **Not measured** by the agent: the spike only measured the current default sink and must not change
 the default device or routing. The owner runs these steps on their own setup. Since #81 the probe is
-committed: `cmake --build build --target clock_probe`, then run `./build/tests/clock_probe` **outside**
-any test sandbox (see [Reproducing the probes](#reproducing-the-probes-silent-scratch-only)). Each
+committed: `cmake --build build --target clock_probe`, then run `./build/tests/clock_probe`
+(see [Reproducing the probes](#reproducing-the-probes-silent-scratch-only)). Each
 run is about 3 s and silent (all-zero buffer at volume 0). A small requested period briefly lowers the PipeWire graph
 quantum for every app while the probe runs, so other apps may glitch for those few seconds.
 
@@ -540,7 +540,8 @@ any sound.
   1 ms and prints the `Output device` line, raw step min/mean/max, the engine callback interval, the
   bias-removed rms/max residual of the raw and the interpolated cursor (least-squares line of the raw
   cursor, first and last 0.3 s skipped) and the interpolated mean lead. `--null` uses miniaudio's
-  null backend (sandbox-safe). Run it outside the test sandbox to measure a real device.
+  null backend. Without `--null` it measures the real default device; it is the only test-side
+  program that may open one (the tests run on the null device, #134).
 - **`gran2` (callback step and residuals, #71):** `gran2 [periodSizeInFrames]`. Sets
   `ma_engine_config.periodSizeInFrames` (0 = default) and `onProcess`, prints backend, device name,
   rate and `internalPeriodSizeInFrames × internalPeriods`, then plays a 5 s all-zero

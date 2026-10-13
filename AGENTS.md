@@ -58,7 +58,7 @@ ctest --test-dir build --output-on-failure -R <test_name>
 ```
 
 - Per-platform presets are in `CMakePresets.json`; `docs/BUILDING.md` lists them and the prerequisites. The Linux host has GCC only, so the Clang, MSVC and macOS presets are owner-run.
-- `audio_test` and `music_clock_test` open the default sound device. `scripts/check.sh` hides it from the tests by itself. On the owner's machine, run a bare `ctest` or a test binary inside the same sandbox (`bwrap --dev-bind / / --tmpfs /run/user/$(id -u) --tmpfs /dev/snd --unshare-net <command>`), and never change system audio state. #134 makes the tests silent by default; remove this note when it lands.
+- The tests are silent: the audio engine opens the null device unless it is asked for the real one, so a bare `ctest` or a test binary needs no sandbox. Never change system audio state.
 
 ---
 

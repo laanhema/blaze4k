@@ -263,7 +263,8 @@ int main(int argc, char* argv[]) {
     }
 
     // #81: configure the audio engine before anything can initialize it (the
-    // gameplay demo, UI sounds, previews). The period request comes from
+    // gameplay demo, UI sounds, previews). This is the one place the game asks
+    // for the real output device (#134). The period request comes from
     // config (0 = backend default) and the anchor clock is SDL's monotonic
     // ticks, the same timebase as input event timestamps. A captureless lambda
     // (not &SDL_GetTicksNS) avoids SDLCALL calling-convention mismatches.
@@ -272,7 +273,8 @@ int main(int argc, char* argv[]) {
                   "config and audio default periods must match");
     blaze4k::AudioEngine::instance().configure(
         {static_cast<uint32_t>(game_config.audio.period_size_frames),
-         +[]() -> uint64_t { return SDL_GetTicksNS(); }});
+         +[]() -> uint64_t { return SDL_GetTicksNS(); },
+         blaze4k::AudioBackend::Device});
 
     // C6: honor a saved remap from boot. Safe when the config was missing (the
     // defaults are applied). Reserved Escape/pad-Back are always re-installed.

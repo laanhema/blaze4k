@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 #
-# Configure, build with warnings as errors, and run the full ctest suite. CI
-# runs this same script on every pull request (.github/workflows/ci.yml), so a
-# local pass predicts CI.
+# Lint, configure, build with warnings as errors, and run the full ctest suite.
+# CI runs this same script on every pull request (.github/workflows/ci.yml), so
+# a local pass predicts CI.
 #
 # A warning in a project source fails the build step, so it is reported again
 # on every run until it is fixed: there is no need to recompile changed files
@@ -13,9 +13,9 @@
 #   --build-dir P   Build directory (default: build, so repeat runs are
 #                   incremental and reuse the fetched dependencies).
 #
-# audio_test and music_clock_test open the default sound device. When the host
-# has one, ctest runs inside a bwrap sandbox that hides it, so the suite stays
-# silent. Set BLAZE_CHECK_LIVE_AUDIO=1 to run against the real device.
+# The tests are silent: the audio engine opens miniaudio's null device unless
+# it is asked for the real one, and scripts/lint.sh allows only the game and
+# tests/clock_probe.cpp to ask.
 #
 set -euo pipefail
 
@@ -25,9 +25,6 @@ Usage: scripts/check.sh [--build-dir <path>]
 
   --build-dir P   Build directory (default: build).
   -h, --help      Show this help.
-
-Environment:
-  BLAZE_CHECK_LIVE_AUDIO=1   Let the tests open the real sound device.
 USAGE
 }
 
@@ -70,26 +67,18 @@ run_step() {
     exit 1
 }
 
-echo "[1/3] Configure..."
+echo "[1/4] Lint..."
+run_step lint "$repo_root/scripts/lint.sh"
+
+echo "[2/4] Configure..."
 run_step configure cmake -S "$repo_root" -B "$build_dir" -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_EXPORT_COMPILE_COMMANDS=ON -DBLAZE_WERROR=ON
 
-echo "[2/3] Build (-j$jobs)..."
+echo "[3/4] Build (-j$jobs)..."
 run_step build cmake --build "$build_dir" -j"$jobs"
 
-echo "[3/3] Test..."
-ctest_cmd=(ctest --test-dir "$build_dir" --output-on-failure)
-if [ -d /dev/snd ] && [ "${BLAZE_CHECK_LIVE_AUDIO:-0}" != "1" ]; then
-    if ! command -v bwrap >/dev/null 2>&1; then
-        echo "check.sh: this host has a sound device and bwrap is not installed." >&2
-        echo "Install bubblewrap, or set BLAZE_CHECK_LIVE_AUDIO=1 to use the real device." >&2
-        exit 1
-    fi
-    echo "Sound device found: running the tests in a sandbox that hides it."
-    ctest_cmd=(bwrap --dev-bind / / --tmpfs "/run/user/$(id -u)" --tmpfs /dev/snd
-        --unshare-net "${ctest_cmd[@]}")
-fi
-run_step ctest "${ctest_cmd[@]}"
+echo "[4/4] Test..."
+run_step ctest ctest --test-dir "$build_dir" --output-on-failure
 
 echo ""
 echo "CHECK: PASS"
