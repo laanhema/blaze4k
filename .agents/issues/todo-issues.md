@@ -1,6 +1,6 @@
 # TODO Issues
 
-**Source**: `TODO.md` · **Generated**: 2026-10-02 · **Updated**: 2026-10-13 (TODO-40 – TODO-41 added; 2026-10-12: TODO-38 – TODO-39 added; TODO-37 added; 2026-10-10: TODO-35 – TODO-36 added; TODO-33 – TODO-34 added; 2026-10-07: TODO-32 added; TODO-31 added; 2026-10-06: TODO-30 added; 2026-10-05: TODO-27 – TODO-29 added; 2026-10-03: TODO-13 – TODO-14 added; TODO-15 – TODO-26 added from `blaze4k-cabinet-theme/IMPLEMENTATION_PLAN.md`, see "Cabinet theme" section)
+**Source**: `TODO.md` · **Generated**: 2026-10-02 · **Updated**: 2026-10-13 (TODO-42 – TODO-43 added; TODO-40 – TODO-41 added; 2026-10-12: TODO-38 – TODO-39 added; TODO-37 added; 2026-10-10: TODO-35 – TODO-36 added; TODO-33 – TODO-34 added; 2026-10-07: TODO-32 added; TODO-31 added; 2026-10-06: TODO-30 added; 2026-10-05: TODO-27 – TODO-29 added; 2026-10-03: TODO-13 – TODO-14 added; TODO-15 – TODO-26 added from `blaze4k-cabinet-theme/IMPLEMENTATION_PLAN.md`, see "Cabinet theme" section)
 **Last Updated**: 2026-10-13
 
 ## Status
@@ -68,6 +68,7 @@ The criteria were checked on 2026-10-12 against the code at `d11de69` and one ru
 - **Deferred by user** — `TODO.md:17` "Something Blaze themed visuals would be cool" (too vague for now; ID TODO-2 left unused). Still deferred on the second and third runs. Fourth run: covered by the Cabinet theme issues (#87–#98).
 - **Non-tasks** — none.
 - **2026-10-13 run** — already tracked: `TODO.md:53` (#134, TODO-37), `TODO.md:54` (#135, TODO-38), `TODO.md:55` (#136, TODO-39). Only the two new lines 56–57 became issues.
+- **2026-10-13 run, second** — already tracked: `TODO.md:55` (#136, TODO-39), `:56` (#141, TODO-40), `:57` (#142, TODO-41). Only the two new lines 58–59 became issues.
 
 ---
 
@@ -1772,4 +1773,89 @@ Four reviews flagged comment or code lines that were wrapped unevenly or ran pas
 ### Dependencies
 
 - Blocked by: None
+- Blocks: None
+
+---
+
+## [TODO-42] Stop miniaudio reading freed memory when a sound file fails to load
+
+**Type**: Technical
+**GitHub Label**: technical
+**Priority**: Medium
+**Complexity**: Medium
+**Phase**: Backlog
+**Labels**: `audio`
+**Source**: `TODO.md:58` — "miniaudio reads freed memory when a sound file fails to load."
+**GitHub**: #144
+**Status**: pending
+
+### Description
+
+When a sound file is missing or corrupt, `ma_sound_init_from_file` (called by `SoundStream::load`) reads a data buffer node that miniaudio has just freed. AddressSanitizer reports it as heap-use-after-free in `ma_resource_manager_data_buffer_node_acquire`. The pinned miniaudio 0.11.21 has it, and 0.11.25 (the newest tag) still does. It is not a crash today: the read happens in the same thread right after the free, and the value only gates a branch that is not taken. Under the `asan-ubsan` preset (#136) it stops `audio_test`, `select_screen_test` and `preview_player_test` at their first failed load, so those three pass there only by an expected-report rule.
+
+### Acceptance Criteria
+
+- [ ] Loading a missing or corrupt sound file no longer produces the AddressSanitizer heap-use-after-free report in `ma_resource_manager_data_buffer_node_acquire` (reworded from: "Fix it or route around it")
+- [ ] The expected-report rule for `audio_test`, `select_screen_test` and `preview_player_test` is removed from the `BLAZE_SANITIZE` block in `tests/CMakeLists.txt` (reworded from: "then remove the expected-report rule for `audio_test`, `select_screen_test` and `preview_player_test` from the `BLAZE_SANITIZE` block in `tests/CMakeLists.txt`")
+- [ ] `ctest --preset asan-ubsan` runs those three tests in full and they pass (reworded from: "so `ctest --preset asan-ubsan` runs those tests in full")
+- [ ] `scripts/check.sh` prints `CHECK: PASS` (inferred)
+- [ ] The "Known reports" list in `docs/BUILDING.md` (Sanitizer build) no longer names this report (inferred)
+
+### Technical Notes
+
+- Found by `ctest --preset asan-ubsan` (#136). The failing call is `ma_sound_init_from_file` in `SoundStream::load` (`src/audio/sound_stream.cpp`); `src/audio/assist_tick_player.cpp` has the only other call. Reproduce: `UBSAN_OPTIONS=print_stacktrace=1 ./build-asan-ubsan/tests/audio_test`.
+- In `miniaudio.h` 0.11.21 the node is freed in the `done:` block of `ma_resource_manager_data_buffer_node_acquire` and its `isDataOwnedByResourceManager` field is read in the next statement. Tags 0.11.22 to 0.11.25 have the same code.
+- Options:
+  - (a) A pre-check in `SoundStream::load`: open the file with `ma_decoder_init_file`, return false when that fails, `ma_decoder_uninit`, then load as today. Planning for #136 tried this in scratch on unmodified miniaudio: every test passed under the preset, and the leak (TODO-43) was gone too because the failing path was no longer reached. Cost: the game opens each sound file twice on load.
+  - (b) A local patch to miniaudio that moves the init-notification block above the free.
+  - (c) Report it upstream and wait.
+- The rule to remove is the `set_tests_properties(audio_test select_screen_test preview_player_test ...)` call and its comment in the `if(BLAZE_SANITIZE)` block of `tests/CMakeLists.txt`. Once the report is gone, those three tests fail under the preset with "Required regular expression not found" until the rule is removed.
+- The audio library drives the music clock (AGENTS.md, principle 1). A miniaudio version change needs the measurements in `docs/AUDIO_LATENCY.md` repeated.
+- From the #136 sanitizer run.
+
+### Dependencies
+
+- Blocked by: #136 (the `asan-ubsan` preset)
+- Blocks: TODO-43
+
+---
+
+## [TODO-43] Stop miniaudio leaking 744 bytes when a sound file fails to load
+
+**Type**: Technical
+**GitHub Label**: technical
+**Priority**: Medium
+**Complexity**: Small
+**Phase**: Backlog
+**Labels**: `audio`
+**Source**: `TODO.md:59` — "miniaudio leaks 744 bytes each time a sound file fails to load."
+**GitHub**: #145
+**Status**: pending
+
+### Description
+
+Each time a sound file fails to load, miniaudio 0.11.21 leaks 744 bytes: `ma_sound_init_from_file_internal` does not free its data source when the load fails. LeakSanitizer reports it under the `asan-ubsan` preset (#136), but only once the use-after-free on the same path (TODO-42) no longer stops the test first. miniaudio 0.11.23 fixed it. The leak is small and happens only on a failed load, so it is not a crash.
+
+### Acceptance Criteria
+
+- [ ] A failed sound-file load no longer leaks: LeakSanitizer reports nothing for `audio_test`, `select_screen_test` and `preview_player_test` under `ctest --preset asan-ubsan` (inferred)
+- [ ] `ctest --preset asan-ubsan` passes with no expected-report rule for this leak in `tests/CMakeLists.txt` (inferred)
+- [ ] If the miniaudio version changes, the measurements in `docs/AUDIO_LATENCY.md` are repeated and recorded there (inferred)
+- [ ] `scripts/check.sh` prints `CHECK: PASS` (inferred)
+- [ ] The "Known reports" list in `docs/BUILDING.md` (Sanitizer build) no longer names this leak (inferred)
+
+### Technical Notes
+
+- Found by `ctest --preset asan-ubsan` (#136). The failing call is `ma_sound_init_from_file` in `SoundStream::load` (`src/audio/sound_stream.cpp`); `src/audio/assist_tick_player.cpp` has the only other call. Reproduce: `UBSAN_OPTIONS=print_stacktrace=1 ./build-asan-ubsan/tests/audio_test`. The leak report shows only once the use-after-free (TODO-42) is out of the way, because AddressSanitizer stops the test there first.
+- Measured in the #136 planning run with the use-after-free patched in a scratch copy: 744 bytes per failed load, 2, 10 and 3 times in `audio_test`, `select_screen_test` and `preview_player_test`.
+- Upstream: fixed in miniaudio 0.11.23 ("Fixed a memory leak in the resource manager when opening a file fails"). The pin is `GIT_TAG 0.11.21` in `CMakeLists.txt`.
+- Options:
+  - The same pre-check as TODO-42, option (a): open the file with `ma_decoder_init_file` in `SoundStream::load` and return false when that fails, so the leaking path is not reached. Planning tried it in scratch: no leak report.
+  - Move the miniaudio pin to 0.11.23 or later. The audio library drives the music clock (AGENTS.md, principle 1), so a version change needs the measurements in `docs/AUDIO_LATENCY.md` repeated.
+- Assumption: if TODO-42 lands the pre-check, this issue is verified and closed with it.
+- From the #136 sanitizer run.
+
+### Dependencies
+
+- Blocked by: #136 (the `asan-ubsan` preset), TODO-42
 - Blocks: None

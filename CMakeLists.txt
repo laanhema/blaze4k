@@ -93,6 +93,25 @@ if(BLAZE_WERROR)
     endif()
 endif()
 
+# AddressSanitizer and UndefinedBehaviorSanitizer for the project's own targets
+# (#136). Placed after the dependencies, like BLAZE_WERROR, so it never reaches
+# them. The asan-ubsan preset turns it on; every other build leaves it off.
+#   float-cast-overflow     GCC leaves it out of -fsanitize=undefined.
+#   -fno-sanitize-recover   An undefined-behaviour report ends the program.
+#                           Without it the report is printed and the test passes.
+option(BLAZE_SANITIZE "Build project sources with AddressSanitizer and UndefinedBehaviorSanitizer (GCC or Clang)" OFF)
+if(BLAZE_SANITIZE)
+    if(MSVC)
+        message(FATAL_ERROR "BLAZE_SANITIZE needs GCC or Clang.")
+    endif()
+    add_compile_options(
+        -fsanitize=address,undefined,float-cast-overflow
+        -fno-sanitize-recover=undefined,float-cast-overflow
+        -fno-omit-frame-pointer
+    )
+    add_link_options(-fsanitize=address,undefined,float-cast-overflow)
+endif()
+
 # Core library target
 add_library(blaze4k_core STATIC
     src/app/window.cpp

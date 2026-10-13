@@ -81,6 +81,7 @@ required.
 | `windows-msvc-release`, `windows-msvc-debug` | Windows / MSVC (VS 2022, x64) | Owner-run |
 | `macos-clang-release`, `macos-clang-debug` | macOS / AppleClang | Owner-run |
 | `benchmark` | Any | RelWithDebInfo + `perf_loop_test` only |
+| `asan-ubsan` | Linux / GCC | **Verified here**: the tests under AddressSanitizer + UndefinedBehaviorSanitizer |
 
 ```bash
 cmake --preset linux-gcc-release
@@ -133,6 +134,58 @@ The script exports a clean source tree (never `build/`), configures, builds, and
 runs the full suite from that tree — the Linux answer to "clean CMake build from
 a fresh clone on at least one OS" (PRD §11). It is the Linux leg and requires
 GNU tar; the temp tree is removed on success unless `--keep` is passed.
+
+### Sanitizer build
+
+The `asan-ubsan` preset builds the project sources and the tests with GCC's
+AddressSanitizer and UndefinedBehaviorSanitizer. A memory error or undefined
+behaviour then stops the test that reaches it and prints where it happened.
+
+```bash
+cmake -B build -DCMAKE_BUILD_TYPE=Release   # once: the preset reads the dependency sources in build/_deps
+cmake --preset asan-ubsan
+cmake --build --preset asan-ubsan -j"$(nproc)"
+ctest --preset asan-ubsan
+```
+
+Packages it needs on top of the Linux prerequisites:
+
+- Fedora / RHEL: `sudo dnf install libasan libubsan`
+- Debian / Ubuntu: none. `build-essential` installs both runtimes with GCC.
+
+What the preset does:
+
+- It is a Debug build in `build-asan-ubsan/` (about 1.5 GB). It builds its own
+  copy of the dependencies there from the sources in `build/_deps` and never
+  writes to `build/`, so the normal builds are not changed or rebuilt.
+- Only the project's sources and tests are instrumented (`BLAZE_SANITIZE` in
+  `CMakeLists.txt`). miniaudio and stb compile inside project sources, so they
+  are instrumented too. SDL3 and glad are not.
+- The undefined-behaviour checks include `float-cast-overflow` (a number
+  converted to a type that cannot hold it), which GCC leaves out of
+  `-fsanitize=undefined`. A report ends the test; it is not only printed.
+- `sanitizer_canary_use_after_free` and `sanitizer_canary_float_cast` exist
+  only in this build. Each makes one deliberate error and passes only when the
+  sanitizer reports it, so a build that lost its sanitizer flags fails.
+- ThreadSanitizer is not part of it: it cannot be combined with
+  AddressSanitizer.
+
+Known reports. Both are in miniaudio 0.11.21, where a sound file fails to load:
+
+- #144: miniaudio reads a data buffer node that it has just freed
+  (`ma_resource_manager_data_buffer_node_acquire`). miniaudio 0.11.25 still
+  does.
+- #145: miniaudio leaks 744 bytes (`ma_sound_init_from_file_internal`). Fixed
+  in miniaudio 0.11.23.
+
+`audio_test`, `select_screen_test` and `preview_player_test` load a missing or
+corrupt file, so AddressSanitizer stops them at the first report. Until #144 is
+fixed, this preset passes each of the three only when that exact report is in
+its output (the `BLAZE_SANITIZE` block in `tests/CMakeLists.txt`), and the rest
+of each test does not run here. The normal build runs them in full.
+
+To run one test by hand:
+`UBSAN_OPTIONS=print_stacktrace=1 ./build-asan-ubsan/tests/<name>`.
 
 ## Running
 
