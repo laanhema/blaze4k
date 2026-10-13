@@ -459,6 +459,17 @@ target_compile_definitions(gameplay_screen_test PRIVATE
 
 add_test(NAME gameplay_screen_test COMMAND gameplay_screen_test)
 
+# #138: GameplayView is reused across plays; each load restarts its clock source.
+add_executable(gameplay_view_test
+    gameplay_view_test.cpp
+)
+
+target_link_libraries(gameplay_view_test PRIVATE
+    blaze4k_core
+)
+
+add_test(NAME gameplay_view_test COMMAND gameplay_view_test)
+
 add_executable(assist_tick_test
     assist_tick_test.cpp
 )

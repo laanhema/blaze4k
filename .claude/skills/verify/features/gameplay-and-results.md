@@ -35,7 +35,6 @@ Preconditions:
 
 - The fixture pack's music files are placeholders (`[SoundStream] Failed to load audio file ...`), so fixture songs run on a synthetic stub clock. That is fine for screen-flow proofs and wrong for timing proofs.
 - Fixture charts start at chart time zero with no lead-in. Arrows are already at the receptors when `wait-screen RUN Gameplay` returns, so take the gameplay shot at once and do not expect taps to land.
-- Known defect, seen 2026-10-13: the stub clock is not reset between plays. Only the first play of an instance starts at chart time zero. Later plays start where the last one stopped, so every arrow is a miss in the first frame and the fail time grows (`1.28333s`, then `12.8333s`). The outcomes in the recipe above stay the same. Relaunch when a proof needs arrows on screen.
 - Synthetic keys are stamped on arrival, so the judgments they produce say nothing about timing accuracy.
 - The pass above needs no taps: four misses leave life at 0.1, and Beginner charts clamp DP at zero, so the run clears at `0.00%` and is saved. An all-miss run on a harder chart has negative DP.
 - The score screen clamps the display. DP can be negative in the log and show `0` on screen.
