@@ -21,3 +21,7 @@ AllowShortFunctionsOnASingleLine: Inline
 AllowShortBlocksOnASingleLine: Empty
 AllowShortLambdasOnASingleLine: Inline
 BreakConstructorInitializers: BeforeColon
+---
+Language: Json
+DisableFormat: true
+...

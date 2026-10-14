@@ -18,6 +18,11 @@ endif()
 
 include(FetchContent)
 
+# Directory for shared dependency sources. Presets build their own binaries in
+# build-<preset>/_deps, but share the downloaded sources here (#148).
+set(BLAZE_DEPS_SOURCE_DIR "${CMAKE_SOURCE_DIR}/build/_deps" CACHE PATH
+    "Directory for shared dependency sources")
+
 # 1. SDL3
 set(SDL_SHARED OFF CACHE BOOL "Build SDL static library" FORCE)
 set(SDL_STATIC ON CACHE BOOL "Build SDL static library" FORCE)
@@ -27,6 +32,7 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
     GIT_TAG release-3.2.8
     GIT_SHALLOW TRUE
+    SOURCE_DIR "${BLAZE_DEPS_SOURCE_DIR}/sdl3-src"
 )
 
 # 2. GLAD (OpenGL 3.3 Core)
@@ -38,6 +44,7 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/Dav1dde/glad.git
     GIT_TAG v0.1.36
     GIT_SHALLOW TRUE
+    SOURCE_DIR "${BLAZE_DEPS_SOURCE_DIR}/glad-src"
 )
 
 # 3. nlohmann/json
@@ -47,6 +54,7 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/nlohmann/json.git
     GIT_TAG v3.11.3
     GIT_SHALLOW TRUE
+    SOURCE_DIR "${BLAZE_DEPS_SOURCE_DIR}/nlohmann_json-src"
 )
 
 # 4. miniaudio
@@ -55,6 +63,7 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/mackron/miniaudio.git
     GIT_TAG 0.11.21
     GIT_SHALLOW TRUE
+    SOURCE_DIR "${BLAZE_DEPS_SOURCE_DIR}/miniaudio-src"
 )
 
 # 5. stb (stb_truetype, etc.)
@@ -63,6 +72,7 @@ FetchContent_Declare(
     GIT_REPOSITORY https://github.com/nothings/stb.git
     GIT_TAG 2c980bb59875b0d32144a71867fbdebb2f77cd20
     GIT_SHALLOW TRUE
+    SOURCE_DIR "${BLAZE_DEPS_SOURCE_DIR}/stb-src"
 )
 
 FetchContent_MakeAvailable(SDL3 glad nlohmann_json miniaudio stb)

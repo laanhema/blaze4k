@@ -4,7 +4,7 @@
 #
 # Exports a clean source tree (no committed/ignored build artifacts), then
 # configures, builds, and runs the full ctest suite from that tree. By default
-# it reuses the local build/_deps cache via FETCHCONTENT_BASE_DIR so the run is
+# it reuses the local build/_deps cache via BLAZE_DEPS_SOURCE_DIR so the run is
 # offline and deterministic; pass --online to exercise a real FetchContent fetch.
 #
 # Usage: scripts/fresh-clone-check.sh [--online] [--build-dir <path>] [--committed] [--keep]
@@ -105,7 +105,7 @@ cmake_args=(-S "$tree" -B "$build_dir" -DCMAKE_BUILD_TYPE=Release)
 if [ "$online" -eq 1 ]; then
     echo "Dependency mode: online (fresh FetchContent download)"
 else
-    cmake_args+=("-DFETCHCONTENT_BASE_DIR=$repo_root/build/_deps")
+    cmake_args+=("-DBLAZE_DEPS_SOURCE_DIR=$repo_root/build/_deps")
     echo "Dependency mode: offline (reuse $repo_root/build/_deps when present)"
 fi
 
