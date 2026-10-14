@@ -206,6 +206,60 @@ void test_render_and_reenter() {
     std::cout << "  - 9. headless render + re-enter resets state ok.\n";
 }
 
+void test_mismatched_device_filtered() {
+    Fixture f;
+    // 1. Keyboard row ignores pad buttons during capture.
+    TEST_CHECK(f.screen->model().rows[0].device == DeviceType::Keyboard);
+    f.screen->update(f.ctx(), 0.0, {press(GameAction::Confirm)});
+    TEST_CHECK(f.screen->capturing());
+    f.screen->update(f.ctx(), 0.0, {raw_press(DeviceType::Gamepad, SDL_GAMEPAD_BUTTON_SOUTH)});
+    TEST_CHECK(f.screen->capturing());
+    TEST_CHECK(f.screen->model().rows[0].name == "Left");
+
+    // Matching keyboard key completes capture.
+    f.screen->update(f.ctx(), 0.0, {raw_press(DeviceType::Keyboard, SDLK_Z)});
+    TEST_CHECK(!f.screen->capturing());
+    TEST_CHECK(f.screen->model().rows[0].name == "Z");
+
+    // Pad Back cancels capture on a keyboard row.
+    f.screen->update(f.ctx(), 0.0, {press(GameAction::Confirm)});
+    TEST_CHECK(f.screen->capturing());
+    f.screen->update(f.ctx(), 0.0, {raw_press(DeviceType::Gamepad, SDL_GAMEPAD_BUTTON_BACK)});
+    TEST_CHECK(!f.screen->capturing());
+    TEST_CHECK(f.screen->model().rows[0].name == "Z");
+
+    // Navigate down to the first pad row.
+    while (f.screen->model().rows[static_cast<std::size_t>(f.screen->model().row)].device !=
+           DeviceType::Gamepad) {
+        f.screen->update(f.ctx(), 0.0, {press(GameAction::Down)});
+    }
+    const int pad_row = f.screen->model().row;
+    const std::string pad_name_before =
+        f.screen->model().rows[static_cast<std::size_t>(pad_row)].name;
+    TEST_CHECK(pad_name_before == "dpleft");
+
+    // 2. Pad row ignores keyboard keys during capture.
+    f.screen->update(f.ctx(), 0.0, {press(GameAction::Confirm)});
+    TEST_CHECK(f.screen->capturing());
+    f.screen->update(f.ctx(), 0.0, {raw_press(DeviceType::Keyboard, SDLK_Q)});
+    TEST_CHECK(f.screen->capturing());
+    TEST_CHECK(f.screen->model().rows[static_cast<std::size_t>(pad_row)].name == pad_name_before);
+
+    // Matching pad button completes capture.
+    f.screen->update(f.ctx(), 0.0, {raw_press(DeviceType::Gamepad, SDL_GAMEPAD_BUTTON_LEFT_STICK)});
+    TEST_CHECK(!f.screen->capturing());
+    TEST_CHECK(f.screen->model().rows[static_cast<std::size_t>(pad_row)].name == "leftstick");
+
+    // Keyboard Escape cancels capture on a pad row.
+    f.screen->update(f.ctx(), 0.0, {press(GameAction::Confirm)});
+    TEST_CHECK(f.screen->capturing());
+    f.screen->update(f.ctx(), 0.0, {raw_press(DeviceType::Keyboard, SDLK_ESCAPE)});
+    TEST_CHECK(!f.screen->capturing());
+    TEST_CHECK(f.screen->model().rows[static_cast<std::size_t>(pad_row)].name == "leftstick");
+
+    std::cout << "  - 10. mismatched-device capture filtering + cancel ok.\n";
+}
+
 } // namespace
 
 int main() {
@@ -219,6 +273,7 @@ int main() {
     test_reset();
     test_reserved_safety();
     test_render_and_reenter();
+    test_mismatched_device_filtered();
     std::cout << "[input_remap_screen_test] All tests passed!\n";
     return 0;
 }

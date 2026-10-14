@@ -110,6 +110,13 @@ void InputRemapScreen::update(ScreenContext& ctx, double /*fixed_dt*/,
             return;
         }
 
+        if (model_.row < 0 || model_.row >= static_cast<int>(model_.rows.size())) {
+            continue;
+        }
+        if (event.device != model_.rows[static_cast<std::size_t>(model_.row)].device) {
+            continue;
+        }
+
         std::string name;
         if (event.device == DeviceType::Keyboard) {
             const char* sdl_name = SDL_GetKeyName(static_cast<SDL_Keycode>(event.raw_code));
