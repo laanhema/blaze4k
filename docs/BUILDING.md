@@ -109,7 +109,8 @@ ctest --test-dir build --output-on-failure   # the tests alone, on an existing b
 `scripts/check.sh` is the command to run before a commit, and CI runs the same
 script on every pull request. It runs `scripts/lint.sh` (the repo rules a
 compiler does not check; `AGENTS.md` lists them), configures `build/` with
-`-DBLAZE_WERROR=ON`, builds, and runs the suite.
+`-DBLAZE_WERROR=ON`, builds, and runs the suite. A dedicated CI job (`sanitizer`)
+builds and tests the `asan-ubsan` preset on every pull request and on push to `main`.
 
 The tests are silent. The audio engine opens miniaudio's null device unless it
 is asked for the real one, and only the game and `tests/clock_probe.cpp` (the
@@ -142,6 +143,8 @@ GNU tar; the temp tree is removed on success unless `--keep` is passed.
 The `asan-ubsan` preset builds the project sources and the tests with GCC's
 AddressSanitizer and UndefinedBehaviorSanitizer. A memory error or undefined
 behaviour then stops the test that reaches it and prints where it happened.
+CI runs this preset in a dedicated `sanitizer` job on every pull request and on
+push to `main`.
 
 ```bash
 # First, and again after a dependency version in CMakeLists.txt changes:

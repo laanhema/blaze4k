@@ -44,3 +44,46 @@ jobs:
 
       - name: Configure, build and test
         run: scripts/check.sh
+
+  sanitizer:
+    name: Sanitizer (ASan + UBSan)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # The SDL3 build dependencies that docs/BUILDING.md lists for Debian / Ubuntu.
+      # docs/BUILDING.md (Sanitizer build) lists no extra packages for Debian / Ubuntu:
+      # build-essential installs the GCC AddressSanitizer and UndefinedBehaviorSanitizer runtimes.
+      - name: Install SDL3 build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            build-essential cmake git libasound2-dev libpulse-dev \
+            libwayland-dev wayland-protocols libxkbcommon-dev libudev-dev \
+            libx11-dev libxext-dev libxrandr-dev libxi-dev \
+            libxcursor-dev libxfixes-dev libgl1-mesa-dev
+
+      - name: Cache fetched dependencies
+        uses: actions/cache@v6
+        with:
+          path: build/_deps
+          key: deps-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
+
+      # The asan-ubsan preset reads dependency sources in build/_deps: configure build/ first.
+      - name: Populate dependencies
+        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Configure asan-ubsan preset
+        run: cmake --preset asan-ubsan
+
+      - name: Build asan-ubsan preset
+        run: cmake --build --preset asan-ubsan -j"$(nproc)"
+
+      - name: Test asan-ubsan preset
+        run: ctest --preset asan-ubsan
+
+      - name: Verify canary tests
+        run: ctest --preset asan-ubsan -R sanitizer_canary --no-tests=error
