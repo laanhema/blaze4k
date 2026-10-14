@@ -184,11 +184,9 @@ What the preset does:
 - ThreadSanitizer is not part of it: it cannot be combined with
   AddressSanitizer.
 
-Known reports. In miniaudio 0.11.21, where a sound file fails to load:
-
-- #145: miniaudio leaks 744 bytes (`ma_sound_init_from_file_internal`). Fixed
-  in miniaudio 0.11.23. The pre-check in `SoundStream::load` routes around this
-  path on missing or corrupt files, so test runs produce no leak report.
+Known reports: none. The pre-check in `SoundStream::load` routes around failed
+sound loads on missing or corrupt files, so test runs produce no leak or
+memory reports.
 
 To run one test by hand:
 `UBSAN_OPTIONS=print_stacktrace=1 ./build-asan-ubsan/tests/<name>`.
