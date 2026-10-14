@@ -2,7 +2,7 @@
 
 **Source:** `.agents/PRDs/PRD.md` (v1.0, 2026-09-26)
 **Generated:** 2026-09-26
-**Last Updated:** 2026-10-12
+**Last Updated:** 2026-10-14
 **Story count:** 26 (Phase A: 8, Phase B: 7, Phase C: 7, Phase D: 4)
 
 Ordering: by PRD implementation phase (§12), then dependencies, then priority. Each story references its PRD section(s) for traceability.
@@ -56,9 +56,6 @@ The criteria were checked on 2026-10-12 against the code at `d11de69` and one ru
 - #69 Expose the active audio output device (backend, ID, name, buffer) and handle reroutes
 - #70 Per-output-device global offset (remember calibration per headphones/speakers)
 - #98 [TODO-26] Polish the Cabinet theme and verify it cross-platform
-- #134 [TODO-37] Make the automated tests silent by default
-- #135 [TODO-38] Add one check command (warnings as errors + tests) and export compile_commands.json
-- #136 [TODO-39] Add a sanitizer build preset (AddressSanitizer + UndefinedBehaviorSanitizer)
 
 ---
 

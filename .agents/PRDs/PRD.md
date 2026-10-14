@@ -2,7 +2,7 @@
 
 **Version:** 1.0
 **Date:** 2026-09-26
-**Last Updated:** 2026-10-12
+**Last Updated:** 2026-10-14
 **Status:** v1 implemented — Phases A–D are delivered on Linux; the Windows/macOS builds, the GPU frame-rate check, and the pad-hardware feel test are owner steps that are not recorded yet
 **Product type:** Desktop rhythm game (solo hobby project)
 
@@ -167,9 +167,10 @@ blaze4k/
 │   ├── audio/         # miniaudio wrapper, music stream, preview, UI sounds, assist tick, metronome
 │   ├── render/        # quads, textures, TrueType + bitmap fonts, theme, background
 │   ├── gameplay/      # note field, noteskin, judgments, scoring, life, HUD, speed mods
-│   └── data/          # config, high scores, judgment-constant loader, data paths (JSON)
+│   ├── data/          # config, high scores, judgment-constant loader, data paths (JSON)
+│   └── util/          # checked text -> number parsing
 ├── assets/            # noteskins, fonts, Cabinet theme textures, fallback bg, judgment constants
-├── scripts/           # fresh-clone check, symbol font build
+├── scripts/           # check (lint + build + tests), lint rules, fresh-clone check, symbol font build
 ├── tests/             # one executable per test, fixtures (reference pack, sync-test chart)
 └── docs/              # BUILDING, AUDIO_LATENCY, CROSS_PLATFORM_VERIFICATION, cabinet-theme
 ```
@@ -231,7 +232,7 @@ blaze4k/
 | Fonts | stb_truetype | Texture-atlased UI text; stb is pinned to one commit and also supplies stb_image for textures |
 | Data | nlohmann/json | Pinned `v3.11.3`; config + scores |
 | Build | CMake | ≥ 3.24; FetchContent for deps |
-| Compilers | MSVC / Clang / GCC | CI-free local builds for v1 |
+| Compilers | MSVC / Clang / GCC | Linux CI (scripts/check.sh + sanitizer); local cross-platform builds |
 | Reference | OpenITG source | Authority for windows, DP weights, grades, life behavior |
 
 **Rationale:** C++20 gives deterministic real-time performance and direct access to the StepMania-lineage reference code. SDL3 was chosen over SDL2 for timestamped input events and longevity; the thin wrapper keeps switching cost low. miniaudio handles audio independently so SDL's audio model is irrelevant.
@@ -257,7 +258,7 @@ Not applicable — fully offline desktop application with no network API. Intern
 
 **MVP is successful when the developer can play a full song on a USB dance pad and the experience is indistinguishable in feel from OpenITG.**
 
-Ticks as of 2026-10-12 rest on the code and its test suite alone: the product was not run for this update.
+Ticks as of 2026-10-14 rest on the code and its test suite alone: the product was not run for this update.
 
 - [x] Reference simfile pack scans with 100% of its 4-panel songs playable; zero parser crashes
 - [x] Gameplay sync holds within one judgment window over a full-length song (verified with a metronome sync-test chart)

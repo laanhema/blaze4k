@@ -1,11 +1,11 @@
 # TODO Issues
 
 **Source**: `TODO.md` · **Generated**: 2026-10-02 · **Updated**: 2026-10-13 (TODO-44 – TODO-45 added; TODO-42 – TODO-43 added; TODO-40 – TODO-41 added; 2026-10-12: TODO-38 – TODO-39 added; TODO-37 added; 2026-10-10: TODO-35 – TODO-36 added; TODO-33 – TODO-34 added; 2026-10-07: TODO-32 added; TODO-31 added; 2026-10-06: TODO-30 added; 2026-10-05: TODO-27 – TODO-29 added; 2026-10-03: TODO-13 – TODO-14 added; TODO-15 – TODO-26 added from `blaze4k-cabinet-theme/IMPLEMENTATION_PLAN.md`, see "Cabinet theme" section)
-**Last Updated**: 2026-10-13
+**Last Updated**: 2026-10-14
 
 ## Status
 
-Of the 38 issues, 32 are done, 5 are pending and 1 is not planned (closed as a duplicate). No pull request is open.
+Of the 43 issues, 40 are done, 2 are pending and 1 is not planned (closed as a duplicate). No pull request is open.
 
 | Issue | Title | Pull request | Status | Acceptance criteria ticked |
 | --- | --- | --- | --- | --- |
@@ -44,11 +44,17 @@ Of the 38 issues, 32 are done, 5 are pending and 1 is not planned (closed as a d
 | #127 | [TODO-34] Add left margin to the stat panel labels on the results screen | #129 | done | 4 of 5 |
 | #130 | [TODO-35] Make the Edit difficulty row match the other rows' size and position in song select | #132 | done | 5 of 5 |
 | #131 | [TODO-36] Add right margin to the best % text in the song select difficulty rows | #133 | done | 5 of 5 |
-| #134 | [TODO-37] Make the automated tests silent by default | — | pending | 0 of 5 |
-| #135 | [TODO-38] Add one check command (warnings as errors + tests) and export compile_commands.json | — | pending | 0 of 6 |
-| #136 | [TODO-39] Add a sanitizer build preset (AddressSanitizer + UndefinedBehaviorSanitizer) | — | pending | 0 of 4 |
+| #134 | [TODO-37] Make the automated tests silent by default | #143 | done | 5 of 5 |
+| #135 | [TODO-38] Add one check command (warnings as errors + tests) and export compile_commands.json | #143 | done | 6 of 6 |
+| #136 | [TODO-39] Add a sanitizer build preset (AddressSanitizer + UndefinedBehaviorSanitizer) | #146 | done | 4 of 4 |
+| #141 | [TODO-40] Record draw calls in the headless renderer so tests can check them | #150 | done | 5 of 5 |
+| #142 | [TODO-41] Add a formatter check for changed lines | #151 | done | 6 of 6 |
+| #144 | [TODO-42] Stop miniaudio reading freed memory when a sound file fails to load | #153 | done | 5 of 5 |
+| #145 | [TODO-43] Stop miniaudio leaking 744 bytes when a sound file fails to load | #154 | done | 5 of 5 |
+| #147 | [TODO-44] Run the sanitizer build in CI | #155 | done | 5 of 5 |
+| #148 | [TODO-45] Give each build preset its own dependency build directory | #156 | done | 5 of 5 |
 
-The criteria were checked on 2026-10-12 against the code at `d11de69` and one run of the test suite (51 of 51 passed, with the sound device hidden). The game window was not opened. A box is ticked when the code or that test run shows the criterion, or when the issue's review report records it as met and the code still holds what it names; a criterion that asks for a record on the issue was checked against the issue's comments. An unticked box of a done issue has a note. An As Built section names the file or the constant that holds the result. A pending or not planned issue was not audited. The delivery records are under `.agents/plans/completed/`, `.agents/reports/` and `.agents/reviews/`.
+The criteria were checked on 2026-10-14 against the code at `1729358` and one run of `scripts/check.sh` (53 of 53 tests passed). The game window was not opened. A box is ticked when the code or that test run shows the criterion, or when the issue's review report records it as met and the code still holds what it names; a criterion that asks for a record on the issue was checked against the issue's comments. An unticked box of a done issue has a note. An As Built section names the file or the constant that holds the result. A pending or not planned issue was not audited. The delivery records are under `.agents/plans/completed/`, `.agents/reports/` and `.agents/reviews/`.
 
 ### Open Items Without an Issue
 
@@ -1573,7 +1579,7 @@ In the song select difficulty rows, the best % at the right end of each row ends
 **Labels**: `tests`, `audio`
 **Source**: `TODO.md:53` — "Make the automated tests silent by default: no test may open the real sound device unless it is explicitly asked to. Tests should use the audio engine's existing null backend (`use_null_backend`); an explicit opt-in (for example an environment variable) keeps real-device runs possible for latency measurements such as `clock_probe`. Plain `ctest` must then be safe without the `bwrap` sandbox prefix. #technical (from the 2026-10-12 retro, finding 2)"
 **GitHub**: #134
-**Status**: pending
+**Status**: done — issue closed, PR #143 merged
 
 ### Description
 
@@ -1581,11 +1587,11 @@ Some tests open the machine's default sound device: `audio_test` and `music_cloc
 
 ### Acceptance Criteria
 
-- [ ] No test opens the real sound device unless it is explicitly asked to
-- [ ] Tests use the audio engine's existing null backend (`use_null_backend`)
-- [ ] An explicit opt-in (for example an environment variable) keeps real-device runs possible for latency measurements such as `clock_probe`
-- [ ] Plain `ctest` is safe without the `bwrap` sandbox prefix
-- [ ] Running a test binary directly, outside `ctest`, is silent too
+- [x] No test opens the real sound device unless it is explicitly asked to
+- [x] Tests use the audio engine's existing null backend (`use_null_backend`)
+- [x] An explicit opt-in (for example an environment variable) keeps real-device runs possible for latency measurements such as `clock_probe`
+- [x] Plain `ctest` is safe without the `bwrap` sandbox prefix
+- [x] Running a test binary directly, outside `ctest`, is silent too
 
 ### Technical Notes
 
@@ -1600,6 +1606,12 @@ Some tests open the machine's default sound device: `audio_test` and `music_cloc
 - The null device is real-time-paced but wakes unevenly (see the `clock_probe.cpp` header), so do not tighten timing-precision assertions against it. No change to the music-clock path (AGENTS.md principle 1).
 - Docs: the Testing section of `docs/BUILDING.md`; `docs/AUDIO_LATENCY.md` and the `clock_probe.cpp` header refer to "the test sandbox".
 - Assumptions: "automated tests" means the ctest-registered tests and their binaries. The game's own headless smoke run (`blaze-4k --headless --smoke-test`) is out of scope. The sandbox prefix in use today is `bwrap --dev-bind / / --tmpfs /run/user/$(id -u) --tmpfs /dev/snd --unshare-net`.
+
+### As Built
+
+- `AudioBackend` in `src/audio/audio_engine.hpp` defaults to `AudioBackend::Null` (the silent null device). Only `src/main.cpp` and `tests/clock_probe.cpp` select `AudioBackend::Device`.
+- An explicit opt-in via environment variable `BLAZE4K_AUDIO_DEVICE=1` allows tests to open the real sound device.
+- Plain `ctest` runs silently and safely without sandbox prefixes.
 
 ### Dependencies
 
@@ -1618,7 +1630,7 @@ Some tests open the machine's default sound device: `audio_test` and `music_cloc
 **Labels**: `build`, `tests`
 **Source**: `TODO.md:54` — "Add one check command for the repo: a `scripts/check.sh` that builds with compiler warnings treated as errors and runs all tests, and turn on CMake's `compile_commands.json` export for the normal build. Agents and the owner then use one command instead of each review improvising its own warning check. #technical (from the 2026-10-12 retro, finding 3)"
 **GitHub**: #135
-**Status**: pending
+**Status**: done — issue closed, PR #143 merged
 
 ### Description
 
@@ -1626,12 +1638,12 @@ The repository has no single command that proves a change is clean. An increment
 
 ### Acceptance Criteria
 
-- [ ] `scripts/check.sh` builds with compiler warnings treated as errors and runs all tests
-- [ ] The normal build exports `compile_commands.json`
-- [ ] The script fails when a project source file has a warning or a test fails, and succeeds otherwise
-- [ ] Warnings inside third-party code (SDL3, glad, miniaudio, stb) do not fail it
-- [ ] `docs/BUILDING.md` names the script as the command to run before a commit
-- [ ] `docs/BUILDING.md` no longer states a fixed test count
+- [x] `scripts/check.sh` builds with compiler warnings treated as errors and runs all tests
+- [x] The normal build exports `compile_commands.json`
+- [x] The script fails when a project source file has a warning or a test fails, and succeeds otherwise
+- [x] Warnings inside third-party code (SDL3, glad, miniaudio, stb) do not fail it
+- [x] `docs/BUILDING.md` names the script as the command to run before a commit
+- [x] `docs/BUILDING.md` no longer states a fixed test count
 
 ### Technical Notes
 
@@ -1645,6 +1657,13 @@ The repository has no single command that proves a change is clean. An increment
 - `docs/BUILDING.md` says "expect 34/34" at lines 88, 102 and 117, while the suite has 51 tests. Remove the count instead of updating it: `ctest` prints it. Leave `docs/CROSS_PLATFORM_VERIFICATION.md` alone, because its 34/34 is a dated record of a past check.
 - Not checked: whether a full rebuild of today's tree is free of warnings.
 - Assumption: the script targets the Linux/GCC host. Clang is not installed there.
+
+### As Built
+
+- `scripts/check.sh` builds with compiler warnings treated as errors (`-DBLAZE_WERROR=ON`) and runs all tests.
+- `compile_commands.json` export is enabled by default (`CMAKE_EXPORT_COMPILE_COMMANDS=ON`).
+- Third-party dependencies are fetched without `-Werror`.
+- `docs/BUILDING.md` names `scripts/check.sh` as the pre-commit check command and omits fixed test counts.
 
 ### Dependencies
 
@@ -1664,7 +1683,7 @@ The repository has no single command that proves a change is clean. An increment
 **Labels**: `build`, `tests`
 **Source**: `TODO.md:55` — "Add a sanitizer build: a CMake preset that builds and runs the tests with GCC's AddressSanitizer and UndefinedBehaviorSanitizer, so memory errors and undefined behaviour are caught automatically instead of by code reading. #technical (from the 2026-10-12 retro, finding 3)"
 **GitHub**: #136
-**Status**: pending
+**Status**: done — issue closed, PR #146 merged
 
 ### Description
 
@@ -1672,10 +1691,10 @@ Memory errors and undefined behaviour are found today only when a reviewer spots
 
 ### Acceptance Criteria
 
-- [ ] A CMake preset builds and runs the tests with GCC's AddressSanitizer and UndefinedBehaviorSanitizer
-- [ ] All tests pass under the preset, or each sanitizer report is fixed or filed as its own issue
-- [ ] `docs/BUILDING.md` documents the preset and the packages it needs
-- [ ] The normal release and debug builds are unchanged
+- [x] A CMake preset builds and runs the tests with GCC's AddressSanitizer and UndefinedBehaviorSanitizer
+- [x] All tests pass under the preset, or each sanitizer report is fixed or filed as its own issue
+- [x] `docs/BUILDING.md` documents the preset and the packages it needs
+- [x] The normal release and debug builds are unchanged
 
 ### Technical Notes
 
@@ -1684,6 +1703,12 @@ Memory errors and undefined behaviour are found today only when a reviewer spots
 - Sanitizers slow the code down. `perf_loop_test` checks a CPU budget and other tests check timing, so they may need to be left out of this preset or given a looser limit in it. Do not change them in the normal builds.
 - Earlier review findings of this class: `read_integer` in `src/data/high_scores.cpp` (out-of-range `double` to `int64_t` cast), the symbol atlas rebake in `src/render/ttf_font.cpp` (texture destroyed while `GlQuadRenderer` held quads), and the tap replacement in `src/audio/audio_engine.cpp` (sound freed while the audio thread read it).
 - Assumptions: ThreadSanitizer is out of scope, because it cannot be combined with AddressSanitizer. The preset targets the Linux/GCC host.
+
+### As Built
+
+- `asan-ubsan` preset added to `CMakePresets.json` with `BLAZE_SANITIZE=ON`.
+- Canaries in `tests/sanitizer_canary.cpp` verify AddressSanitizer and UndefinedBehaviorSanitizer instrumentation.
+- `docs/BUILDING.md` documents preset usage, prerequisites, and expected reports.
 
 ### Dependencies
 
@@ -1703,7 +1728,7 @@ Memory errors and undefined behaviour are found today only when a reviewer spots
 **Labels**: `render`, `tests`
 **Source**: `TODO.md:56` — "Make draw calls testable without a window: let the headless renderer record what it was asked to draw (position, texture, colour), so a test can check a decision that today exists only inside a draw call."
 **GitHub**: #141
-**Status**: pending
+**Status**: done — issue closed, PR #150 merged
 
 ### Description
 
@@ -1711,11 +1736,11 @@ Without a window, `GlQuadRenderer` does nothing and its callers return early, so
 
 ### Acceptance Criteria
 
-- [ ] The headless renderer records each quad it is asked to draw (corners, texture, colour, blend mode), and a test can read the recording
-- [ ] A test of the code-drawn Edit difficulty row checks the recorded quads (body, four ring strips, tab, each with its colour), selected and not selected
-- [ ] That test fails when a ring strip gets the wrong rectangle or colour
-- [ ] The real game draws the same as before, shown by a `/verify` screenshot of song select
-- [ ] The "review only" row about draw-call decisions in the `AGENTS.md` rule table is updated to name the recorder
+- [x] The headless renderer records each quad it is asked to draw (corners, texture, colour, blend mode), and a test can read the recording
+- [x] A test of the code-drawn Edit difficulty row checks the recorded quads (body, four ring strips, tab, each with its colour), selected and not selected
+- [x] That test fails when a ring strip gets the wrong rectangle or colour
+- [x] The real game draws the same as before, shown by a `/verify` screenshot of song select
+- [x] The "review only" row about draw-call decisions in the `AGENTS.md` rule table is updated to name the recorder
 
 ### Technical Notes
 
@@ -1727,6 +1752,12 @@ Without a window, `GlQuadRenderer` does nothing and its callers return early, so
 - Assumption: solid quads only. Sprites and text stay out of scope: `Texture` is invalid without GL and the text renderer checks `gl_present()`, so those draws stop before they reach the renderer.
 - The recording must cost nothing in the real game (`perf_loop_test` gates the frame budget).
 - From the 2026-10-13 `/correct` pass.
+
+### As Built
+
+- Added `GlQuadRenderer::recorded_quads` in `src/render/gl_quad_renderer.hpp` and recording mode for headless testing.
+- `tests/select_art_test.cpp` validates recorded quads for the Edit difficulty row.
+- Updated `AGENTS.md` rule table to cite `GlQuadRenderer::recorded_quads`.
 
 ### Dependencies
 
@@ -1745,7 +1776,7 @@ Without a window, `GlQuadRenderer` does nothing and its callers return early, so
 **Labels**: `build`, `infrastructure`
 **Source**: `TODO.md:57` — "Add a formatter check for changed lines only: a `.clang-format` (100 columns, matching the current style) and a step in `scripts/check.sh` that fails when a line the change touches is not formatted, with the fix command in the error."
 **GitHub**: #142
-**Status**: pending
+**Status**: done — issue closed, PR #151 merged
 
 ### Description
 
@@ -1753,12 +1784,12 @@ Four reviews flagged comment or code lines that were wrapped unevenly or ran pas
 
 ### Acceptance Criteria
 
-- [ ] A `.clang-format` at the repo root, 100 columns, matching the current style
-- [ ] `scripts/check.sh` fails when a line the change touches is not formatted, and the error prints the command that fixes it
-- [ ] The existing code is not reformatted
-- [ ] CI and the host use the same clang-format version
-- [ ] Formatting three existing files with the new config changes little, with the result shown in the pull request
-- [ ] The rule table in `AGENTS.md` gains the row
+- [x] A `.clang-format` at the repo root, 100 columns, matching the current style
+- [x] `scripts/check.sh` fails when a line the change touches is not formatted, and the error prints the command that fixes it
+- [x] The existing code is not reformatted
+- [x] CI and the host use the same clang-format version
+- [x] Formatting three existing files with the new config changes little, with the result shown in the pull request
+- [x] The rule table in `AGENTS.md` gains the row
 
 ### Technical Notes
 
@@ -1770,6 +1801,13 @@ Four reviews flagged comment or code lines that were wrapped unevenly or ran pas
 - The review findings of this class were in reports 027, 028, 035 and 037. Two of the four lines were under 100 columns, so a column limit alone would not have caught them; comment re-wrapping (`ReflowComments`) decides whether those are caught.
 - Assumption: 100 columns. The owner approved it on 2026-10-13 without naming another width.
 - From the 2026-10-13 `/correct` pass.
+
+### As Built
+
+- Added `.clang-format` at repository root (100 column width, based on existing formatting).
+- Integrated `scripts/format.sh --check` into `scripts/check.sh`.
+- Pinned `clang-format==23.1.1` in CI workflow.
+- Updated `AGENTS.md` rules table with formatting check row.
 
 ### Dependencies
 
@@ -1788,7 +1826,7 @@ Four reviews flagged comment or code lines that were wrapped unevenly or ran pas
 **Labels**: `audio`
 **Source**: `TODO.md:58` — "miniaudio reads freed memory when a sound file fails to load."
 **GitHub**: #144
-**Status**: pending
+**Status**: done — issue closed, PR #153 merged
 
 ### Description
 
@@ -1796,11 +1834,11 @@ When a sound file is missing or corrupt, `ma_sound_init_from_file` (called by `S
 
 ### Acceptance Criteria
 
-- [ ] Loading a missing or corrupt sound file no longer produces the AddressSanitizer heap-use-after-free report in `ma_resource_manager_data_buffer_node_acquire` (reworded from: "Fix it or route around it")
-- [ ] The expected-report rule for `audio_test`, `select_screen_test` and `preview_player_test` is removed from the `BLAZE_SANITIZE` block in `tests/CMakeLists.txt` (reworded from: "then remove the expected-report rule for `audio_test`, `select_screen_test` and `preview_player_test` from the `BLAZE_SANITIZE` block in `tests/CMakeLists.txt`")
-- [ ] `ctest --preset asan-ubsan` runs those three tests in full and they pass (reworded from: "so `ctest --preset asan-ubsan` runs those tests in full")
-- [ ] `scripts/check.sh` prints `CHECK: PASS` (inferred)
-- [ ] The "Known reports" list in `docs/BUILDING.md` (Sanitizer build) no longer names this report (inferred)
+- [x] Loading a missing or corrupt sound file no longer produces the AddressSanitizer heap-use-after-free report in `ma_resource_manager_data_buffer_node_acquire` (reworded from: "Fix it or route around it")
+- [x] The expected-report rule for `audio_test`, `select_screen_test` and `preview_player_test` is removed from the `BLAZE_SANITIZE` block in `tests/CMakeLists.txt` (reworded from: "then remove the expected-report rule for `audio_test`, `select_screen_test` and `preview_player_test` from the `BLAZE_SANITIZE` block in `tests/CMakeLists.txt`")
+- [x] `ctest --preset asan-ubsan` runs those three tests in full and they pass (reworded from: "so `ctest --preset asan-ubsan` runs those tests in full")
+- [x] `scripts/check.sh` prints `CHECK: PASS` (inferred)
+- [x] The "Known reports" list in `docs/BUILDING.md` (Sanitizer build) no longer names this report (inferred)
 
 ### Technical Notes
 
@@ -1813,6 +1851,12 @@ When a sound file is missing or corrupt, `ma_sound_init_from_file` (called by `S
 - The rule to remove is the `set_tests_properties(audio_test select_screen_test preview_player_test ...)` call and its comment in the `if(BLAZE_SANITIZE)` block of `tests/CMakeLists.txt`. Once the report is gone, those three tests fail under the preset with "Required regular expression not found" until the rule is removed.
 - The audio library drives the music clock (AGENTS.md, principle 1). A miniaudio version change needs the measurements in `docs/AUDIO_LATENCY.md` repeated.
 - From the #136 sanitizer run.
+
+### As Built
+
+- Added pre-check using `ma_decoder_init_file` in `SoundStream::load` (`src/audio/sound_stream.cpp`) when opening sound files.
+- Removed expected-report properties for `audio_test`, `select_screen_test`, and `preview_player_test` from `tests/CMakeLists.txt`.
+- All tests pass cleanly under `ctest --preset asan-ubsan`.
 
 ### Dependencies
 
@@ -1831,7 +1875,7 @@ When a sound file is missing or corrupt, `ma_sound_init_from_file` (called by `S
 **Labels**: `audio`
 **Source**: `TODO.md:59` — "miniaudio leaks 744 bytes each time a sound file fails to load."
 **GitHub**: #145
-**Status**: pending
+**Status**: done — issue closed, PR #154 merged
 
 ### Description
 
@@ -1839,11 +1883,11 @@ Each time a sound file fails to load, miniaudio 0.11.21 leaks 744 bytes: `ma_sou
 
 ### Acceptance Criteria
 
-- [ ] A failed sound-file load no longer leaks: LeakSanitizer reports nothing for `audio_test`, `select_screen_test` and `preview_player_test` under `ctest --preset asan-ubsan` (inferred)
-- [ ] `ctest --preset asan-ubsan` passes with no expected-report rule for this leak in `tests/CMakeLists.txt` (inferred)
-- [ ] If the miniaudio version changes, the measurements in `docs/AUDIO_LATENCY.md` are repeated and recorded there (inferred)
-- [ ] `scripts/check.sh` prints `CHECK: PASS` (inferred)
-- [ ] The "Known reports" list in `docs/BUILDING.md` (Sanitizer build) no longer names this leak (inferred)
+- [x] A failed sound-file load no longer leaks: LeakSanitizer reports nothing for `audio_test`, `select_screen_test` and `preview_player_test` under `ctest --preset asan-ubsan` (inferred)
+- [x] `ctest --preset asan-ubsan` passes with no expected-report rule for this leak in `tests/CMakeLists.txt` (inferred)
+- [x] If the miniaudio version changes, the measurements in `docs/AUDIO_LATENCY.md` are repeated and recorded there (inferred)
+- [x] `scripts/check.sh` prints `CHECK: PASS` (inferred)
+- [x] The "Known reports" list in `docs/BUILDING.md` (Sanitizer build) no longer names this leak (inferred)
 
 ### Technical Notes
 
@@ -1856,6 +1900,11 @@ Each time a sound file fails to load, miniaudio 0.11.21 leaks 744 bytes: `ma_sou
 - After the pin changes, configure `build/` again (`cmake -B build`) before `cmake --preset asan-ubsan`. The preset builds the dependency sources in `build/_deps` and does not read the pin, so without that step it still tests miniaudio 0.11.21, shows the old leak, and prints nothing about it (`docs/BUILDING.md`, Sanitizer build).
 - Assumption: if TODO-42 lands the pre-check, this issue is verified and closed with it.
 - From the #136 sanitizer run.
+
+### As Built
+
+- Sound load pre-check in `src/audio/sound_stream.cpp` bypasses miniaudio's leaking error path, eliminating the 744-byte leak.
+- miniaudio version remains pinned to 0.11.21 without requiring audio latency re-measurements.
 
 ### Dependencies
 
@@ -1874,7 +1923,7 @@ Each time a sound file fails to load, miniaudio 0.11.21 leaks 744 bytes: `ma_sou
 **Labels**: `build`, `infrastructure`, `tests`
 **Source**: `TODO.md:60` — "Run the sanitizer build in CI: add a second CI job that configures, builds and tests the `asan-ubsan` preset on every pull request, so memory errors and undefined behaviour are caught automatically and not only when someone remembers to run the preset."
 **GitHub**: #147
-**Status**: pending
+**Status**: done — issue closed, PR #155 merged
 
 ### Description
 
@@ -1882,11 +1931,11 @@ The `asan-ubsan` preset ([TODO-39]) finds memory errors and undefined behaviour,
 
 ### Acceptance Criteria
 
-- [ ] A second CI job configures, builds and tests the `asan-ubsan` preset on every pull request and on every push to `main`
-- [ ] The job fails when a test fails under the preset, and when the two canary tests are missing (`ctest --preset asan-ubsan -R sanitizer_canary --no-tests=error`)
-- [ ] `scripts/check.sh` does not run the preset
-- [ ] The job installs the sanitizer packages that `docs/BUILDING.md` lists for Debian/Ubuntu, and that line is corrected if the job shows it is wrong
-- [ ] The rule table in `AGENTS.md` has a row for the sanitizer run, with the CI job as what enforces it
+- [x] A second CI job configures, builds and tests the `asan-ubsan` preset on every pull request and on every push to `main`
+- [x] The job fails when a test fails under the preset, and when the two canary tests are missing (`ctest --preset asan-ubsan -R sanitizer_canary --no-tests=error`)
+- [x] `scripts/check.sh` does not run the preset
+- [x] The job installs the sanitizer packages that `docs/BUILDING.md` lists for Debian/Ubuntu, and that line is corrected if the job shows it is wrong
+- [x] The rule table in `AGENTS.md` has a row for the sanitizer run, with the CI job as what enforces it
 
 ### Technical Notes
 
@@ -1899,6 +1948,12 @@ The `asan-ubsan` preset ([TODO-39]) finds memory errors and undefined behaviour,
 - The new row goes in the table "Rules and what enforces them" in `AGENTS.md`. The lint `doc-test-count` forbids writing the number of tests in docs and scripts.
 - Assumption: whether the job becomes a required check on `main` is the owner's decision and not part of this issue.
 - Follow-up from [TODO-39].
+
+### As Built
+
+- Added `sanitizer` job to `.github/workflows/ci.yml` running `asan-ubsan` preset and canary tests on pull request and push to `main`.
+- `scripts/check.sh` remains lightweight without sanitizer overhead.
+- Updated `AGENTS.md` rules table with CI sanitizer job enforcement.
 
 ### Dependencies
 
@@ -1918,7 +1973,7 @@ The `asan-ubsan` preset ([TODO-39]) finds memory errors and undefined behaviour,
 **Labels**: `build`
 **Source**: `TODO.md:61` — "Give each build preset its own dependency build directory."
 **GitHub**: #148
-**Status**: pending
+**Status**: done — issue closed, PR #156 merged
 
 ### Description
 
@@ -1926,11 +1981,11 @@ The hidden `base` preset in `CMakePresets.json` points every preset's `FETCHCONT
 
 ### Acceptance Criteria
 
-- [ ] Configuring any preset (for example `cmake --preset linux-gcc-release`) changes no file under `build/`, and a `scripts/check.sh` run afterwards rebuilds no dependency
-- [ ] A Debug preset and a Release preset can be configured and built one after the other without rebuilding each other's dependency libraries
-- [ ] The dependency sources are still downloaded only once and shared; a preset that downloads them on a new machine today still does
-- [ ] `scripts/fresh-clone-check.sh` still passes in its offline mode
-- [ ] `docs/BUILDING.md` says where each preset keeps its dependency sources and its dependency builds
+- [x] Configuring any preset (for example `cmake --preset linux-gcc-release`) changes no file under `build/`, and a `scripts/check.sh` run afterwards rebuilds no dependency
+- [x] A Debug preset and a Release preset can be configured and built one after the other without rebuilding each other's dependency libraries
+- [x] The dependency sources are still downloaded only once and shared; a preset that downloads them on a new machine today still does
+- [x] `scripts/fresh-clone-check.sh` still passes in its offline mode
+- [x] `docs/BUILDING.md` says where each preset keeps its dependency sources and its dependency builds
 
 ### Technical Notes
 
@@ -1942,6 +1997,13 @@ The hidden `base` preset in `CMakePresets.json` points every preset's `FETCHCONT
 - `docs/BUILDING.md` describes the shared cache in the paragraph under the preset table ("Presets reuse the local `build/_deps` dependency cache").
 - The Clang, MSVC and macOS presets are owner-run (`docs/CROSS_PLATFORM_VERIFICATION.md`). On the Linux host only the GCC presets can be configured and built.
 - Found by the [TODO-39] plan.
+
+### As Built
+
+- `CMakeLists.txt` sets `BLAZE_DEPS_SOURCE_DIR` to `${CMAKE_SOURCE_DIR}/build/_deps` for shared source trees while each preset builds in `build-<preset>/_deps`.
+- Presets no longer overwrite or rebuild each other's compiled dependency libraries.
+- `scripts/fresh-clone-check.sh` passes offline using `-DBLAZE_DEPS_SOURCE_DIR`.
+- `docs/BUILDING.md` updated to document shared source and separate build trees.
 
 ### Dependencies
 
