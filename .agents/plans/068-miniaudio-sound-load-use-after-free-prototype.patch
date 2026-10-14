@@ -1,0 +1,69 @@
+diff --git a/docs/BUILDING.md b/docs/BUILDING.md
+index c0fba42..903c4b2 100644
+--- a/docs/BUILDING.md
++++ b/docs/BUILDING.md
+@@ -184,19 +184,11 @@ What the preset does:
+ - ThreadSanitizer is not part of it: it cannot be combined with
+   AddressSanitizer.
+ 
+-Known reports. Both are in miniaudio 0.11.21, where a sound file fails to load:
++Known reports. In miniaudio 0.11.21, where a sound file fails to load:
+ 
+-- #144: miniaudio reads a data buffer node that it has just freed
+-  (`ma_resource_manager_data_buffer_node_acquire`). miniaudio 0.11.25 still
+-  does.
+ - #145: miniaudio leaks 744 bytes (`ma_sound_init_from_file_internal`). Fixed
+-  in miniaudio 0.11.23.
+-
+-`audio_test`, `select_screen_test` and `preview_player_test` load a missing or
+-corrupt file, so AddressSanitizer stops them at the first report. Until #144 is
+-fixed, this preset passes each of the three only when that exact report is in
+-its output (the `BLAZE_SANITIZE` block in `tests/CMakeLists.txt`), and the rest
+-of each test does not run here. The normal build runs them in full.
++  in miniaudio 0.11.23. The pre-check in `SoundStream::load` routes around this
++  path on missing or corrupt files, so test runs produce no leak report.
+ 
+ To run one test by hand:
+ `UBSAN_OPTIONS=print_stacktrace=1 ./build-asan-ubsan/tests/<name>`.
+diff --git a/src/audio/sound_stream.cpp b/src/audio/sound_stream.cpp
+index 6f6bade..0793925 100644
+--- a/src/audio/sound_stream.cpp
++++ b/src/audio/sound_stream.cpp
+@@ -75,6 +75,18 @@ bool SoundStream::load(const std::string& filepath) {
+         }
+     }
+ 
++    // Pre-check the file with a standalone decoder to fail cleanly on missing or
++    // corrupt files without triggering miniaudio's resource manager
++    // heap-use-after-free bug (#144).
++    ma_decoder decoder;
++    const ma_result probe = ma_decoder_init_file(filepath.c_str(), nullptr, &decoder);
++    if (probe != MA_SUCCESS) {
++        std::cerr << "[SoundStream] Failed to load audio file '" << filepath
++                  << "' (error code: " << static_cast<int>(probe) << ")\n";
++        return false;
++    }
++    ma_decoder_uninit(&decoder);
++
+     ma_result result = ma_sound_init_from_file(
+         engine.raw_engine(),
+         filepath.c_str(),
+diff --git a/tests/CMakeLists.txt b/tests/CMakeLists.txt
+index 7701d2f..ebe5ac4 100644
+--- a/tests/CMakeLists.txt
++++ b/tests/CMakeLists.txt
+@@ -665,14 +665,4 @@ if(BLAZE_SANITIZE)
+         PASS_REGULAR_EXPRESSION "runtime error: [^\n]* is outside the range of representable values"
+         FAIL_REGULAR_EXPRESSION "canary survived"
+     )
+-
+-    # Known report (#144): miniaudio 0.11.21 reads a data buffer node that it has just
+-    # freed when a sound file fails to load. These three tests load a missing or
+-    # corrupt file, and AddressSanitizer stops them there. Until that is fixed,
+-    # each passes only when this exact report is in its output. Once it is
+-    # fixed they fail here with "Required regular expression not found": remove
+-    # this block then, so they are judged by their exit code again.
+-    set_tests_properties(audio_test select_screen_test preview_player_test PROPERTIES
+-        PASS_REGULAR_EXPRESSION "SUMMARY: AddressSanitizer: heap-use-after-free [^\n]*miniaudio\\.h:[0-9]+ in ma_resource_manager_data_buffer_node_acquire"
+-    )
+ endif()
