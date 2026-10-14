@@ -93,11 +93,12 @@ cmake --preset benchmark && cmake --build --preset benchmark
 ctest --preset benchmark
 ```
 
-Presets reuse the local `build/_deps` dependency cache when it exists
-(`FETCHCONTENT_BASE_DIR`), so repeat runs are offline and deterministic. On a
-brand-new machine the first configure downloads the dependencies. `asan-ubsan`
-is the exception: it downloads nothing and needs `build/` configured first (see
-[Sanitizer build](#sanitizer-build)).
+Presets share downloaded dependency sources in `build/_deps`
+(`BLAZE_DEPS_SOURCE_DIR`) while keeping their dependency build directories
+separate under each preset's own build tree (`build-<preset>/_deps`), so repeat
+runs are offline and deterministic and presets never overwrite each other's or
+`build/`'s compiled dependency libraries. On a brand-new machine the first
+configure of any preset downloads the dependencies into `build/_deps`.
 
 ## Testing
 
@@ -147,9 +148,6 @@ CI runs this preset in a dedicated `sanitizer` job on every pull request and on
 push to `main`.
 
 ```bash
-# First, and again after a dependency version in CMakeLists.txt changes:
-# the preset reads the dependency sources in build/_deps.
-cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --preset asan-ubsan
 cmake --build --preset asan-ubsan -j"$(nproc)"
 ctest --preset asan-ubsan
@@ -167,10 +165,8 @@ What the preset does:
 - It is a Debug build in `build-asan-ubsan/` (about 1.5 GB). It builds its own
   copy of the dependencies there from the sources in `build/_deps` and never
   writes to `build/`, so the normal builds are not changed or rebuilt.
-- It does not read the `GIT_TAG` version pins in `CMakeLists.txt`: it builds
-  whatever sources `build/_deps` holds. After a pin changes, configure `build/`
-  again (the first command above) before this preset. Otherwise it tests the
-  old dependency version and prints nothing about it.
+- Like every preset, it shares the downloaded dependency sources in `build/_deps`
+  and tracks the `GIT_TAG` pins in `CMakeLists.txt`.
 - Only the project's sources and tests are instrumented (`BLAZE_SANITIZE` in
   `CMakeLists.txt`). miniaudio and stb compile inside project sources, so they
   are instrumented too. SDL3 and glad are not.

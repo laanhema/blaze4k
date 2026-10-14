@@ -1,0 +1,174 @@
+diff --git a/.clang-format b/.clang-format
+index e96ca3b..1b2a2a3 100644
+--- a/.clang-format
++++ b/.clang-format
+@@ -21,3 +21,7 @@ AllowShortFunctionsOnASingleLine: Inline
+ AllowShortBlocksOnASingleLine: Empty
+ AllowShortLambdasOnASingleLine: Inline
+ BreakConstructorInitializers: BeforeColon
++---
++Language: Json
++DisableFormat: true
++...
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index d052024..bff289c 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -18,6 +18,11 @@ endif()
+ 
+ include(FetchContent)
+ 
++# Directory for shared dependency sources. Presets build their own binaries in
++# build-<preset>/_deps, but share the downloaded sources here (#148).
++set(BLAZE_DEPS_SOURCE_DIR "${CMAKE_SOURCE_DIR}/build/_deps" CACHE PATH
++    "Directory for shared dependency sources")
++
+ # 1. SDL3
+ set(SDL_SHARED OFF CACHE BOOL "Build SDL static library" FORCE)
+ set(SDL_STATIC ON CACHE BOOL "Build SDL static library" FORCE)
+@@ -27,6 +32,7 @@ FetchContent_Declare(
+     GIT_REPOSITORY https://github.com/libsdl-org/SDL.git
+     GIT_TAG release-3.2.8
+     GIT_SHALLOW TRUE
++    SOURCE_DIR "${BLAZE_DEPS_SOURCE_DIR}/sdl3-src"
+ )
+ 
+ # 2. GLAD (OpenGL 3.3 Core)
+@@ -38,6 +44,7 @@ FetchContent_Declare(
+     GIT_REPOSITORY https://github.com/Dav1dde/glad.git
+     GIT_TAG v0.1.36
+     GIT_SHALLOW TRUE
++    SOURCE_DIR "${BLAZE_DEPS_SOURCE_DIR}/glad-src"
+ )
+ 
+ # 3. nlohmann/json
+@@ -47,6 +54,7 @@ FetchContent_Declare(
+     GIT_REPOSITORY https://github.com/nlohmann/json.git
+     GIT_TAG v3.11.3
+     GIT_SHALLOW TRUE
++    SOURCE_DIR "${BLAZE_DEPS_SOURCE_DIR}/nlohmann_json-src"
+ )
+ 
+ # 4. miniaudio
+@@ -55,6 +63,7 @@ FetchContent_Declare(
+     GIT_REPOSITORY https://github.com/mackron/miniaudio.git
+     GIT_TAG 0.11.21
+     GIT_SHALLOW TRUE
++    SOURCE_DIR "${BLAZE_DEPS_SOURCE_DIR}/miniaudio-src"
+ )
+ 
+ # 5. stb (stb_truetype, etc.)
+@@ -63,6 +72,7 @@ FetchContent_Declare(
+     GIT_REPOSITORY https://github.com/nothings/stb.git
+     GIT_TAG 2c980bb59875b0d32144a71867fbdebb2f77cd20
+     GIT_SHALLOW TRUE
++    SOURCE_DIR "${BLAZE_DEPS_SOURCE_DIR}/stb-src"
+ )
+ 
+ FetchContent_MakeAvailable(SDL3 glad nlohmann_json miniaudio stb)
+diff --git a/CMakePresets.json b/CMakePresets.json
+index c61ff5d..f0c8279 100644
+--- a/CMakePresets.json
++++ b/CMakePresets.json
+@@ -9,10 +9,7 @@
+     {
+       "name": "base",
+       "hidden": true,
+-      "binaryDir": "${sourceDir}/build-${presetName}",
+-      "cacheVariables": {
+-        "FETCHCONTENT_BASE_DIR": "${sourceDir}/build/_deps"
+-      }
++      "binaryDir": "${sourceDir}/build-${presetName}"
+     },
+     {
+       "name": "linux-gcc-release",
+@@ -100,20 +97,14 @@
+     {
+       "name": "asan-ubsan",
+       "displayName": "Linux GCC AddressSanitizer + UndefinedBehaviorSanitizer",
+-      "description": "Runs the tests with the project sources instrumented (BLAZE_SANITIZE). Needs build/ configured first, and again after a dependency version in CMakeLists.txt changes: it builds the dependencies in its own directory from the sources in build/_deps and leaves build/ alone. docs/BUILDING.md (Sanitizer build) names the reports it expects.",
++      "description": "Runs the tests with the project sources instrumented (BLAZE_SANITIZE). It builds the dependencies in its own directory and reuses the shared sources in build/_deps. docs/BUILDING.md (Sanitizer build) names the reports it expects.",
+       "inherits": "base",
+       "generator": "Unix Makefiles",
+       "cacheVariables": {
+         "CMAKE_BUILD_TYPE": "Debug",
+         "CMAKE_C_COMPILER": "gcc",
+         "CMAKE_CXX_COMPILER": "g++",
+-        "BLAZE_SANITIZE": "ON",
+-        "FETCHCONTENT_BASE_DIR": "${sourceDir}/build-asan-ubsan/_deps",
+-        "FETCHCONTENT_SOURCE_DIR_SDL3": "${sourceDir}/build/_deps/sdl3-src",
+-        "FETCHCONTENT_SOURCE_DIR_GLAD": "${sourceDir}/build/_deps/glad-src",
+-        "FETCHCONTENT_SOURCE_DIR_NLOHMANN_JSON": "${sourceDir}/build/_deps/nlohmann_json-src",
+-        "FETCHCONTENT_SOURCE_DIR_MINIAUDIO": "${sourceDir}/build/_deps/miniaudio-src",
+-        "FETCHCONTENT_SOURCE_DIR_STB": "${sourceDir}/build/_deps/stb-src"
++        "BLAZE_SANITIZE": "ON"
+       }
+     },
+     {
+diff --git a/docs/BUILDING.md b/docs/BUILDING.md
+index 6b8c157..e6c8199 100644
+--- a/docs/BUILDING.md
++++ b/docs/BUILDING.md
+@@ -93,11 +93,12 @@ cmake --preset benchmark && cmake --build --preset benchmark
+ ctest --preset benchmark
+ ```
+ 
+-Presets reuse the local `build/_deps` dependency cache when it exists
+-(`FETCHCONTENT_BASE_DIR`), so repeat runs are offline and deterministic. On a
+-brand-new machine the first configure downloads the dependencies. `asan-ubsan`
+-is the exception: it downloads nothing and needs `build/` configured first (see
+-[Sanitizer build](#sanitizer-build)).
++Presets share downloaded dependency sources in `build/_deps`
++(`BLAZE_DEPS_SOURCE_DIR`) while keeping their dependency build directories
++separate under each preset's own build tree (`build-<preset>/_deps`), so repeat
++runs are offline and deterministic and presets never overwrite each other's or
++`build/`'s compiled dependency libraries. On a brand-new machine the first
++configure of any preset downloads the dependencies into `build/_deps`.
+ 
+ ## Testing
+ 
+@@ -147,9 +148,6 @@ CI runs this preset in a dedicated `sanitizer` job on every pull request and on
+ push to `main`.
+ 
+ ```bash
+-# First, and again after a dependency version in CMakeLists.txt changes:
+-# the preset reads the dependency sources in build/_deps.
+-cmake -B build -DCMAKE_BUILD_TYPE=Release
+ cmake --preset asan-ubsan
+ cmake --build --preset asan-ubsan -j"$(nproc)"
+ ctest --preset asan-ubsan
+@@ -167,10 +165,8 @@ What the preset does:
+ - It is a Debug build in `build-asan-ubsan/` (about 1.5 GB). It builds its own
+   copy of the dependencies there from the sources in `build/_deps` and never
+   writes to `build/`, so the normal builds are not changed or rebuilt.
+-- It does not read the `GIT_TAG` version pins in `CMakeLists.txt`: it builds
+-  whatever sources `build/_deps` holds. After a pin changes, configure `build/`
+-  again (the first command above) before this preset. Otherwise it tests the
+-  old dependency version and prints nothing about it.
++- Like every preset, it shares the downloaded dependency sources in `build/_deps`
++  and tracks the `GIT_TAG` pins in `CMakeLists.txt`.
+ - Only the project's sources and tests are instrumented (`BLAZE_SANITIZE` in
+   `CMakeLists.txt`). miniaudio and stb compile inside project sources, so they
+   are instrumented too. SDL3 and glad are not.
+diff --git a/scripts/fresh-clone-check.sh b/scripts/fresh-clone-check.sh
+index b023af8..b65c9e1 100755
+--- a/scripts/fresh-clone-check.sh
++++ b/scripts/fresh-clone-check.sh
+@@ -4,7 +4,7 @@
+ #
+ # Exports a clean source tree (no committed/ignored build artifacts), then
+ # configures, builds, and runs the full ctest suite from that tree. By default
+-# it reuses the local build/_deps cache via FETCHCONTENT_BASE_DIR so the run is
++# it reuses the local build/_deps cache via BLAZE_DEPS_SOURCE_DIR so the run is
+ # offline and deterministic; pass --online to exercise a real FetchContent fetch.
+ #
+ # Usage: scripts/fresh-clone-check.sh [--online] [--build-dir <path>] [--committed] [--keep]
+@@ -105,7 +105,7 @@ cmake_args=(-S "$tree" -B "$build_dir" -DCMAKE_BUILD_TYPE=Release)
+ if [ "$online" -eq 1 ]; then
+     echo "Dependency mode: online (fresh FetchContent download)"
+ else
+-    cmake_args+=("-DFETCHCONTENT_BASE_DIR=$repo_root/build/_deps")
++    cmake_args+=("-DBLAZE_DEPS_SOURCE_DIR=$repo_root/build/_deps")
+     echo "Dependency mode: offline (reuse $repo_root/build/_deps when present)"
+ fi
+ 

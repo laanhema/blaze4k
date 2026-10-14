@@ -9,10 +9,7 @@
     {
       "name": "base",
       "hidden": true,
-      "binaryDir": "${sourceDir}/build-${presetName}",
-      "cacheVariables": {
-        "FETCHCONTENT_BASE_DIR": "${sourceDir}/build/_deps"
-      }
+      "binaryDir": "${sourceDir}/build-${presetName}"
     },
     {
       "name": "linux-gcc-release",
@@ -100,20 +97,14 @@
     {
       "name": "asan-ubsan",
       "displayName": "Linux GCC AddressSanitizer + UndefinedBehaviorSanitizer",
-      "description": "Runs the tests with the project sources instrumented (BLAZE_SANITIZE). Needs build/ configured first, and again after a dependency version in CMakeLists.txt changes: it builds the dependencies in its own directory from the sources in build/_deps and leaves build/ alone. docs/BUILDING.md (Sanitizer build) names the reports it expects.",
+      "description": "Runs the tests with the project sources instrumented (BLAZE_SANITIZE). It builds the dependencies in its own directory and reuses the shared sources in build/_deps. docs/BUILDING.md (Sanitizer build) names the reports it expects.",
       "inherits": "base",
       "generator": "Unix Makefiles",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_C_COMPILER": "gcc",
         "CMAKE_CXX_COMPILER": "g++",
-        "BLAZE_SANITIZE": "ON",
-        "FETCHCONTENT_BASE_DIR": "${sourceDir}/build-asan-ubsan/_deps",
-        "FETCHCONTENT_SOURCE_DIR_SDL3": "${sourceDir}/build/_deps/sdl3-src",
-        "FETCHCONTENT_SOURCE_DIR_GLAD": "${sourceDir}/build/_deps/glad-src",
-        "FETCHCONTENT_SOURCE_DIR_NLOHMANN_JSON": "${sourceDir}/build/_deps/nlohmann_json-src",
-        "FETCHCONTENT_SOURCE_DIR_MINIAUDIO": "${sourceDir}/build/_deps/miniaudio-src",
-        "FETCHCONTENT_SOURCE_DIR_STB": "${sourceDir}/build/_deps/stb-src"
+        "BLAZE_SANITIZE": "ON"
       }
     },
     {
