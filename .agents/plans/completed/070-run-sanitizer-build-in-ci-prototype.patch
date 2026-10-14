@@ -1,0 +1,93 @@
+diff --git a/.github/workflows/ci.yml b/.github/workflows/ci.yml
+index c0063ad..c51d98c 100644
+--- a/.github/workflows/ci.yml
++++ b/.github/workflows/ci.yml
+@@ -44,3 +44,47 @@ jobs:
+ 
+       - name: Configure, build and test
+         run: scripts/check.sh
++
++  sanitizer:
++    name: Sanitizer (ASan + UBSan)
++    runs-on: ubuntu-latest
++    steps:
++      - name: Checkout code
++        uses: actions/checkout@v7
++        with:
++          fetch-depth: 0
++
++      # The SDL3 build dependencies that docs/BUILDING.md lists for Debian / Ubuntu.
++      # docs/BUILDING.md (Sanitizer build) lists no extra packages for Debian / Ubuntu:
++      # build-essential installs the GCC AddressSanitizer and UndefinedBehaviorSanitizer runtimes.
++      - name: Install SDL3 build dependencies
++        run: |
++          sudo apt-get update
++          sudo apt-get install -y --no-install-recommends \
++            build-essential cmake git libasound2-dev libpulse-dev \
++            libwayland-dev wayland-protocols libxkbcommon-dev libudev-dev \
++            libx11-dev libxext-dev libxrandr-dev libxi-dev \
++            libxcursor-dev libxfixes-dev libgl1-mesa-dev
++
++      - name: Cache fetched dependencies
++        uses: actions/cache@v6
++        with:
++          path: build/_deps
++          key: deps-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
++
++      # The asan-ubsan preset reads dependency sources in build/_deps: configure build/ first.
++      - name: Populate dependencies
++        run: cmake -B build -DCMAKE_BUILD_TYPE=Release
++
++      - name: Configure asan-ubsan preset
++        run: cmake --preset asan-ubsan
++
++      - name: Build asan-ubsan preset
++        run: cmake --build --preset asan-ubsan -j"$(nproc)"
++
++      - name: Test asan-ubsan preset
++        run: ctest --preset asan-ubsan
++
++      - name: Verify canary tests
++        run: ctest --preset asan-ubsan -R sanitizer_canary --no-tests=error
++
+diff --git a/AGENTS.md b/AGENTS.md
+index 4df2d5a..655e021 100644
+--- a/AGENTS.md
++++ b/AGENTS.md
+@@ -114,11 +114,12 @@ Screen flow: **Title → Attract → Select → Gameplay → Results** (state ma
+ 
+ ## Rules and what enforces them
+ 
+-Each rule is a mistake that agents made here at least twice. `scripts/check.sh` runs every check below, locally and in CI. A lint failure prints the rule name, the file and line, and what to use instead.
++Each rule is a mistake that agents made here at least twice. `scripts/check.sh` runs every check below locally and in CI, except the sanitizer run which is enforced by a dedicated CI job (`sanitizer`). A lint failure prints the rule name, the file and line, and what to use instead.
+ 
+ | Rule | Enforced by |
+ | ---- | ----------- |
+ | Project sources compile with zero warnings. | `-DBLAZE_WERROR=ON` in `scripts/check.sh` |
++| Project sources and tests run without memory errors or undefined behaviour. | CI job `sanitizer` (`.github/workflows/ci.yml`, `asan-ubsan` preset) |
+ | Tests run on the silent null audio device. Only the game and `tests/clock_probe.cpp` open the real one. | `AudioBackend` defaults to `Null` (`src/audio/audio_engine.hpp`); lint `audio-device`, `audio-device-open`; `audio_test` |
+ | Text becomes a number through `src/util/parse_number.hpp`. | lint `number-parsing`; `parse_number_test` |
+ | SDL is included from `src/input` and `src/app`, plus the files the lint lists. | lint `sdl-boundary` |
+diff --git a/docs/BUILDING.md b/docs/BUILDING.md
+index c9f30d1..6b8c157 100644
+--- a/docs/BUILDING.md
++++ b/docs/BUILDING.md
+@@ -109,7 +109,8 @@ ctest --test-dir build --output-on-failure   # the tests alone, on an existing b
+ `scripts/check.sh` is the command to run before a commit, and CI runs the same
+ script on every pull request. It runs `scripts/lint.sh` (the repo rules a
+ compiler does not check; `AGENTS.md` lists them), configures `build/` with
+-`-DBLAZE_WERROR=ON`, builds, and runs the suite.
++`-DBLAZE_WERROR=ON`, builds, and runs the suite. A dedicated CI job (`sanitizer`)
++builds and tests the `asan-ubsan` preset on every pull request and on push to `main`.
+ 
+ The tests are silent. The audio engine opens miniaudio's null device unless it
+ is asked for the real one, and only the game and `tests/clock_probe.cpp` (the
+@@ -142,6 +143,8 @@ GNU tar; the temp tree is removed on success unless `--keep` is passed.
+ The `asan-ubsan` preset builds the project sources and the tests with GCC's
+ AddressSanitizer and UndefinedBehaviorSanitizer. A memory error or undefined
+ behaviour then stops the test that reaches it and prints where it happened.
++CI runs this preset in a dedicated `sanitizer` job on every pull request and on
++push to `main`.
+ 
+ ```bash
+ # First, and again after a dependency version in CMakeLists.txt changes:

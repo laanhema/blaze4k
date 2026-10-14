@@ -114,11 +114,12 @@ Screen flow: **Title → Attract → Select → Gameplay → Results** (state ma
 
 ## Rules and what enforces them
 
-Each rule is a mistake that agents made here at least twice. `scripts/check.sh` runs every check below, locally and in CI. A lint failure prints the rule name, the file and line, and what to use instead.
+Each rule is a mistake that agents made here at least twice. `scripts/check.sh` runs every check below locally and in CI, except the sanitizer run which is enforced by a dedicated CI job (`sanitizer`). A lint failure prints the rule name, the file and line, and what to use instead.
 
 | Rule | Enforced by |
 | ---- | ----------- |
 | Project sources compile with zero warnings. | `-DBLAZE_WERROR=ON` in `scripts/check.sh` |
+| Project sources and tests run without memory errors or undefined behaviour. | CI job `sanitizer` (`.github/workflows/ci.yml`, `asan-ubsan` preset) |
 | Tests run on the silent null audio device. Only the game and `tests/clock_probe.cpp` open the real one. | `AudioBackend` defaults to `Null` (`src/audio/audio_engine.hpp`); lint `audio-device`, `audio-device-open`; `audio_test` |
 | Text becomes a number through `src/util/parse_number.hpp`. | lint `number-parsing`; `parse_number_test` |
 | SDL is included from `src/input` and `src/app`, plus the files the lint lists. | lint `sdl-boundary` |
