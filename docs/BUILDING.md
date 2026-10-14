@@ -184,19 +184,11 @@ What the preset does:
 - ThreadSanitizer is not part of it: it cannot be combined with
   AddressSanitizer.
 
-Known reports. Both are in miniaudio 0.11.21, where a sound file fails to load:
+Known reports. In miniaudio 0.11.21, where a sound file fails to load:
 
-- #144: miniaudio reads a data buffer node that it has just freed
-  (`ma_resource_manager_data_buffer_node_acquire`). miniaudio 0.11.25 still
-  does.
 - #145: miniaudio leaks 744 bytes (`ma_sound_init_from_file_internal`). Fixed
-  in miniaudio 0.11.23.
-
-`audio_test`, `select_screen_test` and `preview_player_test` load a missing or
-corrupt file, so AddressSanitizer stops them at the first report. Until #144 is
-fixed, this preset passes each of the three only when that exact report is in
-its output (the `BLAZE_SANITIZE` block in `tests/CMakeLists.txt`), and the rest
-of each test does not run here. The normal build runs them in full.
+  in miniaudio 0.11.23. The pre-check in `SoundStream::load` routes around this
+  path on missing or corrupt files, so test runs produce no leak report.
 
 To run one test by hand:
 `UBSAN_OPTIONS=print_stacktrace=1 ./build-asan-ubsan/tests/<name>`.

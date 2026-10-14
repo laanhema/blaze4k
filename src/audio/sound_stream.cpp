@@ -75,6 +75,18 @@ bool SoundStream::load(const std::string& filepath) {
         }
     }
 
+    // Pre-check the file with a standalone decoder to fail cleanly on missing or
+    // corrupt files without triggering miniaudio's resource manager
+    // heap-use-after-free bug (#144).
+    ma_decoder decoder;
+    const ma_result probe = ma_decoder_init_file(filepath.c_str(), nullptr, &decoder);
+    if (probe != MA_SUCCESS) {
+        std::cerr << "[SoundStream] Failed to load audio file '" << filepath
+                  << "' (error code: " << static_cast<int>(probe) << ")\n";
+        return false;
+    }
+    ma_decoder_uninit(&decoder);
+
     ma_result result = ma_sound_init_from_file(
         engine.raw_engine(),
         filepath.c_str(),
