@@ -26,7 +26,7 @@ Preconditions:
 - **Enter select.** Run `$B keys RUN Return` and `$B wait-screen RUN Select`. The log shows `[ScreenManager] Title -> Select`.
 - **Back to title.** Run `$B keys RUN Escape` and `$B wait-screen RUN Title`.
 - **Quit.** On Title, run `$B keys RUN Escape`. The process exits by itself and the log ends with `[App] Back pressed. Exiting.` and `Blaze 4k shut down cleanly.`
-- **Attract on idle.** On the `--attract-timeout 6` instance, run `$B wait-screen RUN Attract 15` and `$B shot RUN 02-attract`. The log shows `[AttractScreen] title loop active (any Confirm exits)` and `[ScreenManager] Title -> Attract`. The shot has grey arrows lighting up in turn and no caption or footer.
+- **Attract on idle.** On the `--attract-timeout 6` instance, run `$B wait-screen RUN Attract 15` and `$B shot RUN 02-attract`. The log shows `[AttractScreen] title loop active (any Confirm exits)` and `[ScreenManager] Title -> Attract`. The shot has the logo, the PRESS START plate, grey arrows lighting up in turn, and no caption or footer.
 - **Leave attract.** Run `$B keys RUN Left` and `$B screen RUN`, which still prints `Attract`. Then run `$B keys RUN Return` and `$B wait-screen RUN Title`. Attract returns to the screen it interrupted: entered from Select, it logs `Attract -> Select`.
 
 ## Gotchas

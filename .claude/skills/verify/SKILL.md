@@ -13,7 +13,7 @@ Everything goes through `scripts/b4k.sh` (paths below are relative to this skill
 
 - An X11 session with `DISPLAY` set. The owner runs i3 on X11. Wayland-only sessions are not supported by this harness.
 - `python3` with `python-xlib`, `wmctrl`, ImageMagick `import`, `stdbuf`.
-- A current Release build in `build/`. Rebuild with `cmake --build build -j` after changing code. `doctor` fails when any file in `src/`, `assets/`, or `CMakeLists.txt` is newer than `build/blaze-4k`.
+- A current Release build in `build/`. Rebuild with `cmake --build build -j` after changing code. `doctor` fails when any file in `src/` or `assets/` is newer than `build/blaze-4k`, or `CMakeLists.txt` is newer than the last configure of `build/`.
 
 ## Launch
 

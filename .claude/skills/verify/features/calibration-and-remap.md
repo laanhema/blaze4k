@@ -9,7 +9,7 @@ Two setup screens open from the options overlay. Calibration plays a click track
 - `calib-save` writes `offset.global_offset_seconds` on Enter, only with a real audio clock and an in-range result.
 - `calib-abort` leaves on Back without writing config.
 - `remap-open` opens the screen from REMAP INPUT.
-- `remap-capture` replaces the highlighted row's key with the next key pressed. Escape cancels.
+- `remap-capture` replaces the highlighted row's key with the next press from that row's device (keyboard rows take keys, pad rows take pad buttons). Escape cancels on any row.
 - `remap-conflict` rejects a key bound elsewhere and keeps capturing.
 - `remap-reset` restores the default bindings.
 - `remap-persist` writes `input.key_bindings` to `config.json`.
@@ -35,7 +35,8 @@ Preconditions:
 - **Cancel a capture.** Run `$B keys RUN Return` and `$B shot RUN 06-capturing`. The row reads `<PRESS>`. Run `$B keys RUN Escape`. `$B screen RUN` prints `InputRemap` and the row reads `Left` again.
 - **Conflict.** Run `$B keys RUN Return f` and `$B shot RUN 07-conflict`. A chip reads `IN USE: DOWN` and the row still reads `<PRESS>`.
 - **Rebind.** Run `$B keys RUN a` and `$B shot RUN 08-rebound`. The row reads `LEFT ... A` and the chip reads `BOUND TO LEFT`.
-- **Reset.** Send `Down` 24 times in one `$B keys RUN` call and run `$B shot RUN 09-reset-row`. `RESET TO DEFAULTS` is highlighted. Run `$B keys RUN Return`. The chip reads `DEFAULTS RESTORED`. Run `$B keys RUN Escape`, `$B wait-screen RUN Select`, `$B keys RUN wait:1 Return`, and `$B wait-screen RUN InputRemap`. The first row reads `Left` again.
+- **Pad row ignores keys.** Send `Down` 12 times in one `$B keys RUN` call to reach the first `PAD` row (`LEFT ... dpleft`). Run `$B keys RUN Return z` and `$B shot RUN 09-pad-ignored`. The row still reads `<PRESS>` and no chip appears. Run `$B keys RUN Escape`. The row reads `dpleft` again.
+- **Reset.** Send `Down` 12 more times in one `$B keys RUN` call (24 from the first row) and run `$B shot RUN 10-reset-row`. `RESET TO DEFAULTS` is highlighted. Run `$B keys RUN Return`. The chip reads `DEFAULTS RESTORED`. Run `$B keys RUN Escape`, `$B wait-screen RUN Select`, `$B keys RUN wait:1 Return`, and `$B wait-screen RUN InputRemap`. The first row reads `Left` again.
 - **Persisted.** Rebind again (`$B keys RUN Return a` on the first row), run `$B stop RUN`, and read `RUN/evidence/config.json`. `input.key_bindings.Left` is `["A", "D"]`, the other actions keep their defaults, and `offset.global_offset_seconds` is the saved offset.
 
 ## Gotchas
@@ -43,7 +44,8 @@ Preconditions:
 - Synthetic taps arrive with no hardware timestamp, so any offset they produce is meaningless. Use calibration recipes to prove screen flow and the save/no-save rules, never a latency number.
 - The clicks are 0.5 s apart after a 2 s `GET READY` lead-in, so start tapping after it. A tap token takes 0.31 s, so `wait:0.19` between taps keeps them on the beat.
 - A save prints no log line. Prove it from the CALIBRATE OFFSET row and from `config.json`.
-- The wizard refuses to save when the clock is synthetic or the delay is out of range. The log says `[Calibration] ... offset not saved`. The harness cannot force either case: `launch` always has the real sound device, and the delay depends on where the taps fall between clicks. Report this path as not driven.
+- The wizard refuses to save when the clock is synthetic or the delay is out of range. The log says `[Calibration] ... offset not saved`. The harness cannot force either case: `launch` always has the real sound device, and the delay depends on where the taps fall between clicks. An out-of-range result shows `OUT OF RANGE` instead of `DONE`; if the tap line lands there by chance, the refusal is driven, so cite it, then press Escape and retry the save. Otherwise report this path as not driven.
+- The capture footer reads `PRESS A KEY OR PAD BUTTON` on every row, but a pad row ignores keyboard keys. The harness sends only keys, so pad-button binds cannot be driven.
 - Escape is reserved during capture and cancels it. It can never become a binding.
 - Each key has its own row, so an action with two keys has two rows. Rebinding the first `LEFT` row replaces `Left` and keeps `D`.
 - Rebinding a gameplay arrow changes later recipes in the same run. After `Left` is rebound to `A`, `$B keys RUN Left` no longer taps in calibration or moves anything. Reset or relaunch first.
