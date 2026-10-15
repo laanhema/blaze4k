@@ -20,7 +20,7 @@ SDL3 build dependencies.
 Fedora / RHEL:
 
 ```bash
-sudo dnf install cmake gcc-c++ git alsa-lib-devel \
+sudo dnf install cmake gcc-c++ git \
   wayland-devel wayland-protocols-devel libxkbcommon-devel systemd-devel \
   libX11-devel libXext-devel libXrandr-devel \
   libXi-devel libXcursor-devel libXfixes-devel mesa-libGL-devel
@@ -29,7 +29,7 @@ sudo dnf install cmake gcc-c++ git alsa-lib-devel \
 Debian / Ubuntu:
 
 ```bash
-sudo apt install build-essential cmake git libasound2-dev libpulse-dev \
+sudo apt install build-essential cmake git \
   libwayland-dev wayland-protocols libxkbcommon-dev libudev-dev \
   libx11-dev libxext-dev libxrandr-dev libxi-dev \
   libxcursor-dev libxfixes-dev libgl1-mesa-dev
@@ -235,6 +235,7 @@ owner-verification procedure.
 
 - **`FetchContent` fails**: check network access, or pre-populate
   `build/_deps` and reuse it (the default preset/fresh-clone behavior).
-- **No audio backend**: install ALSA/PulseAudio headers; the game degrades
+- **No audio backend**: install the PulseAudio/PipeWire or ALSA runtime
+  libraries (miniaudio loads them at runtime); without them the game degrades
   gracefully to the stub clock.
 - **Headless CI-like runs**: pass `--headless` to skip window/GL/audio.

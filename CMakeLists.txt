@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.24)
-set(CMAKE_POLICY_VERSION_MINIMUM 3.5 CACHE STRING "" FORCE)
+set(CMAKE_POLICY_VERSION_MINIMUM 3.10 CACHE STRING "" FORCE)
 project(blaze-4k VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
@@ -27,6 +27,9 @@ set(BLAZE_DEPS_SOURCE_DIR "${CMAKE_SOURCE_DIR}/build/_deps" CACHE PATH
 set(SDL_SHARED OFF CACHE BOOL "Build SDL static library" FORCE)
 set(SDL_STATIC ON CACHE BOOL "Build SDL static library" FORCE)
 set(SDL_TEST_LIBRARY OFF CACHE BOOL "Build SDL test library" FORCE)
+# miniaudio plays all audio, so SDL builds without its audio subsystem and
+# needs no ALSA, PulseAudio or other audio development libraries.
+set(SDL_AUDIO OFF CACHE BOOL "Build SDL audio subsystem" FORCE)
 FetchContent_Declare(
     SDL3
     GIT_REPOSITORY https://github.com/libsdl-org/SDL.git

@@ -27,7 +27,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential cmake git libasound2-dev libpulse-dev \
+            build-essential cmake git \
             libwayland-dev wayland-protocols libxkbcommon-dev libudev-dev \
             libx11-dev libxext-dev libxrandr-dev libxi-dev \
             libxcursor-dev libxfixes-dev libgl1-mesa-dev
@@ -61,7 +61,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential cmake git libasound2-dev libpulse-dev \
+            build-essential cmake git \
             libwayland-dev wayland-protocols libxkbcommon-dev libudev-dev \
             libx11-dev libxext-dev libxrandr-dev libxi-dev \
             libxcursor-dev libxfixes-dev libgl1-mesa-dev

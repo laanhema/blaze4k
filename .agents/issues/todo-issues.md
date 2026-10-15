@@ -1,7 +1,7 @@
 # TODO Issues
 
-**Source**: `TODO.md` · **Generated**: 2026-10-02 · **Updated**: 2026-10-13 (TODO-44 – TODO-45 added; TODO-42 – TODO-43 added; TODO-40 – TODO-41 added; 2026-10-12: TODO-38 – TODO-39 added; TODO-37 added; 2026-10-10: TODO-35 – TODO-36 added; TODO-33 – TODO-34 added; 2026-10-07: TODO-32 added; TODO-31 added; 2026-10-06: TODO-30 added; 2026-10-05: TODO-27 – TODO-29 added; 2026-10-03: TODO-13 – TODO-14 added; TODO-15 – TODO-26 added from `blaze4k-cabinet-theme/IMPLEMENTATION_PLAN.md`, see "Cabinet theme" section)
-**Last Updated**: 2026-10-14
+**Source**: `TODO.md` · **Generated**: 2026-10-02 · **Updated**: 2026-10-15 (TODO-46 – TODO-54 added; 2026-10-13: TODO-44 – TODO-45 added; TODO-42 – TODO-43 added; TODO-40 – TODO-41 added; 2026-10-12: TODO-38 – TODO-39 added; TODO-37 added; 2026-10-10: TODO-35 – TODO-36 added; TODO-33 – TODO-34 added; 2026-10-07: TODO-32 added; TODO-31 added; 2026-10-06: TODO-30 added; 2026-10-05: TODO-27 – TODO-29 added; 2026-10-03: TODO-13 – TODO-14 added; TODO-15 – TODO-26 added from `blaze4k-cabinet-theme/IMPLEMENTATION_PLAN.md`, see "Cabinet theme" section)
+**Last Updated**: 2026-10-15
 
 ## Status
 
@@ -70,7 +70,7 @@ The criteria were checked on 2026-10-14 against the code at `1729358` and one ru
 ## Skipped
 
 - **Done (`[x]`)** — 28 items: `TODO.md` lines 1–15, 18–30 (font capitals bug, song-select audio, difficulty order, tab legend, key-repeat scrolling, song list room, attract timeout, legend overlap, song list rendering, results delay, disappearing holds, ITG arrow colors ×2, Cel noteskin, hold-end artifact, colored difficulties, receptor/hit effects, options SFX, assist-tick toggle, calibrate → Esc, auto `songs/` folder, remap background music, white high-score flash, best % in song select, assist-tick timing, options room, remap table layout, bigger receptors).
-- **Already tracked** — none on the first run. Second run: `TODO.md:16` (#55, TODO-1), `TODO.md:35` (#60, TODO-7); lines 31–34, 36, 37 are now marked done. Third run: `TODO.md:16` (#55), `:35` (#60), `:40` (#78); lines 36–39 are now marked done. Fifth run (2026-10-05): `TODO.md:17` (#98), `:35` (#60); lines 1–16, 18–34, 36–42 are marked done. Sixth run (2026-10-06): `TODO.md:17` (#98), `:35` (#60); lines 1–16, 18–34, 36–45 are marked done. Seventh run (2026-10-07): `TODO.md:17` (#98), `:35` (#60), `:46` (#118, TODO-30); lines 1–16, 18–34, 36–45 are marked done. Eighth run (2026-10-07): `TODO.md:17` (#98), `:35` (#60); lines 1–16, 18–34, 36–47 are marked done. Ninth run (2026-10-10): `TODO.md:17` (#98), `:35` (#60); lines 1–16, 18–34, 36–48 are marked done. Tenth run (2026-10-10): `TODO.md:17` (#98), `:35` (#60); lines 1–16, 18–34, 36–50 are marked done. Eleventh run (2026-10-12): `TODO.md:17` (#98), `:35` (#60); lines 1–16, 18–34, 36–52 are marked done. Twelfth run (2026-10-12): `TODO.md:17` (#98), `:35` (#60), `:53` (#134, TODO-37); lines 1–16, 18–34, 36–52 are marked done.
+- **Already tracked** — none on the first run. Second run: `TODO.md:16` (#55, TODO-1), `TODO.md:35` (#60, TODO-7); lines 31–34, 36, 37 are now marked done. Third run: `TODO.md:16` (#55), `:35` (#60), `:40` (#78); lines 36–39 are now marked done. Fifth run (2026-10-05): `TODO.md:17` (#98), `:35` (#60); lines 1–16, 18–34, 36–42 are marked done. Sixth run (2026-10-06): `TODO.md:17` (#98), `:35` (#60); lines 1–16, 18–34, 36–45 are marked done. Seventh run (2026-10-07): `TODO.md:17` (#98), `:35` (#60), `:46` (#118, TODO-30); lines 1–16, 18–34, 36–45 are marked done. Eighth run (2026-10-07): `TODO.md:17` (#98), `:35` (#60); lines 1–16, 18–34, 36–47 are marked done. Ninth run (2026-10-10): `TODO.md:17` (#98), `:35` (#60); lines 1–16, 18–34, 36–48 are marked done. Tenth run (2026-10-10): `TODO.md:17` (#98), `:35` (#60); lines 1–16, 18–34, 36–50 are marked done. Eleventh run (2026-10-12): `TODO.md:17` (#98), `:35` (#60); lines 1–16, 18–34, 36–52 are marked done. Twelfth run (2026-10-12): `TODO.md:17` (#98), `:35` (#60), `:53` (#134, TODO-37); lines 1–16, 18–34, 36–52 are marked done. Thirteenth run (2026-10-15): `TODO.md:17` (#98), `:35` (#60); lines 1–16, 18–34, 36–61 are marked done; line 63's `(#212)` annotation pointed at no issue or PR, so the task was treated as untracked.
 - **Deferred by user** — `TODO.md:17` "Something Blaze themed visuals would be cool" (too vague for now; ID TODO-2 left unused). Still deferred on the second and third runs. Fourth run: covered by the Cabinet theme issues (#87–#98).
 - **Non-tasks** — none.
 - **2026-10-13 run** — already tracked: `TODO.md:53` (#134, TODO-37), `TODO.md:54` (#135, TODO-38), `TODO.md:55` (#136, TODO-39). Only the two new lines 56–57 became issues.
@@ -2010,3 +2010,327 @@ The hidden `base` preset in `CMakePresets.json` points every preset's `FETCHCONT
 - Blocked by: None
 - Blocks: None
 - Related: [TODO-39], [TODO-44]
+
+## [TODO-46] Sort the song wheel alphabetically by pack and title
+
+**Type**: Enhancement
+**GitHub Label**: enhancement
+**Priority**: Medium
+**Complexity**: Medium
+**Phase**: Backlog
+**Labels**: `library`, `screens`
+**Source**: `TODO.md:64` — "Sort the song wheel."
+**GitHub**: #158
+**Status**: pending
+
+### Description
+
+The song wheel lists packs and songs in filesystem directory order, because `SongLibrary::scan_directory` never sorts them, so the order differs between machines and filesystems. Sort the packs alphabetically, and the songs inside each pack alphabetically A–Z.
+
+### Acceptance Criteria
+
+- [ ] Packs are listed alphabetically on the song select wheel
+- [ ] Songs inside each pack are listed alphabetically A–Z by title
+- [ ] The order does not depend on filesystem directory order: a `song_library_test` case sorts songs and packs given in unsorted order, and fails without the sort
+- [ ] Returning to Select from Gameplay, Results, Calibration or Input remap still restores the highlighted song and chart
+- [ ] The song-select gotcha in `.claude/skills/verify/features/song-select.md` that says songs are listed in directory order is updated
+
+### Technical Notes
+
+- `src/chart/song_library.cpp`: `scan_directory` collects `song_folders` in `recursive_directory_iterator` order and appends packs to `packs_` in that order. The root-is-a-song path appends the same way. Sort once after the scan, for example in a pure helper beside `sort_charts_hardest_first`, so a test can feed it an unsorted vector (the filesystem order of a fixture directory cannot be forced).
+- Owner decisions from the review: packs alphabetical, songs alphabetical A–Z. Decide case handling (case-insensitive is the natural reading of "A–Z") and whether the transliterated title or the subtitle breaks ties; StepMania 5's song sort (`SongUtil`, sort by group and title) is the reference for those details (AGENTS.md principle 2).
+- `SelectScreen::rebuild` restores the highlighted song by `simfile_path`, so sorting should not break the restore; the criterion checks it.
+- The fixture pack (`tests/fixtures/reference_pack`) already happens to list A–Z on the owner's filesystem, so the fixture alone cannot prove the sort.
+- Found by the 2026-10-15 verify-skill maintenance run.
+
+### Dependencies
+
+- Blocked by: None
+- Blocks: None
+- Related: [TODO-54]
+
+## [TODO-47] Tell the player that a pad row ignores keyboard keys during remap
+
+**Type**: Enhancement
+**GitHub Label**: enhancement
+**Priority**: Medium
+**Complexity**: Medium
+**Phase**: Backlog
+**Labels**: `input`, `screens`
+**Source**: `TODO.md:65` — "Input remap gives no feedback on pad rows."
+**GitHub**: #159
+**Status**: pending
+
+### Description
+
+Since #139, a capture on the Input remap screen ignores a press from the other device: a pad row ignores keyboard keys, and a keyboard row ignores pad buttons. The row stays `<PRESS>` with no chip while the footer still reads `PRESS A KEY OR PAD BUTTON`, so a player who presses a key on a pad row gets no sign of why nothing happened.
+
+### Acceptance Criteria
+
+- [ ] While capturing, the footer asks for a pad button on a pad row and for a key on a keyboard row
+- [ ] A keyboard key pressed while capturing a pad row, or a pad button pressed while capturing a keyboard row, shows a chip that names the device the row needs, keeps capturing, and leaves the binding unchanged
+- [ ] Escape still cancels a capture on any row, and pad Back still cancels on keyboard rows
+- [ ] A test checks the footer for each row device and the chip on a mismatched press, and fails without the change
+
+### Technical Notes
+
+- `src/screens/input_remap_screen.cpp`: `InputRemapScreen::update` skips a mismatched press with `if (event.device != model_.rows[...].device) { continue; }`, after the Escape and pad-Back cancel checks. That `continue` is where the chip goes.
+- `src/screens/setup_art.hpp`: `kRemapCaptureHint` holds the single `PRESS A KEY OR PAD BUTTON` legend; it needs a keyboard and a pad variant, chosen by the captured row's device when the legend is picked in `InputRemapScreen::render`.
+- Chips today come from `input_remap_assign` in `src/screens/input_remap.cpp` (`IN USE: …`, `BOUND TO …`) and `input_remap_reset` (`DEFAULTS RESTORED`); reuse that chip path for the new message.
+- Tests: `tests/input_remap_test.cpp`, `tests/input_remap_screen_test.cpp`, `tests/setup_art_test.cpp`.
+- Update the footer gotcha in `.claude/skills/verify/features/calibration-and-remap.md`, which notes this gap.
+- Found by the 2026-10-15 verify-skill maintenance run.
+
+### Dependencies
+
+- Blocked by: None
+- Blocks: None
+- Related: #139
+
+## [TODO-48] Copy changed assets into build/ on every build
+
+**Type**: Technical
+**GitHub Label**: technical
+**Priority**: Medium
+**Complexity**: Small
+**Phase**: Backlog
+**Labels**: `build`
+**Source**: `TODO.md:66` — "Asset-only edits don't reach `build/assets` until `blaze-4k` relinks."
+**GitHub**: #160
+**Status**: pending
+
+### Description
+
+`CMakeLists.txt` copies `assets/` next to the binary with a POST_BUILD command on the `blaze-4k` target, which runs only when `blaze-4k` relinks. Editing only an asset and running `cmake --build build` leaves the old copy in `build/assets`, so the game, and every verification run, use stale assets until some source file changes.
+
+### Acceptance Criteria
+
+- [ ] After editing only a file under `assets/`, `cmake --build build` copies it into `build/assets` without relinking `blaze-4k`
+- [ ] A new asset file is picked up by the next build, and a build with no asset changes copies nothing
+- [ ] `.claude/skills/verify/scripts/b4k.sh doctor` compares `assets/` against the copies in `build/assets` instead of against `build/blaze-4k`, so it does not fail after an asset-only build
+- [ ] `scripts/check.sh` and `scripts/fresh-clone-check.sh` still pass
+
+### Technical Notes
+
+- `CMakeLists.txt`: `add_custom_command(TARGET blaze-4k POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy_directory …/assets $<TARGET_FILE_DIR:blaze-4k>/assets)`.
+- One fix: an `add_custom_target(… ALL)` (or a custom command with a stamp file as `OUTPUT`) whose `DEPENDS` is `file(GLOB_RECURSE … CONFIGURE_DEPENDS assets/*)`, with `blaze-4k` depending on it. `cmake -E copy_directory_if_different` needs CMake 3.26 and the minimum is 3.24, so use `copy_if_different` per file or a stamp.
+- A deleted asset stays in `build/assets` today; whether the fix removes it is a choice to state on the issue.
+- `b4k.sh` `check_env` runs `find "$REPO/src" "$REPO/assets" -newer "$BIN"`; once an asset-only build no longer relinks the binary, that check would fail forever, so the asset half must compare against `build/assets`.
+- Found by the 2026-10-15 verify-skill maintenance run.
+
+### Dependencies
+
+- Blocked by: None
+- Blocks: None
+
+## [TODO-49] Bump the version to v1.0.0
+
+**Type**: Technical
+**GitHub Label**: technical
+**Priority**: Medium
+**Complexity**: Small
+**Phase**: Backlog
+**Labels**: `build`, `app`
+**Source**: `TODO.md:62` — "Bump the version number to v1.0.0."
+**GitHub**: #161
+**Status**: pending
+
+### Description
+
+The title screen footer reads `BLAZE 4K v0.1.0`, from `project(blaze-4k VERSION 0.1.0 …)` in `CMakeLists.txt`. Bump the version to 1.0.0 so the tree is ready for a v1.0.0 release.
+
+### Acceptance Criteria
+
+- [ ] `project(VERSION)` in `CMakeLists.txt` is 1.0.0, and the title screen footer reads `BLAZE 4K v1.0.0`
+- [ ] `blaze-4k --help` prints the version from `BLAZE4K_VERSION`, not a hard-coded string
+- [ ] No current doc or skill names 0.1.0 as the version; historical plans, reports and reviews under `.agents/` stay as they are
+
+### Technical Notes
+
+- `CMakeLists.txt` passes `PROJECT_VERSION` to the code as `BLAZE4K_VERSION`; `footer_right_text` in `src/screens/title_art.cpp` builds `"BLAZE 4K v" BLAZE4K_VERSION`.
+- `src/main.cpp` prints `Blaze 4k - 4-Panel Rhythm Game Engine v0.1.0` in its usage text, hard-coded.
+- `.claude/skills/verify/features/title-and-attract.md` names `BLAZE 4K v0.1.0` in its opening paragraph.
+- Assumption: "Prepare for a v1.0.0 release" means making the tree ready; creating the tag and publishing the GitHub release stay with the owner.
+
+### Dependencies
+
+- Blocked by: None
+- Blocks: None
+
+## [TODO-50] Prune comments in src/screens
+
+**Type**: Technical
+**GitHub Label**: technical
+**Priority**: Medium
+**Complexity**: Medium
+**Phase**: Backlog
+**Labels**: `screens`
+**Source**: `TODO.md:63` — "There are so many comments all over the codebase."
+**GitHub**: #162
+**Status**: pending
+
+### Description
+
+`src/screens` holds about 1,000 comment lines in 6,900 lines of code. Prune them so only the comments that carry something the code cannot say remain. This is one of four parts of the same task (with [TODO-51], [TODO-52] and [TODO-53]).
+
+### Acceptance Criteria
+
+- [ ] Only the absolutely necessary comments remain in `src/screens`
+- [ ] A comment stays only when it says something the code cannot: why, a constraint, a cited OpenITG/StepMania value or source, or a workaround and what it works around; comments that restate the code are removed
+- [ ] `lint-allow(…)` exception comments and licence headers are kept
+- [ ] Only comments change, plus a rename where a removed comment was explaining a name; `scripts/check.sh` passes
+
+### Technical Notes
+
+- Count on 2026-10-15: 997 comment lines (`//`, `/*`, `*` line starts) in 6,920 lines.
+- Layout comments that record a measured design value (for example the pixel budgets next to `static_assert`s in `src/screens/setup_art.hpp`) are constraints, not restatements.
+- The `pstack:no-comments` skill runs a comment reviewer over a scope and can do the first pass.
+- `scripts/lint.sh` rule `lint-exception` requires the `lint-allow(<rule>): <reason>; until YYYY-MM-DD; approved-by <name>` form; none exist in `src/` today, but keep any that appear.
+
+### Dependencies
+
+- Blocked by: None
+- Blocks: None
+- Split from the same task as [TODO-51], [TODO-52], [TODO-53]
+
+## [TODO-51] Prune comments in src/render and src/gameplay
+
+**Type**: Technical
+**GitHub Label**: technical
+**Priority**: Medium
+**Complexity**: Medium
+**Phase**: Backlog
+**Labels**: `render`, `gameplay`
+**Source**: `TODO.md:63` — "There are so many comments all over the codebase."
+**GitHub**: #163
+**Status**: pending
+
+### Description
+
+`src/render` and `src/gameplay` hold about 1,200 comment lines in 9,300 lines of code. Prune them so only the comments that carry something the code cannot say remain. This is one of four parts of the same task (with [TODO-50], [TODO-52] and [TODO-53]).
+
+### Acceptance Criteria
+
+- [ ] Only the absolutely necessary comments remain in `src/render` and `src/gameplay`
+- [ ] A comment stays only when it says something the code cannot: why, a constraint, a cited OpenITG/StepMania value or source, or a workaround and what it works around; comments that restate the code are removed
+- [ ] `lint-allow(…)` exception comments and licence headers are kept
+- [ ] Only comments change, plus a rename where a removed comment was explaining a name; `scripts/check.sh` passes
+
+### Technical Notes
+
+- Count on 2026-10-15: `src/render` 651 comment lines in 5,316; `src/gameplay` 567 in 4,034.
+- `src/gameplay` comments that cite OpenITG behaviour (judgment, life, scoring, merciful beginner) are references, not restatements (AGENTS.md principle 2).
+- The `pstack:no-comments` skill runs a comment reviewer over a scope and can do the first pass.
+
+### Dependencies
+
+- Blocked by: None
+- Blocks: None
+- Split from the same task as [TODO-50], [TODO-52], [TODO-53]
+
+## [TODO-52] Prune comments in the other src/ directories
+
+**Type**: Technical
+**GitHub Label**: technical
+**Priority**: Medium
+**Complexity**: Medium
+**Phase**: Backlog
+**Labels**: `audio`, `chart`, `data`, `timing`, `input`, `app`
+**Source**: `TODO.md:63` — "There are so many comments all over the codebase."
+**GitHub**: #164
+**Status**: pending
+
+### Description
+
+`src/audio`, `src/chart`, `src/data`, `src/timing`, `src/input`, `src/app`, `src/util` and `src/main.cpp` hold about 700 comment lines. Prune them so only the comments that carry something the code cannot say remain. This is one of four parts of the same task (with [TODO-50], [TODO-51] and [TODO-53]).
+
+### Acceptance Criteria
+
+- [ ] Only the absolutely necessary comments remain in `src/audio`, `src/chart`, `src/data`, `src/timing`, `src/input`, `src/app`, `src/util` and `src/main.cpp`
+- [ ] A comment stays only when it says something the code cannot: why, a constraint, a cited OpenITG/StepMania value or source, or a workaround and what it works around; comments that restate the code are removed
+- [ ] `lint-allow(…)` exception comments and licence headers are kept
+- [ ] Only comments change, plus a rename where a removed comment was explaining a name; `scripts/check.sh` passes
+
+### Technical Notes
+
+- Count on 2026-10-15: `src/audio` 148, `src/chart` 95, `src/data` 131, `src/timing` 189, `src/input` 41, `src/app` 60, `src/util` 20 comment lines.
+- `src/timing` and `src/audio` comments that state the music-clock rules (AGENTS.md principle 1, #71) or the miniaudio workarounds (#144, #145) are constraints and stay.
+- `src/chart` comments that cite StepMania parsing semantics are references and stay.
+- The `pstack:no-comments` skill runs a comment reviewer over a scope and can do the first pass.
+
+### Dependencies
+
+- Blocked by: None
+- Blocks: None
+- Split from the same task as [TODO-50], [TODO-51], [TODO-53]
+
+## [TODO-53] Prune comments in tests/
+
+**Type**: Technical
+**GitHub Label**: technical
+**Priority**: Medium
+**Complexity**: Medium
+**Phase**: Backlog
+**Labels**: `tests`
+**Source**: `TODO.md:63` — "There are so many comments all over the codebase."
+**GitHub**: #165
+**Status**: pending
+
+### Description
+
+`tests/` holds about 1,500 comment lines in 21,500 lines of code. Prune them so only the comments that carry something the code cannot say remain. This is one of four parts of the same task (with [TODO-50], [TODO-51] and [TODO-52]).
+
+### Acceptance Criteria
+
+- [ ] Only the absolutely necessary comments remain in `tests/`
+- [ ] A comment stays only when it says something the code cannot: why, a constraint, a cited OpenITG/StepMania value or source, or a workaround and what it works around; comments that restate the code are removed
+- [ ] `lint-allow(…)` exception comments and licence headers are kept
+- [ ] Only comments change, plus a rename where a removed comment was explaining a name; `scripts/check.sh` passes
+
+### Technical Notes
+
+- Count on 2026-10-15: 1,464 comment lines in 21,526.
+- A comment that explains where an expected value comes from (a hand computation, an OpenITG value) is what keeps a test from asserting a value computed by the code's own formula (AGENTS.md rules table); keep those.
+- The `pstack:no-comments` skill runs a comment reviewer over a scope and can do the first pass.
+
+### Dependencies
+
+- Blocked by: None
+- Blocks: None
+- Split from the same task as [TODO-50], [TODO-51], [TODO-52]
+
+## [TODO-54] Open and close packs on the song wheel
+
+**Type**: Feature
+**GitHub Label**: enhancement
+**Priority**: Medium
+**Complexity**: Medium
+**Phase**: Backlog
+**Labels**: `screens`
+**Source**: `TODO.md:67` — "Open and close packs on the song wheel, so a pack can be collapsed to its header and expanded again."
+**GitHub**: #166
+**Status**: pending
+
+### Description
+
+The song select wheel shows every pack's songs under an inline pack header that the cursor cannot land on. Let the player open and close a pack, so a closed pack shows only its header and the wheel stays short with many packs.
+
+### Acceptance Criteria
+
+- [ ] The cursor can land on a pack header, and Confirm on it closes an open pack or opens a closed one (inferred)
+- [ ] A closed pack shows only its header, and Up/Down move past it without stopping on its hidden songs (inferred)
+- [ ] The pack that holds the highlighted song is open when Select is entered, and returning from Gameplay, Results, Calibration or Input remap keeps the highlighted song (inferred)
+- [ ] Whether opening one pack closes the others follows StepMania's music wheel sections, cited on the issue (inferred)
+
+### Technical Notes
+
+- `src/screens/select_art.hpp` / `select_art.cpp`: `build_wheel_rows` builds the display rows, a pack header before the first song of each pack; the window logic moves two rows when it crosses a header.
+- `src/screens/select_screen.cpp`: `move_song` steps one song at a time with modular wrap; `selected_song_` indexes songs, not wheel rows, so a header the cursor can stand on needs a row-level cursor or a separate "on header" state.
+- StepMania 5 `MusicWheel` opens and closes sections (one open at a time by default); check it before choosing the behaviour (AGENTS.md principle 2).
+- Raised by the owner while reviewing [TODO-46]. The criteria were not reviewed by the owner, so they keep their `(inferred)` markers.
+
+### Dependencies
+
+- Blocked by: None
+- Blocks: None
+- Related: [TODO-46]
