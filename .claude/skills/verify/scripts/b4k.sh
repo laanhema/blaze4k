@@ -52,8 +52,12 @@ check_env() {
     python3 -c 'import Xlib' 2>/dev/null && echo "ok   python Xlib" || { echo "FAIL python Xlib missing (pip install --user python-xlib)"; ok=1; }
     if [[ -x "$BIN" ]]; then
         local newer
-        newer=$(find "$REPO/src" "$REPO/assets" "$REPO/CMakeLists.txt" -newer "$BIN" -type f -print -quit)
-        [[ -z "$newer" ]] && echo "ok   build/blaze-4k is newer than src/ and assets/" ||
+        newer=$(find "$REPO/src" "$REPO/assets" -newer "$BIN" -type f -print -quit)
+        # A CMakeLists.txt edit need not relink the binary; it only has to be
+        # picked up by a reconfigure, which rewrites cmake.check_cache.
+        [[ -z "$newer" && "$REPO/CMakeLists.txt" -nt "$REPO/build/CMakeFiles/cmake.check_cache" ]] &&
+            newer="$REPO/CMakeLists.txt"
+        [[ -z "$newer" ]] && echo "ok   build/blaze-4k is newer than src/ and assets/, and build/ is configured from CMakeLists.txt" ||
             { echo "FAIL build/blaze-4k is stale ($newer is newer); run: cmake --build build -j"; ok=1; }
     else
         echo "FAIL $BIN missing; run: cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j"

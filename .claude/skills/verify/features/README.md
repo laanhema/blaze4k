@@ -29,8 +29,8 @@ Each feature file starts with an H1 title and one paragraph describing what the 
 
 ## Features
 
-- [Title and attract](./title-and-attract.md) covers the title screen, entering song select, quitting, and the idle attract loop. *Driven end to end 2026-10-13.*
-- [Song select](./song-select.md) covers the music wheel, groups, difficulty choice, and the high-score column. *Driven 2026-10-13 except `preview`, which the harness cannot hear.*
-- [Gameplay and results](./gameplay-and-results.md) covers playing a chart, failing or clearing, the score screen, and high-score saving. *Driven end to end 2026-10-13; `play-input` on real songs.*
-- [Options overlay](./options.md) covers speed mods, scroll direction, fail, and assist tick, and that they persist. *Driven end to end 2026-10-13.*
-- [Calibration and input remap](./calibration-and-remap.md) covers the global offset wizard and key remapping. *Driven 2026-10-13 except the refused save, which the harness cannot force.*
+- [Title and attract](./title-and-attract.md) covers the title screen, entering song select, quitting, and the idle attract loop. *Driven end to end 2026-10-15.*
+- [Song select](./song-select.md) covers the music wheel, groups, difficulty choice, and the high-score column. *Driven 2026-10-15 except `preview`, which the harness cannot hear.*
+- [Gameplay and results](./gameplay-and-results.md) covers playing a chart, failing or clearing, the score screen, and high-score saving. *Driven end to end 2026-10-15; `play-input` on real songs.*
+- [Options overlay](./options.md) covers speed mods, scroll direction, fail, and assist tick, and that they persist. *Driven end to end 2026-10-15.*
+- [Calibration and input remap](./calibration-and-remap.md) covers the global offset wizard and key remapping. *Driven 2026-10-15 except the refused save, which the harness cannot force, and pad-button binds, which need a pad.*

@@ -33,7 +33,8 @@ Preconditions:
 
 ## Gotchas
 
-- Charts are sorted hardest first, so the cursor starts on the hardest chart. Left at the top is a no-op.
+- Charts are sorted hardest first, and every wheel move puts the cursor back on the hardest chart. Left at the top and Right at the bottom are no-ops.
+- Songs and packs are listed in directory order and are not sorted. The fixture order above is what this machine's filesystem returns. On another filesystem, read the wheel in the screenshot before counting `Down` presses.
 - The wheel lists only songs with at least one `dance-single` chart. `[NoteParser] Skipping unsupported steps type` lines in the log are expected with real packs. The fixture pack logs none.
 - Keys sent right after `wait-screen RUN Select` returns can be dropped (seen with `--songs "$PWD/songs"`: 2 of 5 `Up` taps lost). It did not happen again on 2026-10-13 in three bursts of five taps on the same packs. Wait about 1.5 s before the first key, then read the song title in the screenshot before citing it.
 - The fixture pack has placeholder banners and audio. The banner area shows the fallback art and no preview plays. Use `songs/` to check real banners and previews.
