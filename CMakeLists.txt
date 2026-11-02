@@ -73,8 +73,9 @@ FetchContent_Declare(
 FetchContent_Declare(
     stb
     GIT_REPOSITORY https://github.com/nothings/stb.git
+    # A commit pin, unlike the release tags above, needs a full clone: a shallow
+    # clone holds only the branch tip, so the checkout fails once master moves on.
     GIT_TAG 2c980bb59875b0d32144a71867fbdebb2f77cd20
-    GIT_SHALLOW TRUE
     SOURCE_DIR "${BLAZE_DEPS_SOURCE_DIR}/stb-src"
 )
 
