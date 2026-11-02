@@ -205,6 +205,70 @@ int main() {
     TEST_CHECK(library.find_song("Blaze Pack 1", "Corrupt") == nullptr);
     std::cout << "  - Graceful skipping of non-4-panel and corrupt files verified.\n";
 
+    // 8. Validate sorting of packs and songs (Issue #158)
+    {
+        std::vector<blaze4k::SongPack> packs;
+
+        blaze4k::SongPack pack_z{"Zeta Pack", "/path/zeta", "", {}};
+        blaze4k::SongPack pack_a{"Alpha Pack", "/path/alpha", "", {}};
+        blaze4k::SongPack pack_m{"mid Pack", "/path/mid", "", {}};
+
+        auto make_song = [](std::string title, std::string subtitle, std::string title_translit,
+                            std::string subtitle_translit, std::string path) {
+            blaze4k::Song s;
+            s.metadata.title = std::move(title);
+            s.metadata.subtitle = std::move(subtitle);
+            s.metadata.title_translit = std::move(title_translit);
+            s.metadata.subtitle_translit = std::move(subtitle_translit);
+            s.simfile_path = std::move(path);
+            return s;
+        };
+
+        // Out-of-order songs for pack_a
+        pack_a.songs.push_back(make_song("Zebra", "", "", "", "1"));
+        pack_a.songs.push_back(make_song("apple", "", "", "", "2"));
+        pack_a.songs.push_back(make_song("Banana", "Part 2", "", "", "3"));
+        pack_a.songs.push_back(make_song("Banana", "Part 1", "", "", "4"));
+        pack_a.songs.push_back(make_song(".59", "", "", "", "5"));
+        pack_a.songs.push_back(make_song("★Special", "", "", "", "6"));
+        pack_a.songs.push_back(make_song("漢字", "", "Cherry", "", "7"));
+
+        packs.push_back(std::move(pack_z));
+        packs.push_back(std::move(pack_a));
+        packs.push_back(std::move(pack_m));
+
+        blaze4k::sort_song_library(packs);
+
+        // Packs sorted alphabetically case-insensitively
+        TEST_CHECK(packs.size() == 3);
+        TEST_CHECK(packs[0].name == "Alpha Pack");
+        TEST_CHECK(packs[1].name == "mid Pack");
+        TEST_CHECK(packs[2].name == "Zeta Pack");
+
+        // Songs inside Alpha Pack sorted:
+        // .59 -> "59" (numbers before letters)
+        // apple -> "APPLE" (case-insensitive)
+        // Banana (Part 1) -> subtitle tie-break
+        // Banana (Part 2) -> subtitle tie-break
+        // Cherry (via translit of 漢字)
+        // Zebra
+        // ★Special (non-alphanumeric at end)
+        const auto& sorted_songs = packs[0].songs;
+        TEST_CHECK(sorted_songs.size() == 7);
+        TEST_CHECK(sorted_songs[0].metadata.title == ".59");
+        TEST_CHECK(sorted_songs[1].metadata.title == "apple");
+        TEST_CHECK(sorted_songs[2].metadata.title == "Banana" &&
+                   sorted_songs[2].metadata.subtitle == "Part 1");
+        TEST_CHECK(sorted_songs[3].metadata.title == "Banana" &&
+                   sorted_songs[3].metadata.subtitle == "Part 2");
+        TEST_CHECK(sorted_songs[4].metadata.title == "漢字" &&
+                   sorted_songs[4].metadata.title_translit == "Cherry");
+        TEST_CHECK(sorted_songs[5].metadata.title == "Zebra");
+        TEST_CHECK(sorted_songs[6].metadata.title == "★Special");
+
+        std::cout << "  - Unsorted packs and songs sorted alphabetically A-Z verified.\n";
+    }
+
     // Clean up fixture
     std::filesystem::remove_all(test_root);
 

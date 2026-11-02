@@ -1,0 +1,226 @@
+diff --git a/.claude/skills/verify/features/song-select.md b/.claude/skills/verify/features/song-select.md
+index 6c25b77..d68f17f 100644
+--- a/.claude/skills/verify/features/song-select.md
++++ b/.claude/skills/verify/features/song-select.md
+@@ -37,7 +37,7 @@ Preconditions:
+ ## Gotchas
+ 
+ - Charts are sorted hardest first, and every wheel move puts the cursor back on the hardest chart. Left at the top and Right at the bottom are no-ops.
+-- Songs and packs are listed in directory order and are not sorted. The fixture order above is what this machine's filesystem returns. On another filesystem, read the wheel in the screenshot before counting `Down` presses.
++- Packs and songs are listed alphabetically A–Z (packs by name, songs by title with StepMania 5 sort semantics). The order does not depend on filesystem directory order.
+ - The wheel lists only songs with at least one `dance-single` chart. `[NoteParser] Skipping unsupported steps type` lines in the log are expected with real packs. The fixture pack logs none.
+ - Keys sent right after `wait-screen RUN Select` returns can be dropped (seen with `--songs "$PWD/songs"`: 2 of 5 `Up` taps lost). It did not happen again on 2026-10-13 in three bursts of five taps on the same packs. Wait about 1.5 s before the first key, then read the song title in the screenshot before citing it.
+ - The fixture pack has placeholder banners and audio. The banner area shows the fallback art and no preview plays. To see a pack banner, put a real image named `banner.png` in one scratch pack folder (e.g. `convert -size 256x80 gradient:orange-red banner.png`); the copy without one shows the fallback banner on its header. Use `songs/` to check real banners and previews.
+diff --git a/src/chart/song_library.cpp b/src/chart/song_library.cpp
+index 6d5236a..dfa0182 100644
+--- a/src/chart/song_library.cpp
++++ b/src/chart/song_library.cpp
+@@ -67,8 +67,94 @@ void sort_charts_hardest_first(std::vector<Chart>& charts) {
+     });
+ }
+ 
++// Transforms a title for alphabetical sorting matching StepMania 5 SongUtil::MakeSortString:
++// 1. Converts characters to uppercase for case-insensitive comparison.
++// 2. Removes a single leading period (e.g. ".59" sorts as "59").
++// 3. Prepends '~' to non-alphanumeric strings so symbols sort after 'Z'.
++std::string make_sort_string(std::string_view text) {
++    std::string s;
++    s.reserve(text.size() + 1);
++    for (char c : text) {
++        s.push_back(static_cast<char>(std::toupper(static_cast<unsigned char>(c))));
++    }
++    if (!s.empty()) {
++        if (s.front() == '.') {
++            s.erase(s.begin());
++        }
++        if (!s.empty()) {
++            const unsigned char first = static_cast<unsigned char>(s.front());
++            const bool is_alnum = (first >= 'A' && first <= 'Z') || (first >= '0' && first <= '9');
++            if (!is_alnum) {
++                s.insert(s.begin(), '~');
++            }
++        }
++    }
++    return s;
++}
++
++bool compare_packs_by_name(const SongPack& a, const SongPack& b) {
++    std::string s1 = make_sort_string(a.name);
++    std::string s2 = make_sort_string(b.name);
++    if (s1 != s2) {
++        return s1 < s2;
++    }
++    if (a.name != b.name) {
++        return a.name < b.name;
++    }
++    return a.pack_dir < b.pack_dir;
++}
++
++bool compare_songs_by_title(const Song& a, const Song& b) {
++    const std::string_view title_a = !a.metadata.title_translit.empty()
++                                         ? std::string_view(a.metadata.title_translit)
++                                         : std::string_view(a.metadata.title);
++    const std::string_view title_b = !b.metadata.title_translit.empty()
++                                         ? std::string_view(b.metadata.title_translit)
++                                         : std::string_view(b.metadata.title);
++    std::string s1 = make_sort_string(title_a);
++    std::string s2 = make_sort_string(title_b);
++    if (s1 != s2) {
++        return s1 < s2;
++    }
++
++    const std::string_view sub_a = !a.metadata.subtitle_translit.empty()
++                                       ? std::string_view(a.metadata.subtitle_translit)
++                                       : std::string_view(a.metadata.subtitle);
++    const std::string_view sub_b = !b.metadata.subtitle_translit.empty()
++                                       ? std::string_view(b.metadata.subtitle_translit)
++                                       : std::string_view(b.metadata.subtitle);
++    std::string sub_s1 = make_sort_string(sub_a);
++    std::string sub_s2 = make_sort_string(sub_b);
++    if (sub_s1 != sub_s2) {
++        return sub_s1 < sub_s2;
++    }
++
++    if (a.metadata.title != b.metadata.title) {
++        return a.metadata.title < b.metadata.title;
++    }
++    if (a.metadata.subtitle != b.metadata.subtitle) {
++        return a.metadata.subtitle < b.metadata.subtitle;
++    }
++    return a.simfile_path < b.simfile_path;
++}
++
+ } // namespace
+ 
++void sort_songs(std::vector<Song>& songs) {
++    std::stable_sort(songs.begin(), songs.end(), compare_songs_by_title);
++}
++
++void sort_song_library(std::vector<SongPack>& packs) {
++    std::stable_sort(packs.begin(), packs.end(), compare_packs_by_name);
++    for (SongPack& pack : packs) {
++        sort_songs(pack.songs);
++    }
++}
++
++void SongLibrary::sort() {
++    sort_song_library(packs_);
++}
++
+ size_t SongLibrary::total_songs() const {
+     size_t count = 0;
+     for (const auto& pack : packs_) {
+@@ -306,6 +392,7 @@ bool SongLibrary::scan_directory(const std::filesystem::path& root_path) {
+             } else {
+                 it->songs.push_back(*song);
+             }
++            sort();
+             return true;
+         }
+         return false;
+@@ -386,6 +473,7 @@ bool SongLibrary::scan_directory(const std::filesystem::path& root_path) {
+         }
+     }
+ 
++    sort();
+     return true;
+ }
+ 
+diff --git a/src/chart/song_library.hpp b/src/chart/song_library.hpp
+index 827897a..925ab22 100644
+--- a/src/chart/song_library.hpp
++++ b/src/chart/song_library.hpp
+@@ -30,6 +30,7 @@ public:
+     [[nodiscard]] const Song* find_song(std::string_view pack_name, std::string_view title) const;
+ 
+     void clear();
++    void sort();
+ 
+ private:
+     std::vector<SongPack> packs_;
+@@ -53,4 +54,13 @@ private:
+     ) const;
+ };
+ 
++// Pure sorting helpers (StepMania 5 SongUtil semantics):
++// - Songs: sorted alphabetically by transliterated title (or title if empty),
++//   ties broken by transliterated subtitle (or subtitle if empty), then raw title/subtitle,
++//   then simfile_path. Non-alphanumeric titles sort after Z; leading '.' is stripped.
++// - Packs: sorted alphabetically A-Z by pack name (case-insensitive, ties broken
++//   by case-sensitive name, then pack_dir).
++void sort_songs(std::vector<Song>& songs);
++void sort_song_library(std::vector<SongPack>& packs);
++
+ } // namespace blaze4k
+diff --git a/tests/song_library_test.cpp b/tests/song_library_test.cpp
+index 546e0f2..1a3295b 100644
+--- a/tests/song_library_test.cpp
++++ b/tests/song_library_test.cpp
+@@ -205,6 +205,67 @@ int main() {
+     TEST_CHECK(library.find_song("Blaze Pack 1", "Corrupt") == nullptr);
+     std::cout << "  - Graceful skipping of non-4-panel and corrupt files verified.\n";
+ 
++    // 8. Validate sorting of packs and songs (Issue #158)
++    {
++        std::vector<blaze4k::SongPack> packs;
++
++        blaze4k::SongPack pack_z{"Zeta Pack", "/path/zeta", "", {}};
++        blaze4k::SongPack pack_a{"Alpha Pack", "/path/alpha", "", {}};
++        blaze4k::SongPack pack_m{"mid Pack", "/path/mid", "", {}};
++
++        auto make_song = [](std::string title, std::string subtitle, std::string title_translit,
++                            std::string subtitle_translit, std::string path) {
++            blaze4k::Song s;
++            s.metadata.title = std::move(title);
++            s.metadata.subtitle = std::move(subtitle);
++            s.metadata.title_translit = std::move(title_translit);
++            s.metadata.subtitle_translit = std::move(subtitle_translit);
++            s.simfile_path = std::move(path);
++            return s;
++        };
++
++        // Out-of-order songs for pack_a
++        pack_a.songs.push_back(make_song("Zebra", "", "", "", "1"));
++        pack_a.songs.push_back(make_song("apple", "", "", "", "2"));
++        pack_a.songs.push_back(make_song("Banana", "Part 2", "", "", "3"));
++        pack_a.songs.push_back(make_song("Banana", "Part 1", "", "", "4"));
++        pack_a.songs.push_back(make_song(".59", "", "", "", "5"));
++        pack_a.songs.push_back(make_song("★Special", "", "", "", "6"));
++        pack_a.songs.push_back(make_song("漢字", "", "Cherry", "", "7"));
++
++        packs.push_back(std::move(pack_z));
++        packs.push_back(std::move(pack_a));
++        packs.push_back(std::move(pack_m));
++
++        blaze4k::sort_song_library(packs);
++
++        // Packs sorted alphabetically case-insensitively
++        TEST_CHECK(packs.size() == 3);
++        TEST_CHECK(packs[0].name == "Alpha Pack");
++        TEST_CHECK(packs[1].name == "mid Pack");
++        TEST_CHECK(packs[2].name == "Zeta Pack");
++
++        // Songs inside Alpha Pack sorted:
++        // .59 -> "59" (numbers before letters)
++        // apple -> "APPLE" (case-insensitive)
++        // Banana (Part 1) -> subtitle tie-break
++        // Banana (Part 2) -> subtitle tie-break
++        // Cherry (via translit of 漢字)
++        // Zebra
++        // ★Special (non-alphanumeric at end)
++        const auto& sorted_songs = packs[0].songs;
++        TEST_CHECK(sorted_songs.size() == 7);
++        TEST_CHECK(sorted_songs[0].metadata.title == ".59");
++        TEST_CHECK(sorted_songs[1].metadata.title == "apple");
++        TEST_CHECK(sorted_songs[2].metadata.title == "Banana" && sorted_songs[2].metadata.subtitle == "Part 1");
++        TEST_CHECK(sorted_songs[3].metadata.title == "Banana" && sorted_songs[3].metadata.subtitle == "Part 2");
++        TEST_CHECK(sorted_songs[4].metadata.title == "漢字" && sorted_songs[4].metadata.title_translit == "Cherry");
++        TEST_CHECK(sorted_songs[5].metadata.title == "Zebra");
++        TEST_CHECK(sorted_songs[6].metadata.title == "★Special");
++
++        std::cout << "  - Unsorted packs and songs sorted alphabetically A-Z verified.\n";
++    }
++
+     // Clean up fixture
+     std::filesystem::remove_all(test_root);
+ 
