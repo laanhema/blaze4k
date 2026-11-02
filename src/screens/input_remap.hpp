@@ -9,7 +9,7 @@
 
 namespace blaze4k {
 
-// One remappable binding slot: a single (action, device, name) triple. The C6
+// One remappable binding slot: a single (action, device, name) triple. The
 // UI shows one row per slot so a default that maps two keys to one action (e.g.
 // Left = "Left" + "D") keeps both bindings.
 struct RemapRow {
@@ -31,8 +31,8 @@ enum class RemapStatus {
     Unchanged, // the same device+name already belonged to this action
 };
 
-// Pure, SDL/GL/audio/clock-free state for the C6 remapping screen (mirrors the
-// C4 OptionsMenu seam). All conflict/reset/apply logic is unit-tested headless.
+// Pure, SDL/GL/audio/clock-free state for the remapping screen (mirrors the
+// OptionsMenu seam). All conflict/reset/apply logic is unit-tested headless.
 struct InputRemapModel {
     std::vector<RemapRow> rows;
     int row = 0;

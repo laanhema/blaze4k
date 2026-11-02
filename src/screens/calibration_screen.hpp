@@ -15,7 +15,7 @@ namespace blaze4k {
 // supported window; never savable.
 enum class CalibrationPhase : int { CountIn = 0, Sampling, Ready, OutOfRange };
 
-// C5 guided tap-to-the-beat calibration wizard (PRD section 7.5). Owns a real
+// Guided tap-to-the-beat calibration wizard (PRD section 7.5). Owns a real
 // MusicClock bound to the metronome stream exactly as GameplayView binds its
 // clock, ages each panel press through the same `music_time_for_event()` helper
 // gameplay uses, and derives the global offset via the pure OffsetCalibration
@@ -43,7 +43,6 @@ public:
     void render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, int h) override;
     void exit(ScreenContext& ctx) override;
 
-    // Test accessors (headless, pure).
     [[nodiscard]] CalibrationPhase phase() const { return phase_; }
     [[nodiscard]] int sample_count() const { return calib_.sample_count(); }
     [[nodiscard]] const CalibrationResult& result() const { return result_; }

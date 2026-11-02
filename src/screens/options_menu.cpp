@@ -220,11 +220,11 @@ void options_menu_adjust(OptionsMenu& menu, int delta) {
             menu.assist_tick = !menu.assist_tick;
             break;
         case OptionsRow::CalibrateOffset:
-            // Action row: activation lives in SelectScreen (opens the C5 wizard).
-            // Left/Right/Confirm must not mutate the menu.
+            // Action row: activation lives in SelectScreen (opens the calibration
+            // wizard). Left/Right/Confirm must not mutate the menu.
             break;
         case OptionsRow::RemapInput:
-            // Action row: activation lives in SelectScreen (opens the C6 remap
+            // Action row: activation lives in SelectScreen (opens the input remap
             // screen). Left/Right/Confirm must not mutate the menu.
             break;
         case OptionsRow::Count:
@@ -269,7 +269,7 @@ std::string options_row_value_text(const OptionsMenu& menu, int row) {
         case OptionsRow::CalibrateOffset:
             return format_offset(menu.offset_seconds);
         case OptionsRow::RemapInput:
-            return ">"; // action row: opens the C6 remapping screen
+            return ">";
         case OptionsRow::Count:
             break;
     }

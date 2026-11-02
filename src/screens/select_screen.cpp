@@ -186,7 +186,6 @@ void SelectScreen::rebuild(const ScreenContext& ctx) {
         return -1;
     };
 
-    // (a) The remembered song still exists: its pack is open, the cursor is on it.
     if (!previous_song.empty()) {
         for (std::size_t i = 0; i < songs_.size(); ++i) {
             const Song* song = songs_[i].song;
@@ -215,8 +214,6 @@ void SelectScreen::rebuild(const ScreenContext& ctx) {
         return;
     }
 
-    // (c) First entry, or the remembered target is gone: all packs closed, the
-    // cursor on the first pack header (row 0).
     open_pack_ = -1;
     rebuild_rows();
     cursor_row_ = 0;
@@ -260,8 +257,6 @@ const std::string& SelectScreen::cursor_banner_path() const {
     if (!on_pack_header()) {
         return kNone;
     }
-    // A pack header shows its pack banner, else the library's fallback banner,
-    // exactly what a song without a banner of its own resolves to.
     const int pack = wheel_rows_[static_cast<std::size_t>(selected_wheel_row())].pack_index;
     if (pack >= 0 && pack < static_cast<int>(pack_banners_.size()) &&
         !pack_banners_[static_cast<std::size_t>(pack)].empty()) {
@@ -406,7 +401,6 @@ void SelectScreen::move_row(int delta) {
     cursor_row_ = ((selected_wheel_row() + delta) % count + count) % count;
     selected_chart_ = 0;
 
-    // Slide the wheel only when its window moved (select_art::wheel_scroll_start).
     const int new_first =
         select_art::list_window(selected_wheel_row(), count, select_art::kWheelVisibleRows).first;
     if (new_first != old_first) {
@@ -424,9 +418,7 @@ void SelectScreen::toggle_pack() {
     const int pack = wheel_rows_[static_cast<std::size_t>(selected_wheel_row())].pack_index;
     open_pack_ = open_pack_ == pack ? -1 : pack;
     rebuild_rows();
-    // The header stays in the list, so the cursor stays on it (StepMania).
     cursor_row_ = std::max(0, header_row_of(pack));
-    // The row set changed: a slide from the old row positions would show wrong rows.
     scroll_start_ = 0.0f;
     scroll_elapsed_ = 0.0;
     selected_chart_ = 0;
@@ -463,10 +455,8 @@ void SelectScreen::apply_navigation(GameAction action) {
 
 GameAction SelectScreen::held_direction(const ScreenContext& ctx) const {
     if (!ctx.action_down) {
-        return GameAction::None; // headless/tests: no authoritative held state
+        return GameAction::None;
     }
-    // Prefer the direction already repeating so adding a second key does not
-    // hijack an in-progress hold.
     if (hold_action_ != GameAction::None && ctx.action_down(hold_action_)) {
         return hold_action_;
     }
@@ -483,11 +473,8 @@ GameAction SelectScreen::held_direction(const ScreenContext& ctx) const {
 void SelectScreen::update(ScreenContext& ctx, double fixed_dt,
                           const std::vector<InputEvent>& events) {
     preview_.update(fixed_dt);
-    scroll_elapsed_ += fixed_dt; // wheel slide: fixed dt, never the music clock
+    scroll_elapsed_ += fixed_dt;
 
-    // Set once an event closes the overlay or launches a screen this tick, so a
-    // second qualifying press in the same batch cannot fall through to the wheel
-    // switch (e.g. an accidental Confirm right after launching the wizard).
     bool options_consumed = false;
     for (const InputEvent& event : events) {
         if (!event.pressed || options_consumed) {
@@ -495,17 +482,7 @@ void SelectScreen::update(ScreenContext& ctx, double fixed_dt,
         }
 
         if (options_open_) {
-            // Every press may change a value or the row: rebuild the overlay's
-            // value text after the event loop.
             options_values_dirty_ = true;
-            // Modal: the wheel is suspended and every press is routed to the
-            // overlay. Changes are applied to the shared config immediately.
-            // Back is intentionally not handled here: Screen::handle_back() owns
-            // it so the manager can consult post-update state (see
-            // ScreenManager::update).
-            // C5 seam: the calibration row is an action, not a value. Confirm or
-            // Right opens the wizard; Up/Down still move the highlight and every
-            // other action is a no-op (so it cannot be confused with a value row).
             if (options_.row == static_cast<int>(OptionsRow::CalibrateOffset)) {
                 if (event.action == GameAction::Up) {
                     options_menu_move_row(options_, -1);
@@ -515,8 +492,6 @@ void SelectScreen::update(ScreenContext& ctx, double fixed_dt,
                     options_menu_move_row(options_, +1);
                     continue;
                 }
-                // Options (Tab/shoulder) remains the documented overlay toggle on
-                // this row too; it must not be swallowed by the catch-all below.
                 if (event.action == GameAction::Options) {
                     if (ctx.config != nullptr) {
                         options_menu_apply(options_, *ctx.config);
@@ -534,11 +509,9 @@ void SelectScreen::update(ScreenContext& ctx, double fixed_dt,
                     }
                     continue;
                 }
-                continue; // Left and unrelated actions: no-op
+                continue;
             }
 
-            // C6 seam: like the calibration row, the remap row is an action, not
-            // a value. Confirm or Right opens the remapping screen.
             if (options_.row == static_cast<int>(OptionsRow::RemapInput)) {
                 if (event.action == GameAction::Up) {
                     options_menu_move_row(options_, -1);
@@ -646,17 +619,11 @@ void SelectScreen::update(ScreenContext& ctx, double fixed_dt,
         }
     }
 
-    // The overlay's value text, rebuilt only when it may have changed.
     if (options_open_ && options_values_dirty_) {
         refresh_options_values();
     }
-    // The overlay may have changed the speed/scroll config this tick.
     refresh_chips(ctx);
 
-    // Held-direction repeat: the press above moved once; if the direction stays
-    // down, accelerate through the wheel. Skipped while the options overlay is up
-    // (its rows are stepped one press at a time) and when no authoritative
-    // held-state source is wired (headless/unit tests).
     if (options_open_ || !ctx.action_down) {
         hold_action_ = GameAction::None;
         hold_elapsed_ = 0.0;
@@ -715,8 +682,6 @@ void SelectScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, i
         return;
     }
 
-    // Cabinet v3 select (#94), back to front. Every theme/text call is
-    // null-guarded (headless and unit tests run without them).
     const theme::LayoutScale L = theme::layout_scale(w, h);
     const ThemeTextures* theme = ctx.theme;
     TextRenderer* text = ctx.text;
@@ -728,8 +693,6 @@ void SelectScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, i
     if (!songs_.empty()) {
         const Song* song = selected_song();
 
-        // Banner (or banner_fallback) inside banner_frame, then the song info. On a
-        // pack header the banner is the pack's; the rest of the panel stays empty.
         const Texture* banner = texture_cache_.get(cursor_banner_path());
         select_art::draw_banner(theme, renderer, L, banner);
         if (song != nullptr && text != nullptr) {
@@ -743,7 +706,6 @@ void SelectScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, i
                                        "BPM " + format_bpm_range(song->timing));
         }
 
-        // Difficulty rows: a window of at most kDiffVisibleRows around the chart cursor.
         if (song != nullptr && !song->charts.empty()) {
             const int count = static_cast<int>(song->charts.size());
             const int selected = std::clamp(selected_chart_, 0, count - 1);
@@ -761,10 +723,6 @@ void SelectScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, i
                                              std::span(views.data(), n), selected - window.first);
         }
 
-        // Wheel: a kWheelVisibleRows window over the display rows (pack headers
-        // inline). While sliding, up to two extra rows fill the side the rows
-        // moved away from; draw_wheel skips any row that would leave reference
-        // y 0..720 (the letterbox bands), and the bars drawn next cover the rest.
         const int rows = static_cast<int>(wheel_rows_.size());
         const int selected_row = selected_wheel_row();
         const select_art::ListWindow window =
@@ -808,7 +766,6 @@ void SelectScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, i
                                selected_row - window.first, offset);
     }
 
-    // Chrome over the wheel: top bar + chips, hint bar.
     if (theme != nullptr) {
         select_art::draw_top_bar(*theme, renderer, L, w);
     }
@@ -817,11 +774,9 @@ void SelectScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, i
     if (songs_.empty() && text != nullptr) {
         select_art::draw_empty_message(*text, renderer, L);
     }
-    // Options overlay (#96): scrim, panel, rows and its own legend.
     if (options_open_) {
         options_art::draw_overlay(theme, text, renderer, L, w, h, options_values_, options_.row);
     }
-    // Scanlines last, over the overlay too.
     if (theme != nullptr) {
         select_art::draw_scanlines(*theme, renderer, w, h, L);
     }

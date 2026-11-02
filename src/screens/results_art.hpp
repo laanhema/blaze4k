@@ -1,16 +1,6 @@
 #pragma once
 
 // Cabinet v3 score screen art (#95), used by ResultsScreen.
-//
-//  - Pure layout helpers in the 1280x720 reference space (theme::layout), mapped
-//    to window pixels with theme::layout_scale (#91). GL-free, so
-//    results_screen_test pins them headless. Every rect is a manifest *content
-//    box*; glow padding hangs outside it. Widths passed in are reference px.
-//  - Thin draw helpers over ThemeTextures (#89) and TextRenderer (#90). Each one
-//    is a no-op for a null service and on an uninitialised GlQuadRenderer.
-//
-// Presentation only: nothing here reads the music clock or wall time; the reveal
-// runs on the screen's fixed `dt` (ResultsAnimator).
 
 #include <array>
 #include <cstddef>
@@ -30,13 +20,7 @@ struct ResultsSummary;
 
 namespace results_art {
 
-// ---------------------------------------------------------------------------------------------
-// Constants (reference px unless noted)
-// ---------------------------------------------------------------------------------------------
-
-// Text fallback for the baked title_score_screen sprite.
 inline constexpr std::string_view kScreenTitleText = "SCORE SCREEN";
-// title_score_screen at manifest layout_720p (40, 9).
 inline constexpr Vec2 kTitleSpritePos{theme::layout::kTopBarPadX, 9.0f};
 
 // Top bar group (right to left: artist, title, badge plate). Measured from
@@ -102,7 +86,6 @@ inline constexpr std::size_t kJudgmentRowCount = 6;
 inline constexpr std::array<std::string_view, kJudgmentRowCount> kJudgmentRowLabels = {
     "FANTASTIC", "EXCELLENT", "GREAT", "DECENT", "WAY OFF", "MISS"};
 
-// NO RESULT message line top (select_art::kEmptyMessageTop).
 inline constexpr float kEmptyMessageTop = 340.0f;
 
 static_assert(theme::layout::kJudgmentBarsX + theme::layout::kJudgmentBarLabelWidth +
@@ -113,23 +96,9 @@ static_assert(theme::layout::kStatPanelTop + kStatPanelHeights[0] + theme::layou
                   245.0f,
               "the second stat panel starts at the mock's y 245");
 
-// ---------------------------------------------------------------------------------------------
-// Pure layout
-// ---------------------------------------------------------------------------------------------
-
-// The top bar group right-aligned at kBarRight (right to left: artist, title,
-// badge plate). Inputs are untruncated reference widths; a non-positive (or
-// non-finite) width takes no room and no gap. The artist is capped at 240 and
-// the badge text at 200; the title gets what is left down to kBarLeftLimit.
-// With a subtitle (subtitle_w > 0, #110) the title slot is sized for
-// "title + kBarSubtitleGap + subtitle" and split by fit_title_subtitle; the
-// subtitle sits kBarSubtitleGap after the title's slot (nominal x: the screen
-// re-derives it from the measured fitted title). With no subtitle (<= 0 or
-// non-finite) every field is identical to the three-width layout, and
-// subtitle_x / subtitle_max_w are 0.
 struct TopBarLayout {
-    Rect plate{};               // badge plate (w == 0: no plate)
-    float badge_text_x = 0.0f;  // plate.x + 12
+    Rect plate{};
+    float badge_text_x = 0.0f;
     float badge_text_max_w = 0.0f;
     float title_x = 0.0f;
     float title_max_w = 0.0f;
@@ -142,88 +111,44 @@ struct TopBarLayout {
 [[nodiscard]] TopBarLayout top_bar_layout(float badge_text_w, float title_w, float artist_w,
                                           float subtitle_w = 0.0f);
 
-// Stat panel `i` (clamped to 0..2): {44, 120 / 245 / 370, 360, 111 / 111 / 102}.
 [[nodiscard]] Rect stat_panel_rect(int i);
-
-// Text x inside a -8deg panel for an element centred at `centre_y`:
-// panel.x + kStatTextPadX + skew::kStatPanel * (panel centre y - centre_y).
 [[nodiscard]] float stat_text_x(const Rect& panel, float centre_y);
-
-// Holds panel column offsets {0, c1, c2}: c[i+1] = c[i] + max(label_w[i], value_w[i]) + gap,
-// gap = the room kHoldRowWidth leaves, halved, clamped to kHoldColumnMinGap..kHoldColumnMaxGap.
 [[nodiscard]] std::array<float, 3> hold_columns(std::array<float, 3> label_w,
                                                 std::array<float, 3> value_w);
 
-// The grade sprite's content box: `content` (reference px) times `scale`,
-// centred on kGradeCentre.
 [[nodiscard]] Rect grade_rect(Vec2 content, float scale);
-
-// The ribbon content box at `scale`, centred on kRecordRibbon's centre (640, 622).
 [[nodiscard]] Rect ribbon_rect(float scale);
 
-// Judgment row `i` (clamped to 0..5): row top 120 + 45i.
 struct JudgmentRowLayout {
     float label_x = 0.0f;
-    float baseline = 0.0f;  // label / count baseline
-    Rect bar{};             // track
+    float baseline = 0.0f;
+    Rect bar{};
     float count_right = 0.0f;
 };
 [[nodiscard]] JudgmentRowLayout judgment_row_layout(int i);
-
-// Filled bar width: 0 when count <= 0 or total <= 0; else
-// clamp(bar_w * count / total, kMinBarFill, bar_w).
 [[nodiscard]] float judgment_bar_fill_width(int count, int total, float bar_w);
-
-// Sum of the Fantastic..Miss tap counts (HitMine excluded).
 [[nodiscard]] int judged_tap_total(const ResultsSummary& summary);
-
-// "grade_" + label with '+' -> "_plus" and '-' -> "_minus"; "" for an empty label.
 [[nodiscard]] std::string grade_texture_name(std::string_view label);
-
-// "FOUR STARS" / "THREE STARS" / "TWO STARS" / "ONE STAR" for the star tiers,
-// "GRADE " + label otherwise, "" for an empty label.
 [[nodiscard]] std::string grade_tier_text(std::string_view label);
 
-// std::to_string(max(v, 0)): the digit atlases have no minus sign.
 [[nodiscard]] std::string digits_text(int v);
 
-// The judgment colour of row `i` (fill) and its label colour (MISS is lighter).
 [[nodiscard]] Color judgment_row_color(int i);
 [[nodiscard]] Color judgment_label_color(int i);
 
-// ---------------------------------------------------------------------------------------------
-// Draw helpers (no-ops for null services / an uninitialised renderer)
-// ---------------------------------------------------------------------------------------------
-
-// bg_results over the whole window.
 void draw_backdrop(const ThemeTextures& theme, GlQuadRenderer& renderer, int w, int h);
-
-// bar_top + title_score_screen (or the "SCORE SCREEN" text fallback when the
-// sprite is unavailable), and bar_hint over {0, 674, w, 46}.
 void draw_bars(const ThemeTextures* theme, TextRenderer* text, GlQuadRenderer& renderer,
                const theme::LayoutScale& L, int w);
-
-// "ENTER" (gold key) + `word`, the pair centred on x 640 in the hint band.
 void draw_hint_text(TextRenderer& text, GlQuadRenderer& renderer, const theme::LayoutScale& L,
                     std::string_view word);
-
-// The three stat_panel plates at `alpha`.
 void draw_stat_panel_plates(const ThemeTextures& theme, GlQuadRenderer& renderer,
                             const theme::LayoutScale& L, float alpha);
-
-// The six judgment tracks (kBarTrack) and fills (judgment colours), code-drawn.
 void draw_judgment_bars(GlQuadRenderer& renderer, const theme::LayoutScale& L,
                         const ResultsSummary& summary, float alpha);
-
-// The six judgment labels (judgment colours) and right-aligned counts (kText).
 void draw_judgment_text(TextRenderer& text, GlQuadRenderer& renderer, const theme::LayoutScale& L,
                         const std::array<std::string, kJudgmentRowCount>& counts, float alpha);
-
-// A solid parallelogram (select_art::skewed_quad of `rect`) in reference space.
 void draw_skewed_solid(GlQuadRenderer& renderer, const theme::LayoutScale& L, const Rect& rect,
                        float skew, Color color);
-
-// The scanlines overlay (title_art::draw_scanlines).
 void draw_scanlines(const ThemeTextures& theme, GlQuadRenderer& renderer, int w, int h,
                     const theme::LayoutScale& L);
 

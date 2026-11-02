@@ -22,8 +22,7 @@ void SelectPlaceholderScreen::enter(ScreenContext& /*ctx*/) {
 
 void SelectPlaceholderScreen::update(ScreenContext& /*ctx*/, double /*fixed_dt*/,
                                      const std::vector<InputEvent>& events) {
-    // Back is handled centrally by the ScreenManager. Confirm has nowhere to go
-    // until C3 lands.
+    // Back is handled centrally by the ScreenManager.
     for (const InputEvent& event : events) {
         if (event.pressed && event.action == GameAction::Confirm) {
             std::cout << "[SelectPlaceholder] Confirm ignored (C3 pending)\n";

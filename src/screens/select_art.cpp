@@ -78,7 +78,6 @@ Vec2 lerp(Vec2 a, Vec2 b, float t) {
     return Vec2{a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t};
 }
 
-// A solid quad from reference-space corners.
 void draw_solid(GlQuadRenderer& renderer, const theme::LayoutScale& L,
                 const std::array<Vec2, 4>& ref_corners, Color color) {
     static const Texture kSolid; // id 0: the renderer substitutes its white texture
@@ -632,7 +631,6 @@ void draw_difficulty_rows(const ThemeTextures* theme, TextRenderer* text, GlQuad
     if (text == nullptr) {
         return;
     }
-    // Text grouped by style: names, then meters, then bests.
     for (std::size_t i = 0; i < rows.size(); ++i) {
         if (rows[i].chart == nullptr) {
             continue;
@@ -736,7 +734,6 @@ void draw_wheel(const ThemeTextures* theme, TextRenderer* text, GlQuadRenderer& 
                                    text->measure(line.subtitle, sub_style), gap, budget);
             return RowFit{text->truncate(line.title, style, fit.title_max_w), fit.subtitle_max_w};
         };
-        // Titles first, then the subtitles of the same rows (text grouped by style).
         for (const WheelRowView& view : rows) {
             if (view.art != art || !drawn(view)) {
                 continue;
@@ -785,7 +782,6 @@ void draw_wheel(const ThemeTextures* theme, TextRenderer* text, GlQuadRenderer& 
         }
     };
 
-    // Sliding rows (art, then text), then the selected bar on top of them.
     if (theme != nullptr) {
         for (const WheelRowView& view : rows) {
             if (!is_selected_bar(view) && drawn(view)) {

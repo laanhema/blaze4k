@@ -9,25 +9,23 @@ namespace blaze4k {
 
 struct GameConfig;
 
-// Rows of the C4 options overlay. This enum plus the `options_menu_adjust`
-// dispatch are the seam C5 (offset wizard) and C6 (input remapping) extend with
-// new entries; neither is implemented here.
+// Rows of the options overlay.
 enum class OptionsRow : int {
-    SpeedType = 0, // XMOD / CMOD / MMOD
-    SpeedValue,    // numeric, type-specific
-    Scroll,        // UP / DOWN
-    Fail,          // ON / OFF
-    AssistTick,    // ON / OFF: tick on every note row (timing practice)
-    CalibrateOffset, // action row: opens the C5 calibration wizard
-    RemapInput,      // action row: opens the C6 input remapping screen
+    SpeedType = 0,
+    SpeedValue,
+    Scroll,
+    Fail,
+    AssistTick,
+    CalibrateOffset,
+    RemapInput,
     Count,
 };
 
 inline constexpr int kOptionsRowCount = static_cast<int>(OptionsRow::Count);
 
 // Pure, SDL/GL/audio/clock-free state for the options overlay. The model keeps a
-// remembered value per speed type so switching type never yields nonsense like
-// "C1.5"; the active type's slot is what gameplay consumes.
+// remembered value per speed type so switching type never yields invalid combinations;
+// the active type's slot is what gameplay consumes.
 struct OptionsMenu {
     SpeedModType speed_type = SpeedModType::XMod;
     double x_value = 1.0;
@@ -39,12 +37,10 @@ struct OptionsMenu {
     int row = static_cast<int>(OptionsRow::SpeedType);
 
     // Display-only mirror of the persisted offset. `options_menu_apply` must NOT
-    // write this back; the C5 wizard owns the config offset field.
+    // write this back; the calibration wizard owns the config offset field.
     double offset_seconds = 0.0;
 
-    // Active type's slot.
     [[nodiscard]] double speed_value() const;
-    // Clamps to the active type's documented range and stores in its slot.
     void set_speed_value(double value);
 };
 
