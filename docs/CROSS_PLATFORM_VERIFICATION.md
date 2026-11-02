@@ -105,6 +105,100 @@ Capture the command output or artifact named in the last column.
   - Related automated guard: `metronome_sync_test` holds sync within one
     judgment window over a full song.
 
+## Cabinet theme pass (#98)
+
+The Cabinet theme (#89 to #97) restyled every screen. This pass checks the
+polish work of #98: the `video.scanlines` toggle, the frame cost against the
+pre-theme build, and a look at every screen. Linux is machine-checked here;
+Windows and macOS are owner steps and are **not verified**.
+
+### Linux (machine-checked on the verification host)
+
+Host for this pass: Fedora, x86_64, GCC, Mesa 26.2.5 on an AMD Radeon
+(radeonsi) with a 1920x1080 display, fixture pack on the stub clock
+(`time source stub`, so no sound plays).
+
+- **Scanlines toggle.** `video.scanlines` (default `true`, config file only, no
+  options entry) is read by `read_video` in `src/data/config_loader.cpp`, saved
+  by `save_config`, and applied by `title_art::draw_scanlines`, the one function
+  every screen's scanlines call forwards to. `config_persistence_test` covers the
+  default, the round trip and the wrong-type warning; `title_screen_test`
+  (`test_scanlines_toggle`) checks through the headless recorder that the overlay
+  quad is drawn when on and not drawn when off. In the real window, with
+  `"video": {"scanlines": false}` in `config.json`, the title screen loses the
+  horizontal line texture and the saved `config.json` keeps `"scanlines": false`
+  (`screenshots/720p-10-title-scanlines-off.png` against
+  `screenshots/720p-01-title.png`).
+- **Frame cost against the pre-theme build.** Pre-theme build: commit `a2ec06c`
+  (before the theme textures were loaded), built Release from a scratch worktree.
+  Both binaries ran the same key script (Title, Select, Blaze Anthem BEGINNER 1 on
+  the fixture pack, play to Results, back to Select) with
+  `--perf-report --no-vsync`, four runs each, interleaved. The frame pacing of the
+  game loop holds both builds at about 60 fps even with vsync off, so frame time
+  shows pacing and hitches; CPU time (from `/proc/<pid>/stat`) and quads per frame
+  show cost.
+
+  | Measure (gameplay phase unless noted) | Pre-theme | Cabinet theme |
+  | ------------------------------------- | --------- | ------------- |
+  | `[perf]` median frame time, whole run | 16.65 ms in all 4 runs | 16.65 ms in all 4 runs |
+  | `[perf]` p99, whole run (4 runs) | 17.27, 17.34, 17.36, 19.08 ms | 17.16, 17.29, 17.80, 18.55 ms |
+  | `[perf]` max, whole run | 148 to 176 ms (the first frame, startup) | 250 ms in all 4 runs (the first frame; theme load and font bake) |
+  | Quads drawn per gameplay frame | 295.5 | 34.8 |
+  | Draw calls (flushes) per gameplay frame | 7.3 | 11.7 |
+  | Select and Results quads per frame | 3268 and 1534 | 261 and 148 |
+  | Process CPU during gameplay (about 5.9 s) | 0.25 to 0.29 s | 0.34 to 0.38 s |
+  | Process CPU, whole run | 0.85 to 0.88 s | 1.63 to 2.11 s |
+
+  Reading: the frame-time distribution is unchanged (p99 is within run-to-run
+  noise; `hitches` counts frames over 16.67 ms, which the 60 fps pacing makes
+  common in both builds: 307 to 328 before, 324 to 338 after), and the theme draws
+  about 8 times fewer quads in gameplay (34.8 vs 295.5 quads/frame). It issues 11.7
+  draw calls per frame (each component already batches its quads; the 11-12 calls
+  correspond to distinct textures: background, scrim, receptors, taps, life frame,
+  fill, stripes, judgment pop, difficulty badge, combo number, combo label, and
+  text). Per owner decision on #98 (Finding H1), the gameplay criterion was
+  reworded to: "no frame-time regression and fewer quads (34.8 vs 295.5 quads/frame)".
+  Over a full 117-second real song (*Anubis* from *In The Groove*, 7,446 frames,
+  silent audio with real hardware device callbacks), gameplay CPU was 7.93 s total
+  (6.8% of one core) with a median frame time of 16.653 ms (p95 16.89 ms, p99 17.54 ms)
+  and zero audio dropouts over 11,551 callbacks.
+- **Screenshots** of each screen, in `docs/cabinet-theme/screenshots/`:
+  Title, Select (packs closed, pack open), Options overlay, Calibration, Input
+  Remap, Gameplay, and Results at **1280x720** (`720p-*.png`), **1920x1080**
+  (`1080p-*.png`), and **2560x1440** (`1440p-*.png` captured via Xvfb on an
+  isolated display `:98` without changing the host display mode), plus Attract
+  at 1280x720 and 2560x1440, and Title with scanlines off at 1280x720 and 2560x1440.
+  The layout scale is `theme::layout_scale` in `src/render/theme_layout.hpp`;
+  `title_screen_test` pins the title layout at exactly 2x for 2560x1440.
+- **`bitmap_font`.** Kept, and documented in `src/render/bitmap_font.hpp` as a
+  fallback and debug text path. No themed screen draws player-facing text with
+  it: text goes through `TextRenderer`. It is drawn only when a theme asset or a
+  TrueType face is missing (the judgment pop label in
+  `src/gameplay/judgment_animator.cpp`, the `TextRenderer` bitmap fallback in
+  `src/render/ttf_font.cpp`) and by `SelectPlaceholderScreen`, which
+  `src/main.cpp` does not register. `song_display_text.cpp` uses its
+  `truncate_to_cells` and `font_covers_text` helpers.
+
+### Owner checklist (Windows and macOS)
+
+Mark each row "owner-verified" only after running it on the target hardware.
+
+- [ ] **Windows (MSVC)** owner-verified: build with the `windows-msvc-release`
+  preset, launch with a song pack, visit Title, Attract, Select (open a pack),
+  the Options overlay, Calibration, Input Remap, Gameplay and Results at
+  1280x720 and at 2560x1440; compare each against the Linux screenshots (colours,
+  text crispness, banner and background alignment, no missing texture falling
+  back to a flat colour; the log has no `[ThemeTextures]` or `[TextRenderer]`
+  warning).
+- [ ] **macOS (AppleClang)** owner-verified: the same, with the
+  `macos-clang-release` preset; on a Retina display check the framebuffer size
+  (the layout uses pixel size, not window points) and that text stays crisp.
+- [ ] **Scanlines toggle** owner-verified on Windows and macOS: set
+  `"video": {"scanlines": false}` in `config.json` next to the binary, restart,
+  confirm the overlay is gone on every screen; set it back to `true`.
+- [ ] **Frame cost** owner-verified on each OS: `--perf-report` over a full song
+  (as in AC2), pasting the `[perf]` block with the machine and GPU.
+
 ## Per-OS audio backend guidance (PRD §14)
 
 Audio backend selection affects input-to-sound latency, so calibrate on the
