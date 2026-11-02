@@ -197,6 +197,7 @@ int main(int argc, char* argv[]) {
     config.window.height = game_config.video.height;
     config.window.vsync = game_config.video.vsync;
     config.window.fullscreen = game_config.video.fullscreen;
+    config.scanlines = game_config.video.scanlines;
 
     std::string scores_message;
     blaze4k::ScoresLoadStatus scores_status = blaze4k::ScoresLoadStatus::UsedDefaults;
@@ -276,6 +277,8 @@ int main(int argc, char* argv[]) {
         {static_cast<uint32_t>(game_config.audio.period_size_frames),
          +[]() -> uint64_t { return SDL_GetTicksNS(); },
          blaze4k::AudioBackend::Device});
+    blaze4k::AudioEngine::instance().set_master_volume(
+        static_cast<float>(game_config.audio.master_volume));
 
     // C6: honor a saved remap from boot. Safe when the config was missing (the
     // defaults are applied). Reserved Escape/pad-Back are always re-installed.

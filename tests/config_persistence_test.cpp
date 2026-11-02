@@ -74,6 +74,7 @@ int main() {
         TEST_CHECK(defaults.video.height == 720);
         TEST_CHECK(defaults.video.vsync);
         TEST_CHECK(!defaults.video.fullscreen);
+        TEST_CHECK(defaults.video.scanlines);
         TEST_CHECK(nearly(defaults.audio.master_volume, 1.0));
         TEST_CHECK(nearly(defaults.audio.music_volume, 1.0));
         TEST_CHECK(nearly(defaults.audio.preview_volume, 0.8));
@@ -135,6 +136,7 @@ int main() {
         config.video.height = 600;
         config.video.vsync = false;
         config.video.fullscreen = true;
+        config.video.scanlines = false;
         config.audio.master_volume = 0.5;
         config.audio.music_volume = 0.25;
         config.audio.preview_volume = 0.0;
@@ -158,6 +160,7 @@ int main() {
         TEST_CHECK(loaded.video.height == 600);
         TEST_CHECK(!loaded.video.vsync);
         TEST_CHECK(loaded.video.fullscreen);
+        TEST_CHECK(!loaded.video.scanlines);
         TEST_CHECK(nearly(loaded.audio.master_volume, 0.5));
         TEST_CHECK(nearly(loaded.audio.music_volume, 0.25));
         TEST_CHECK(nearly(loaded.audio.preview_volume, 0.0));
@@ -266,6 +269,26 @@ int main() {
         TEST_CHECK(nearly(loaded.audio.music_volume, 1.0)); // clamped
         TEST_CHECK(message.find("warning") != std::string::npos);
         std::cout << "  - 5. per-field tolerance + clamping ok.\n";
+    }
+
+    // 5a. video.scanlines: a non-boolean keeps the default (on) and warns by name;
+    //     an explicit false loads and is re-saved as false.
+    {
+        const fs::path bad = temp_dir / "scanlines_bad.json";
+        write_file(bad, R"({"video":{"scanlines":"yes","height":600}})");
+        blaze4k::GameConfig loaded = blaze4k::load_config(bad, &message, &status);
+        TEST_CHECK(status == blaze4k::ConfigLoadStatus::LoadedFromFile);
+        TEST_CHECK(loaded.video.scanlines);
+        TEST_CHECK(loaded.video.height == 600);
+        TEST_CHECK(message.find("video.scanlines") != std::string::npos);
+
+        const fs::path off = temp_dir / "scanlines_off.json";
+        write_file(off, R"({"video":{"scanlines":false}})");
+        loaded = blaze4k::load_config(off, &message, &status);
+        TEST_CHECK(status == blaze4k::ConfigLoadStatus::LoadedFromFile);
+        TEST_CHECK(!loaded.video.scanlines);
+        TEST_CHECK(message.find("warning") == std::string::npos);
+        std::cout << "  - 5a. video.scanlines tolerance ok.\n";
     }
 
     // 5b. Invalid gameplay enums fall back to defaults on load (and are not

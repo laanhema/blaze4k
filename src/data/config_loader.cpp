@@ -187,6 +187,7 @@ void read_video(const json& document, VideoSettings& target, std::string& warnin
                    "video");
     read_bool_field(*node, "vsync", target.vsync, warnings, "video");
     read_bool_field(*node, "fullscreen", target.fullscreen, warnings, "video");
+    read_bool_field(*node, "scanlines", target.scanlines, warnings, "video");
 }
 
 void read_audio(const json& document, AudioSettings& target, std::string& warnings) {
@@ -394,10 +395,9 @@ bool save_config(const std::filesystem::path& path, const GameConfig& config,
     json document;
     document["version"] = config.version;
     document["video"] = {
-        {"width", config.video.width},
-        {"height", config.video.height},
-        {"vsync", config.video.vsync},
-        {"fullscreen", config.video.fullscreen},
+        {"width", config.video.width},         {"height", config.video.height},
+        {"vsync", config.video.vsync},         {"fullscreen", config.video.fullscreen},
+        {"scanlines", config.video.scanlines},
     };
     document["audio"] = {
         {"master_volume", config.audio.master_volume},

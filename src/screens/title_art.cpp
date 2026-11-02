@@ -82,6 +82,9 @@ void draw_centred_sprite(const ThemeTextures& theme, GlQuadRenderer& renderer,
 }
 
 void draw_scanlines(const ThemeTextures& theme, GlQuadRenderer& renderer, int w, int h, float s) {
+    if (!theme.scanlines_enabled()) {
+        return;
+    }
     theme.draw_tiled(renderer, "scanlines",
                      Rect{0.0f, 0.0f, static_cast<float>(w), static_cast<float>(h)}, s);
 }

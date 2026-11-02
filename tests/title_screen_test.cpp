@@ -22,6 +22,7 @@
 #include "screens/attract_screen.hpp"
 #include "screens/screen.hpp"
 #include "screens/screen_manager.hpp"
+#include "screens/select_art.hpp"
 #include "screens/select_placeholder_screen.hpp"
 #include "screens/title_art.hpp"
 #include "screens/title_screen.hpp"
@@ -239,6 +240,35 @@ void test_skin_sprite_guard() {
     std::cout << "  - invalid skin textures are never drawn ok.\n";
 }
 
+// #98: video.scanlines. Headless (no GL) the theme draws the overlay as one flat
+// full-window quad, which the recorder counts; every screen's scanlines call
+// forwards to title_art::draw_scanlines, so the select_art entry point obeys the toggle too
+// (results_art skips an uninitialised renderer, so it cannot be recorded here).
+void test_scanlines_toggle() {
+    blaze4k::ThemeTextures& tex = loaded_theme();
+    TEST_CHECK(tex.scanlines_enabled()); // default on
+    blaze4k::GlQuadRenderer renderer;    // uninitialised: draws are recorded
+    const theme::LayoutScale L = theme::layout_scale(1280, 720);
+
+    title_art::draw_scanlines(tex, renderer, 1280, 720, 1.0f);
+    TEST_CHECK(renderer.recorded_quads().size() == 1);
+    TEST_CHECK(vec_eq(renderer.recorded_quads()[0].corners[0], 0, 0));
+    TEST_CHECK(vec_eq(renderer.recorded_quads()[0].corners[2], 1280, 720));
+
+    tex.set_scanlines_enabled(false);
+    TEST_CHECK(!tex.scanlines_enabled());
+    renderer.clear_recorded();
+    title_art::draw_scanlines(tex, renderer, 1280, 720, 1.0f);
+    blaze4k::select_art::draw_scanlines(tex, renderer, 1280, 720, L);
+    TEST_CHECK(renderer.recorded_quads().empty());
+
+    tex.set_scanlines_enabled(true);
+    renderer.clear_recorded();
+    blaze4k::select_art::draw_scanlines(tex, renderer, 1280, 720, L);
+    TEST_CHECK(renderer.recorded_quads().size() == 1);
+    std::cout << "  - scanlines toggle ok.\n";
+}
+
 void test_render_smoke_with_services() {
     blaze4k::ThemeTextures& tex = loaded_theme();
     blaze4k::TextRenderer text;
@@ -317,6 +347,7 @@ int main() {
     test_attract_helpers();
     test_footer_text();
     test_skin_sprite_guard();
+    test_scanlines_toggle();
     test_render_smoke_with_services();
     std::cout << "title_screen_test: all passed\n";
     return 0;

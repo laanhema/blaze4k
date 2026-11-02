@@ -50,6 +50,7 @@ bool App::init() {
     // #89: load every Cabinet theme PNG once. Non-fatal: a missing pack logs
     // once and the draws fall back to flat quads; headless logs one line.
     theme_textures_.load(ThemeTextures::default_directory());
+    theme_textures_.set_scanlines_enabled(config_.scanlines);
 
     // #90: load the theme fonts and pre-bake every theme text atlas at the
     // current window size. Non-fatal: a missing/corrupt font logs once and that font

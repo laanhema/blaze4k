@@ -281,6 +281,12 @@ public:
     // Releases every texture and forgets the manifest. Safe to repeat.
     void shutdown();
 
+    // #98: the `video.scanlines` config toggle. title_art::draw_scanlines (the
+    // one scanlines draw every screen forwards to) draws nothing when off.
+    // Survives shutdown()/load(); defaults to on.
+    void set_scanlines_enabled(bool enabled) { scanlines_enabled_ = enabled; }
+    [[nodiscard]] bool scanlines_enabled() const { return scanlines_enabled_; }
+
     [[nodiscard]] const ThemeEntry* entry(std::string_view name) const;
     // Content box size at layout scale `s`; {0,0} when unknown.
     [[nodiscard]] Vec2 content_size(std::string_view name, float s) const;
@@ -329,6 +335,7 @@ private:
     [[nodiscard]] float scale_k(float s) const;
 
     ThemeNameMap<Slot> slots_;
+    bool scanlines_enabled_ = true;
     float texture_scale_ = 2.0f;
     BitmapDigits digits_chrome_;
     BitmapDigits digits_white_;
