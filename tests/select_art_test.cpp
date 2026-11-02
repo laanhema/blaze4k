@@ -253,31 +253,56 @@ void test_wheel_row_rects() {
 void test_build_wheel_rows() {
     using Kind = art::WheelRow::Kind;
     const std::vector<int> packs = {0, 0, 1, 1, 1};
-    const art::WheelRows rows = art::build_wheel_rows(packs);
-    TEST_CHECK(rows.rows.size() == 7);
-    const Kind kinds[7] = {Kind::Pack, Kind::Song, Kind::Song, Kind::Pack,
-                           Kind::Song, Kind::Song, Kind::Song};
-    const int pack_of[7] = {0, 0, 0, 1, 1, 1, 1};
-    const int song_of[7] = {-1, 0, 1, -1, 2, 3, 4};
-    for (std::size_t i = 0; i < 7; ++i) {
-        TEST_CHECK(rows.rows[i].kind == kinds[i]);
-        TEST_CHECK(rows.rows[i].pack_index == pack_of[i]);
-        TEST_CHECK(rows.rows[i].song_index == song_of[i]);
+
+    // Pack 0 open: both headers, only pack 0's songs.
+    const art::WheelRows open0 = art::build_wheel_rows(packs, 0);
+    TEST_CHECK(open0.rows.size() == 4);
+    const Kind kinds0[4] = {Kind::Pack, Kind::Song, Kind::Song, Kind::Pack};
+    const int pack0[4] = {0, 0, 0, 1};
+    const int song0[4] = {-1, 0, 1, -1};
+    for (std::size_t i = 0; i < 4; ++i) {
+        TEST_CHECK(open0.rows[i].kind == kinds0[i]);
+        TEST_CHECK(open0.rows[i].pack_index == pack0[i]);
+        TEST_CHECK(open0.rows[i].song_index == song0[i]);
     }
-    TEST_CHECK((rows.song_row == std::vector<int>{1, 2, 4, 5, 6}));
-    for (std::size_t s = 0; s < rows.song_row.size(); ++s) {
-        TEST_CHECK(rows.rows[static_cast<std::size_t>(rows.song_row[s])].song_index ==
+    TEST_CHECK((open0.song_row == std::vector<int>{1, 2, -1, -1, -1}));
+
+    // Pack 1 open.
+    const art::WheelRows open1 = art::build_wheel_rows(packs, 1);
+    TEST_CHECK(open1.rows.size() == 5);
+    const Kind kinds1[5] = {Kind::Pack, Kind::Pack, Kind::Song, Kind::Song, Kind::Song};
+    const int pack1[5] = {0, 1, 1, 1, 1};
+    const int song1[5] = {-1, -1, 2, 3, 4};
+    for (std::size_t i = 0; i < 5; ++i) {
+        TEST_CHECK(open1.rows[i].kind == kinds1[i]);
+        TEST_CHECK(open1.rows[i].pack_index == pack1[i]);
+        TEST_CHECK(open1.rows[i].song_index == song1[i]);
+    }
+    TEST_CHECK((open1.song_row == std::vector<int>{-1, -1, 2, 3, 4}));
+    for (std::size_t s = 2; s < open1.song_row.size(); ++s) {
+        TEST_CHECK(open1.rows[static_cast<std::size_t>(open1.song_row[s])].song_index ==
                    static_cast<int>(s));
     }
 
-    const art::WheelRows empty = art::build_wheel_rows({});
+    // Nothing open, or an open pack that is not in the list: headers only.
+    for (const int none : {-1, 7}) {
+        const art::WheelRows closed = art::build_wheel_rows(packs, none);
+        TEST_CHECK(closed.rows.size() == 2);
+        TEST_CHECK(closed.rows[0].kind == Kind::Pack && closed.rows[0].pack_index == 0);
+        TEST_CHECK(closed.rows[1].kind == Kind::Pack && closed.rows[1].pack_index == 1);
+        TEST_CHECK((closed.song_row == std::vector<int>{-1, -1, -1, -1, -1}));
+    }
+
+    const art::WheelRows empty = art::build_wheel_rows({}, 0);
     TEST_CHECK(empty.rows.empty() && empty.song_row.empty());
 
     const std::vector<int> one = {3};
-    const art::WheelRows single = art::build_wheel_rows(one);
+    const art::WheelRows single = art::build_wheel_rows(one, 3);
     TEST_CHECK(single.rows.size() == 2 && single.song_row == std::vector<int>{1});
     TEST_CHECK(single.rows[0].kind == Kind::Pack && single.rows[0].pack_index == 3);
-    std::cout << "  - wheel display rows (inline pack headers) ok.\n";
+    const art::WheelRows single_closed = art::build_wheel_rows(one, -1);
+    TEST_CHECK(single_closed.rows.size() == 1 && single_closed.song_row == std::vector<int>{-1});
+    std::cout << "  - wheel display rows (headers + the open pack's songs) ok.\n";
 }
 
 void test_scroll_easing() {
@@ -749,11 +774,42 @@ void test_chip_rects() {
     std::cout << "  - chip boxes ok.\n";
 }
 
+// The word after ENTER follows what Confirm does: PLAY on a song, OPEN on a closed pack
+// header, CLOSE on an open one. With 10 px per letter, CLOSE is one letter (10 px) wider
+// than PLAY / OPEN, and the line stays centred on x 640.
+void test_hint_confirm_word() {
+    const auto key = [](std::string_view s) {
+        return 8.0f * static_cast<float>(s.size());
+    };
+    const auto word = [](std::string_view s) {
+        return 10.0f * static_cast<float>(s.size());
+    };
+    TEST_CHECK(art::confirm_hint_word(art::ConfirmHint::Play) == "PLAY");
+    TEST_CHECK(art::confirm_hint_word(art::ConfirmHint::Open) == "OPEN");
+    TEST_CHECK(art::confirm_hint_word(art::ConfirmHint::Close) == "CLOSE");
+
+    const art::HintLine play = art::hint_layout(key, word, art::ConfirmHint::Play);
+    const art::HintLine open = art::hint_layout(key, word, art::ConfirmHint::Open);
+    const art::HintLine close = art::hint_layout(key, word, art::ConfirmHint::Close);
+    TEST_CHECK(play.count == 12 && open.count == 12 && close.count == 12);
+    TEST_CHECK(play.pieces[6].text == "ENTER" && play.pieces[7].text == "PLAY");
+    TEST_CHECK(open.pieces[6].text == "ENTER" && open.pieces[7].text == "OPEN");
+    TEST_CHECK(close.pieces[6].text == "ENTER" && close.pieces[7].text == "CLOSE");
+    TEST_CHECK(approx(open.width, play.width));
+    TEST_CHECK(approx(close.width - play.width, 10.0f));
+    TEST_CHECK(approx(close.pieces[7].width, 50.0f) && approx(open.pieces[7].width, 40.0f));
+    // The other hints stay.
+    TEST_CHECK(close.pieces[9].text == "OPTIONS" && close.pieces[11].text == "TITLE");
+    TEST_CHECK(std::fabs(close.pieces[0].x + close.width * 0.5f - 640.0f) < 0.5f);
+    std::cout << "  - hint bar Confirm word (PLAY / OPEN / CLOSE) ok.\n";
+}
+
 void test_hint_layout() {
     blaze4k::TextRenderer& text = loaded_text();
     const art::HintLine line = art::hint_layout(
         [&text](std::string_view s) { return text.measure(s, theme::text::kHintKey); },
-        [&text](std::string_view s) { return text.measure(s, theme::text::kHintWord); });
+        [&text](std::string_view s) { return text.measure(s, theme::text::kHintWord); },
+        art::ConfirmHint::Play);
 
     using Kind = art::HintPiece::Kind;
     TEST_CHECK(line.count == 12);
@@ -807,6 +863,66 @@ void test_hint_layout() {
     TEST_CHECK(vec_eq(left.head[0], 93, 694) && vec_eq(left.head[1], 97, 692));
     TEST_CHECK(vec_eq(left.head[2], 97, 696) && vec_eq(left.head[3], 93, 694));
     std::cout << "  - hint line + arrow geometry ok.\n";
+}
+
+void test_wheel_marker() {
+    // Row {700, 100, 640, 62}: centre {700 + 36, 100 + 31} = {736, 131}, long side 18.
+    const Rect row{700.0f, 100.0f, 640.0f, 62.0f};
+    TEST_CHECK(art::kWheelMarkerX == 36.0f && art::kWheelMarkerHalf == 9.0f);
+    const std::array<Vec2, 4> closed = art::wheel_marker_quad(row, false);
+    TEST_CHECK(vec_eq(closed[0], 731.5f, 122) && vec_eq(closed[1], 740.5f, 131));
+    TEST_CHECK(vec_eq(closed[2], 740.5f, 131) && vec_eq(closed[3], 731.5f, 140));
+    const std::array<Vec2, 4> open = art::wheel_marker_quad(row, true);
+    TEST_CHECK(vec_eq(open[0], 727, 126.5f) && vec_eq(open[1], 745, 126.5f));
+    TEST_CHECK(vec_eq(open[2], 736, 135.5f) && vec_eq(open[3], 736, 135.5f));
+    // The marker clears the label (x 54 from the row).
+    TEST_CHECK(closed[1].x < row.x + art::kWheelPackTextX &&
+               open[1].x < row.x + art::kWheelPackTextX);
+    std::cout << "  - wheel pack marker geometry ok.\n";
+}
+
+void test_wheel_header_recorded_quads() {
+    blaze4k::GlQuadRenderer renderer;
+    const theme::LayoutScale L = theme::layout_scale(1280, 720);
+
+    // Selected slot 1. Slot 0 is the unselected header, row {722, 92, 640, 62} (one row
+    // above the selected one, so indented 46): centre {722 + 36, 92 + 31} = {758, 123}.
+    // Slot 1 is the selected header, row {676, 168, 640, 92}: centre {676 + 36, 168 + 46}
+    // = {712, 214}. Both draw the marker, because the wheel_pack art has no caret.
+    for (const bool open : {true, false}) {
+        std::array<art::WheelRowView, 2> views{};
+        views[0].art = art::WheelArt::Pack;
+        views[0].slot = 0;
+        views[0].open = open;
+        views[1].art = art::WheelArt::SelectedPack;
+        views[1].slot = 1;
+        views[1].open = open;
+        renderer.clear_recorded();
+        art::draw_wheel(nullptr, nullptr, renderer, L, 1280, views, 1, 0.0f);
+
+        const auto quads = renderer.recorded_quads();
+        TEST_CHECK(quads.size() == 2);
+        // The unselected header's marker comes first (Pack rows draw before the selected
+        // bar), in the pack ink; the selected header's marker follows, in the selected ink.
+        // Open: pointing down. Closed: pointing right.
+        const std::array<Vec2, 4> expected_unselected =
+            open ? std::array<Vec2, 4>{Vec2{749, 118.5f}, Vec2{767, 118.5f}, Vec2{758, 127.5f},
+                                       Vec2{758, 127.5f}}
+                 : std::array<Vec2, 4>{Vec2{753.5f, 114}, Vec2{762.5f, 123}, Vec2{762.5f, 123},
+                                       Vec2{753.5f, 132}};
+        TEST_CHECK(corners_eq(quads[0].corners, expected_unselected));
+        TEST_CHECK(same_color(quads[0].color, theme::color::kPackInk));
+        TEST_CHECK(quads[0].texture == 0);
+        const std::array<Vec2, 4> expected =
+            open ? std::array<Vec2, 4>{Vec2{703, 209.5f}, Vec2{721, 209.5f}, Vec2{712, 218.5f},
+                                       Vec2{712, 218.5f}}
+                 : std::array<Vec2, 4>{Vec2{707.5f, 205}, Vec2{716.5f, 214}, Vec2{716.5f, 214},
+                                       Vec2{707.5f, 223}};
+        TEST_CHECK(corners_eq(quads[1].corners, expected));
+        TEST_CHECK(same_color(quads[1].color, theme::color::kSelectedInk));
+        TEST_CHECK(quads[1].texture == 0);
+    }
+    std::cout << "  - pack header marker recorded quads ok.\n";
 }
 
 void test_skewed_quad() {
@@ -1465,20 +1581,54 @@ void test_render_smoke() {
             manager.context().text = &text;
         }
         manager.start(ScreenId::Select);
-        // Pack A: 5 songs (2 subtitled "Disconnected", 1 untitled), Pack B: 9; + 2 pack headers.
+        // Pack A: 5 songs (2 subtitled "Disconnected", 1 untitled), Pack B: 9. First
+        // entry has every pack closed with the cursor on the first header the scan
+        // returned (filesystem order): just the 2 headers.
         TEST_CHECK(select->song_count() == 14);
-        TEST_CHECK(select->wheel_row_count() == 16);
+        TEST_CHECK(select->open_pack_name().empty() && select->wheel_row_count() == 2);
+        TEST_CHECK(select->on_pack_header());
+        const std::string first = select->selected_pack_name();
+        const std::string second = first == "Pack A" ? "Pack B" : "Pack A";
+        const std::size_t first_songs = first == "Pack A" ? 5 : 9;
+        const std::size_t second_songs = 14 - first_songs;
+        TEST_CHECK(first == "Pack A" || first == "Pack B");
 
-        // Every song, every chart (the 7-chart song scrolls its difficulty list),
-        // mid-slide and at rest.
-        for (std::size_t s = 0; s < select->song_count(); ++s) {
-            for (int c = 0; c < select->chart_count(); ++c) {
+        // Every visible row, every chart (the 7-chart song scrolls its difficulty
+        // list), mid-slide and at rest; header rows draw selected and unselected.
+        auto walk_rows = [&] {
+            const std::size_t rows = select->wheel_row_count();
+            for (std::size_t r = 0; r < rows; ++r) {
+                for (int c = 0; c < select->chart_count(); ++c) {
+                    render_all(manager, services);
+                    manager.update(1.0 / 60.0, {press(GameAction::Right)});
+                }
                 render_all(manager, services);
-                manager.update(1.0 / 60.0, {press(GameAction::Right)});
+                manager.update(1.0 / 60.0, {press(GameAction::Down)});
+                render_all(manager, services);
             }
-            manager.update(1.0 / 60.0, {press(GameAction::Down)});
+        };
+        auto confirm_header = [&](const std::string& pack) {
+            for (int guard = 0; guard < 20 && select->selected_pack_name() != pack; ++guard) {
+                manager.update(1.0 / 60.0, {press(GameAction::Down)});
+            }
+            TEST_CHECK(select->selected_pack_name() == pack);
+            manager.update(1.0 / 60.0, {press(GameAction::Confirm)});
             render_all(manager, services);
-        }
+        };
+        walk_rows();
+        // Open the first pack and walk its songs, then the other pack (closing the first).
+        confirm_header(first);
+        TEST_CHECK(select->open_pack_name() == first);
+        TEST_CHECK(select->wheel_row_count() == 2 + first_songs);
+        walk_rows();
+        confirm_header(second);
+        TEST_CHECK(select->open_pack_name() == second);
+        TEST_CHECK(select->wheel_row_count() == 2 + second_songs);
+        walk_rows();
+        // Close it: only the two headers remain.
+        confirm_header(second);
+        TEST_CHECK(select->wheel_row_count() == 2 && select->open_pack_name().empty());
+        walk_rows();
         // The options overlay draws over the Cabinet screen, with every row as
         // the selection (Down clamps at the last row).
         manager.update(1.0 / 60.0, {press(GameAction::Options)});
@@ -1535,6 +1685,9 @@ int main() {
     test_chip_text();
     test_chip_rects();
     test_hint_layout();
+    test_hint_confirm_word();
+    test_wheel_marker();
+    test_wheel_header_recorded_quads();
     test_skewed_quad();
     test_edit_row_geometry();
     test_edit_row_recorded_quads();

@@ -102,6 +102,11 @@ inline constexpr Color kEditEdge = theme::hex(0x27325A); // the unselected row's
 inline constexpr float kWheelSongTextX = 26.0f;
 inline constexpr float kWheelSelectedTextX = 30.0f;
 inline constexpr float kWheelPackTextX = 54.0f;
+// Open/closed marker of a pack header (code-drawn solid triangle; wheel_pack.png has no
+// caret): its centre sits kWheelMarkerX right of the row's x, and kWheelMarkerHalf is
+// half the triangle's long side (the short side is half of that).
+inline constexpr float kWheelMarkerX = 36.0f;
+inline constexpr float kWheelMarkerHalf = 9.0f;
 inline constexpr float kWheelTextRight = 1256.0f; // 24px right margin at the column edge
 
 // Top bar: title_select_music at manifest layout_720p (40, 9).
@@ -164,8 +169,9 @@ struct ListWindow {
 // y = 92 + slot*76 (+30 below the selection), selected 92 tall, x = 676 + indent.
 [[nodiscard]] Rect wheel_row_rect(int slot, int selected_slot);
 
-// Wheel display rows: a Pack header before the first song of each pack, then
-// its songs, in library order. Navigation moves over songs only.
+// Wheel display rows: a Pack header before each pack, then the songs of the one
+// open pack, in library order. Headers are rows the cursor stops on; the songs of
+// a closed pack have no row.
 struct WheelRow {
     enum class Kind { Pack, Song };
     Kind kind = Kind::Song;
@@ -174,18 +180,19 @@ struct WheelRow {
 };
 struct WheelRows {
     std::vector<WheelRow> rows;
-    std::vector<int> song_row; // song index -> display row index
+    std::vector<int> song_row; // song index -> display row index, -1 for a hidden song
 };
 // `song_packs[i]` is the pack index of wheel song i (library order, so equal
-// packs are adjacent).
-[[nodiscard]] WheelRows build_wheel_rows(std::span<const int> song_packs);
+// packs are adjacent). Every pack gets a header; only the songs whose pack is
+// `open_pack` get a row (-1 = all closed).
+[[nodiscard]] WheelRows build_wheel_rows(std::span<const int> song_packs, int open_pack);
 
 // Slide offset at `elapsed` seconds: start * (1 - t)^3, t = clamp(elapsed / 0.08, 0, 1).
 [[nodiscard]] float wheel_scroll_offset(float start, double elapsed);
 // New slide start after the window's first row moved by `delta_first`:
 //  0          -> `current_offset` (a running slide is left alone)
-//  +/-1, +/-2 -> clamp(current_offset + delta * 76, -152, 152) (one song step
-//                moves the window 2 rows when it crosses a pack header)
+//  +/-1, +/-2 -> clamp(current_offset + delta * 76, -152, 152) (one row step
+//                moves the window by at most one row)
 //  other      -> 0 (wrap or jump: snap)
 [[nodiscard]] float wheel_scroll_start(float current_offset, int delta_first);
 
@@ -269,7 +276,7 @@ struct EditRowRects {
 [[nodiscard]] std::array<Rect, 2> chip_rects(float speed_text_w, float scroll_text_w);
 
 // Hint line pieces (left to right): [up down] SONG [left right] DIFFICULTY
-// [ENTER] PLAY [TAB] OPTIONS [ESC] TITLE, centred on x 640.
+// [ENTER] <confirm> [TAB] OPTIONS [ESC] TITLE, centred on x 640.
 enum class HintArrow { Up, Down, Left, Right };
 struct HintPiece {
     enum class Kind { Arrow, Key, Word };
@@ -287,7 +294,12 @@ struct HintLine {
 };
 // `measure_key` / `measure_word` return reference-px widths of a key / word.
 using HintMeasure = std::function<float(std::string_view)>;
-[[nodiscard]] HintLine hint_layout(const HintMeasure& measure_key, const HintMeasure& measure_word);
+// What Confirm does on the selected row: Play on a song, Open / Close on a pack
+// header (closed / open). It is the word after ENTER in Select's legend.
+enum class ConfirmHint { Play, Open, Close };
+[[nodiscard]] std::string_view confirm_hint_word(ConfirmHint confirm);
+[[nodiscard]] HintLine hint_layout(const HintMeasure& measure_key, const HintMeasure& measure_word,
+                                   ConfirmHint confirm);
 
 // One legend item (shared by select's and the options overlay's legends):
 // VArrows = up/down pair (cell 4, pitch 16), HArrows = left/right pair (cell 14,
@@ -313,6 +325,17 @@ struct ArrowQuads {
     std::array<Vec2, 4> head{};
 };
 [[nodiscard]] ArrowQuads hint_arrow_quads(HintArrow arrow, Vec2 centre);
+
+// The open/closed marker of a pack header in `row` (reference px): a solid
+// triangle centred at {row.x + kWheelMarkerX, row's vertical centre}, as a quad
+// with two coincident corners. Closed points right (kWheelMarkerHalf wide,
+// 2 * kWheelMarkerHalf tall); open points down (the same triangle turned).
+[[nodiscard]] std::array<Vec2, 4> wheel_marker_quad(const Rect& row, bool open);
+// Draws wheel_marker_quad(row, open) as one solid quad in `ink`. The wheel_pack art has
+// no caret of its own, so every header that wants one (the Select wheel, the Input
+// remap table) draws it.
+void draw_pack_marker(GlQuadRenderer& renderer, const theme::LayoutScale& L, const Rect& row,
+                      bool open, Color ink);
 
 // ASCII upper case (UTF-8 bytes >= 0x80 unchanged).
 [[nodiscard]] std::string ascii_upper(std::string_view text);
@@ -340,7 +363,7 @@ void draw_hint_line(TextRenderer& text, GlQuadRenderer& renderer, const theme::L
 
 // bar_hint along the bottom, then the hint line (gold keys and arrows, grey words).
 void draw_hint_bar(const ThemeTextures* theme, TextRenderer* text, GlQuadRenderer& renderer,
-                   const theme::LayoutScale& L, int w);
+                   const theme::LayoutScale& L, int w, ConfirmHint confirm);
 
 // The song banner (or banner_fallback when `banner` is null/invalid) in the
 // kBanner hole, then banner_frame on top.
@@ -377,7 +400,9 @@ void draw_difficulty_rows(const ThemeTextures* theme, TextRenderer* text, GlQuad
 
 // Wheel row art: wheel_pack / wheel_row slice3 running off the window's right
 // edge, or the wheel_row_selected bar (stretched only on windows wider than 16:9).
-enum class WheelArt { Pack, Song, Selected };
+// SelectedPack is the selected row when the cursor is on a pack header: the same
+// bar as Selected, with the header's label and marker.
+enum class WheelArt { Pack, Song, Selected, SelectedPack };
 void draw_wheel_row_art(const ThemeTextures& theme, GlQuadRenderer& renderer,
                         const theme::LayoutScale& L, int w, const Rect& row, WheelArt art);
 
@@ -392,6 +417,9 @@ struct WheelRowView {
     // budget via fit_title_subtitle. Empty = the label alone, exactly as before.
     // An empty label draws the subtitle in its place (label style, no gap).
     std::string_view subtitle;
+    // Pack / SelectedPack rows only: the pack is open. Both draw the marker (down when
+    // open, right when closed), in the pack ink or the selected ink.
+    bool open = false;
 };
 void draw_wheel(const ThemeTextures* theme, TextRenderer* text, GlQuadRenderer& renderer,
                 const theme::LayoutScale& L, int w, std::span<const WheelRowView> rows,

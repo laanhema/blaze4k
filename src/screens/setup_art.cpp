@@ -224,6 +224,10 @@ void draw_remap_table(const ThemeTextures* theme, TextRenderer* text, GlQuadRend
             }
             const bool header = remap_display_row(rows, d).kind == RemapDisplayRow::Kind::Header;
             theme->draw_slice3(renderer, header ? "wheel_pack" : "wheel_row", L.rect(rect_of(d)));
+            if (header) {
+                // The remap headers have always shown the down caret; the art no longer bakes it.
+                select_art::draw_pack_marker(renderer, L, rect_of(d), true, theme::color::kPackInk);
+            }
         }
         theme->draw_stretch(renderer, "wheel_row_selected", L.rect(rect_of(selected)));
     }

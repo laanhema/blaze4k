@@ -61,7 +61,11 @@ they are in the game today.
 
 Neither family has an italic. The mock-ups use synthetic oblique, so italic text is a 0.25
 horizontal shear of the glyph quads (`theme::kItalicShear`). The fonts have no ★ or ▾: stars and
-the pack caret are drawn shapes, baked into the grade textures and `wheel_pack.png`.
+the pack caret are drawn shapes: the stars are baked into the grade textures, and the pack caret is
+a solid triangle the code draws (`wheel_marker_quad` in `src/screens/select_art.cpp`) on every pack
+header. `wheel_pack.png` is the imported header bar with the original baked caret painted out: each pixel
+of the caret's box (x 64..103, y 52..86 at the texture's own 2x size) was replaced by the pixel 44 px
+to its right in the same row, which keeps the bar's vertical gradient and its x-parity dither.
 Both fonts cover Latin and Latin Extended. For titles with other scripts, keep the existing
 fallback-box behaviour or add a fallback font later.
 

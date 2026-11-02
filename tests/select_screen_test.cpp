@@ -154,13 +154,116 @@ blaze4k::SongLibrary make_library(const std::filesystem::path& root) {
 // Navigates the wheel (wrapping) until a song with `chart_count` charts is
 // highlighted. Returns true when found.
 bool navigate_to_chart_count(blaze4k::ScreenManager& manager, blaze4k::SelectScreen* select, int chart_count) {
-    for (int i = 0; i < static_cast<int>(select->song_count()); ++i) {
+    // One full lap of the visible rows (the open pack's header stop included).
+    for (int i = 0; i < static_cast<int>(select->wheel_row_count()); ++i) {
         if (select->chart_count() == chart_count) {
             return true;
         }
         manager.update(kDt, {press(GameAction::Down)});
     }
     return select->chart_count() == chart_count;
+}
+
+// StepMania's MusicWheel opens no section on first entry; neither does Select. The
+// fixture has one pack ("Test Pack", 3 selectable songs), so the wheel is one closed
+// header. Leaves the pack open with song 0 highlighted for the tests that follow.
+void test_first_entry(blaze4k::ScreenManager& manager, blaze4k::SelectScreen* select) {
+    TEST_CHECK(select->song_count() == 3);
+    TEST_CHECK(select->open_pack_name().empty());
+    TEST_CHECK(select->wheel_row_count() == 1);
+    TEST_CHECK(select->on_pack_header() && select->selected_wheel_row() == 0);
+    TEST_CHECK(select->selected_pack_name() == "Test Pack");
+    // The info panel stays empty on a header and no preview plays.
+    TEST_CHECK(select->selected_song() == nullptr && select->selected_song_index() == -1);
+    TEST_CHECK(select->chart_count() == 0 && select->selected_chart() == nullptr);
+    TEST_CHECK(select->preview().requested_path().empty());
+    // The hint bar says what Confirm does on this closed header.
+    TEST_CHECK(select->confirm_hint() == blaze4k::select_art::ConfirmHint::Open);
+    // The banner area shows the pack's banner (Test Pack/banner.png), not a song's.
+    const std::filesystem::path pack_banner{select->cursor_banner_path()};
+    TEST_CHECK(pack_banner.filename() == "banner.png");
+    TEST_CHECK(pack_banner.parent_path().filename() == "Test Pack");
+
+    // Confirm opens it (the cursor stays on the header; Select stays active).
+    manager.update(kDt, {press(GameAction::Confirm)});
+    TEST_CHECK(manager.active_id() == ScreenId::Select);
+    TEST_CHECK(select->open_pack_name() == "Test Pack");
+    TEST_CHECK(select->wheel_row_count() == 4); // 1 header + 3 songs
+    TEST_CHECK(select->on_pack_header());
+    TEST_CHECK(select->confirm_hint() == blaze4k::select_art::ConfirmHint::Close);
+
+    // Down onto song 0: Confirm now plays, the banner is the song's, a preview starts.
+    manager.update(kDt, {press(GameAction::Down)});
+    TEST_CHECK(select->selected_song_index() == 0 && select->selected_wheel_row() == 1);
+    TEST_CHECK(select->confirm_hint() == blaze4k::select_art::ConfirmHint::Play);
+    const blaze4k::Song* song = select->selected_song();
+    TEST_CHECK(song != nullptr);
+    TEST_CHECK(select->cursor_banner_path() == song->resolved_banner_path);
+    TEST_CHECK(std::filesystem::path{select->cursor_banner_path()}.parent_path().filename() ==
+               std::filesystem::path{song->song_dir}.filename());
+    TEST_CHECK(!select->preview().requested_path().empty());
+    std::cout
+        << "  - first entry: all closed, header selected, hint OPEN/CLOSE/PLAY, banners ok.\n";
+}
+
+// A header shows its pack's banner, else the library's fallback banner (what a song
+// without a banner resolves to); never a song's banner.
+void test_header_banner() {
+    const std::filesystem::path root =
+        std::filesystem::temp_directory_path() / "blaze4k_select_screen_header_banner_test";
+    std::filesystem::remove_all(root);
+    write_file(root / "With" / "banner.png", "fake pack banner");
+    write_file(root / "With" / "Song A" / "audio.ogg", "fake audio");
+    write_file(root / "With" / "Song A" / "Song A.sm", make_sm("Song A", "", {{"Easy", 3}}));
+    write_file(root / "With" / "Song A" / "banner.png", "fake song banner");
+    write_file(root / "Without" / "Song B" / "audio.ogg", "fake audio");
+    write_file(root / "Without" / "Song B" / "Song B.sm", make_sm("Song B", "", {{"Easy", 3}}));
+    blaze4k::SongLibrary library;
+    const std::filesystem::path fallback = root / "fallback_banner.png";
+    library.set_fallback_banner(fallback);
+    TEST_CHECK(library.scan_directory(root));
+
+    blaze4k::GameConfig config;
+    blaze4k::PlayRequest request;
+    blaze4k::ScreenManager manager(0.0);
+    auto screen = std::make_unique<blaze4k::SelectScreen>();
+    blaze4k::SelectScreen* select = screen.get();
+    manager.add_screen(std::move(screen));
+    manager.context().config = &config;
+    manager.context().library = &library;
+    manager.context().play_request = &request;
+    manager.start(ScreenId::Select);
+
+    // Visit both headers (closed): the pack with a banner shows it, the other the fallback.
+    int with_banner = 0;
+    int with_fallback = 0;
+    for (int i = 0; i < 2; ++i) {
+        TEST_CHECK(select->on_pack_header());
+        const std::string& path = select->cursor_banner_path();
+        if (select->selected_pack_name() == "With") {
+            ++with_banner;
+            TEST_CHECK(std::filesystem::path{path}.filename() == "banner.png");
+            TEST_CHECK(std::filesystem::path{path}.parent_path().filename() == "With");
+        } else {
+            TEST_CHECK(select->selected_pack_name() == "Without");
+            ++with_fallback;
+            TEST_CHECK(path == fallback.string());
+        }
+        manager.update(kDt, {press(GameAction::Down)});
+    }
+    TEST_CHECK(with_banner == 1 && with_fallback == 1);
+
+    // Onto a song of "With": its own banner, not the pack banner.
+    while (!select->on_pack_header() || select->selected_pack_name() != "With") {
+        manager.update(kDt, {press(GameAction::Down)});
+    }
+    manager.update(kDt, {press(GameAction::Confirm)}); // open "With"
+    manager.update(kDt, {press(GameAction::Down)});
+    TEST_CHECK(!select->on_pack_header());
+    TEST_CHECK(std::filesystem::path{select->cursor_banner_path()}.parent_path().filename() ==
+               "Song A");
+    std::filesystem::remove_all(root);
+    std::cout << "  - header banner: pack banner, else fallback, song row keeps its own ok.\n";
 }
 
 void test_wheel_load(const blaze4k::SelectScreen* select) {
@@ -178,10 +281,16 @@ void test_song_navigation(blaze4k::ScreenManager& manager, blaze4k::SelectScreen
     }
     const std::string first_title = select->selected_song()->metadata.title;
 
+    // Up from the first song stops on the pack header, then wraps to the last song.
+    manager.update(kDt, {press(GameAction::Up)});
+    TEST_CHECK(select->on_pack_header());
+    TEST_CHECK(select->selected_song_index() == -1 && select->selected_song() == nullptr);
     manager.update(kDt, {press(GameAction::Up)});
     TEST_CHECK(select->selected_song_index() == static_cast<int>(select->song_count()) - 1);
     TEST_CHECK(select->selected_song()->metadata.title != first_title);
 
+    manager.update(kDt, {press(GameAction::Down)});
+    TEST_CHECK(select->on_pack_header());
     manager.update(kDt, {press(GameAction::Down)});
     TEST_CHECK(select->selected_song_index() == 0);
     TEST_CHECK(select->selected_song()->metadata.title == first_title);
@@ -343,6 +452,9 @@ void test_named_edit_charts() {
     manager.context().play_request = &request;
     manager.start(ScreenId::Select);
     TEST_CHECK(select_ptr->song_count() == 2);
+    manager.update(kDt, {press(GameAction::Confirm)}); // open the only pack
+    manager.update(kDt, {press(GameAction::Down)});    // onto its first song
+    TEST_CHECK(select_ptr->selected_song_index() == 0);
 
     blaze4k::TextRenderer& text = loaded_text();
     manager.context().theme = &loaded_theme();
@@ -443,11 +555,14 @@ void test_selection_preserved_on_reenter(blaze4k::ScreenManager& manager, blaze4
     const int song_before = select->selected_song_index();
     const int chart_before = select->selected_chart_index();
     const std::string title_before = select->selected_song()->metadata.title;
+    const std::string open_before = select->open_pack_name();
+    TEST_CHECK(open_before == "Test Pack"); // the pack holding the highlighted song is open
 
     manager.update(kDt, {press(GameAction::Confirm)});
     TEST_CHECK(manager.active_id() == ScreenId::Gameplay);
     manager.update(kDt, {press(GameAction::Back)});
     TEST_CHECK(manager.active_id() == ScreenId::Select);
+    TEST_CHECK(select->open_pack_name() == open_before);
 
     TEST_CHECK(select->selected_song_index() == song_before);
     TEST_CHECK(select->selected_chart_index() == chart_before);
@@ -500,6 +615,10 @@ void test_empty_library() {
     manager.start(ScreenId::Select);
 
     TEST_CHECK(select_ptr->song_count() == 0);
+    TEST_CHECK(select_ptr->wheel_row_count() == 0 && !select_ptr->on_pack_header());
+    TEST_CHECK(select_ptr->confirm_hint() == blaze4k::select_art::ConfirmHint::Play);
+    TEST_CHECK(select_ptr->cursor_banner_path().empty());
+    manager.update(kDt, {press(GameAction::Confirm)}); // nothing to open or play
     manager.update(kDt, {press(GameAction::Down)});
     manager.update(kDt, {press(GameAction::Up)});
     manager.update(kDt, {press(GameAction::Right)});
@@ -592,15 +711,23 @@ void test_special_character_titles() {
     manager.context().play_request = &request;
     manager.start(ScreenId::Select);
     TEST_CHECK(select_ptr->song_count() == 4);
+    manager.update(kDt, {press(GameAction::Confirm)}); // open the only pack
 
     blaze4k::GlQuadRenderer renderer; // uninitialized: safe no-op
     manager.render(renderer, 1280, 720);
-    for (int i = 0; i < 4; ++i) {
+    // One lap of the rows: the pack header plus the four songs.
+    int songs_seen = 0;
+    for (int i = 0; i < 5; ++i) {
         manager.update(kDt, {press(GameAction::Down)});
-        TEST_CHECK(select_ptr->selected_song() != nullptr);
+        if (select_ptr->selected_song() != nullptr) {
+            ++songs_seen;
+        } else {
+            TEST_CHECK(select_ptr->on_pack_header());
+        }
         manager.render(renderer, 1280, 720);
         manager.render(renderer, 640, 480);
     }
+    TEST_CHECK(songs_seen == 4);
     std::filesystem::remove_all(root);
     std::cout << "  - special-character / UTF-8 / malformed titles render crash-free ok.\n";
 }
@@ -836,7 +963,8 @@ void test_same_tick_options_back(blaze4k::ScreenManager& manager, blaze4k::Selec
     std::cout << "  - same-tick Options+Back does not navigate on stale state ok.\n";
 }
 
-// 12 songs in two 6-song packs: 14 wheel display rows (two pack headers).
+// 12 songs in two 6-song packs: 8 wheel rows with one pack open (its header, its 6 songs,
+// the other pack's header), 2 with both closed.
 blaze4k::SongLibrary make_slide_library(const std::filesystem::path& root) {
     std::filesystem::remove_all(root);
     for (const char* pack : {"Pack One", "Pack Two"}) {
@@ -874,7 +1002,11 @@ struct SlideFixture {
     blaze4k::ScreenManager manager{0.0};
     blaze4k::SelectScreen* select = nullptr;
 
-    explicit SlideFixture(const std::filesystem::path& root) : library(make_slide_library(root)) {
+    // `open_first` presses Confirm on the first header (it opens that pack) and Down onto
+    // its first song: the state most tests start from. False keeps the first-entry state
+    // (every pack closed, the cursor on the first header).
+    explicit SlideFixture(const std::filesystem::path& root, bool open_first = true)
+        : library(make_slide_library(root)) {
         auto screen = std::make_unique<blaze4k::SelectScreen>();
         select = screen.get();
         manager.add_screen(std::move(screen));
@@ -883,8 +1015,56 @@ struct SlideFixture {
         manager.context().library = &library;
         manager.context().play_request = &request;
         manager.start(ScreenId::Select);
+        if (open_first) {
+            manager.update(kDt, {press(GameAction::Confirm)});
+            manager.update(kDt, {press(GameAction::Down)});
+        }
     }
 };
+
+// First entry with two packs: both closed (two header rows), the cursor on the first
+// header, the hint reads OPEN; the hint follows Confirm's meaning as the cursor and the
+// toggles move.
+void test_first_entry_two_packs() {
+    const std::filesystem::path root =
+        std::filesystem::temp_directory_path() / "blaze4k_select_screen_first_entry_test";
+    SlideFixture fx(root, /*open_first=*/false);
+    blaze4k::SelectScreen* select = fx.select;
+    using blaze4k::select_art::ConfirmHint;
+    TEST_CHECK(select->song_count() == 12);
+    TEST_CHECK(select->open_pack_name().empty());
+    TEST_CHECK(select->wheel_row_count() == 2);
+    TEST_CHECK(select->on_pack_header() && select->selected_wheel_row() == 0);
+    TEST_CHECK(select->selected_pack_name() == fx.library.packs().front().name);
+    TEST_CHECK(select->selected_song() == nullptr);
+    TEST_CHECK(select->preview().requested_path().empty());
+    TEST_CHECK(select->confirm_hint() == ConfirmHint::Open);
+    // No pack banner in this library and no fallback set: empty path, theme fallback drawn.
+    TEST_CHECK(select->cursor_banner_path().empty());
+
+    fx.manager.update(kDt, {press(GameAction::Confirm)}); // open the first pack
+    TEST_CHECK(select->wheel_row_count() == 8 && select->confirm_hint() == ConfirmHint::Close);
+    fx.manager.update(kDt, {press(GameAction::Down)}); // song row
+    TEST_CHECK(select->confirm_hint() == ConfirmHint::Play);
+    for (int i = 0; i < 6; ++i) {
+        fx.manager.update(kDt, {press(GameAction::Down)}); // S1..S5, then the second header
+    }
+    // The second pack's header is closed while the first is open: OPEN again.
+    TEST_CHECK(select->on_pack_header() && select->selected_wheel_row() == 7);
+    TEST_CHECK(select->open_pack_name() != select->selected_pack_name());
+    TEST_CHECK(select->confirm_hint() == ConfirmHint::Open);
+    fx.manager.update(kDt, {press(GameAction::Up)});
+    fx.manager.update(kDt, {press(GameAction::Up)});
+    fx.manager.update(kDt, {press(GameAction::Up)});
+    fx.manager.update(kDt, {press(GameAction::Up)});
+    fx.manager.update(kDt, {press(GameAction::Up)});
+    fx.manager.update(kDt, {press(GameAction::Up)});
+    fx.manager.update(kDt, {press(GameAction::Up)}); // S0 -> header (row 0)
+    TEST_CHECK(select->on_pack_header() && select->selected_wheel_row() == 0);
+    TEST_CHECK(select->confirm_hint() == ConfirmHint::Close);
+    std::filesystem::remove_all(root);
+    std::cout << "  - first entry with two packs + Confirm hint follows the cursor ok.\n";
+}
 
 // #94: the wheel slides (eased, 80 ms, fixed dt) only when its window moves.
 void test_wheel_slide() {
@@ -902,9 +1082,13 @@ void test_wheel_slide() {
         }
     };
 
+    // The first pack is open: rows H0, S0..S5, H1 = 8; the cursor is on S0 (row 1).
+    // With 7 visible rows the window is rows 0..6 (first 0) while the cursor is on
+    // rows 0..3 and rows 1..7 (first 1) from row 4 on.
     TEST_CHECK(select->song_count() == 12);
-    TEST_CHECK(select->wheel_row_count() == 14);
+    TEST_CHECK(select->wheel_row_count() == 8);
     TEST_CHECK(select->selected_song_index() == 0);
+    TEST_CHECK(select->selected_wheel_row() == 1);
     TEST_CHECK(select->wheel_first_row() == 0);
     TEST_CHECK(select->wheel_scroll_offset() == 0.0f);
 
@@ -932,16 +1116,26 @@ void test_wheel_slide() {
     idle(5);
     TEST_CHECK(select->wheel_scroll_offset() == 0.0f);
 
-    // Back to the first song, then wrap first -> last -> first: the window
-    // jumps across the list, so the offset snaps to 0.
+    // Back to the first song (row 1), then onto the pack header (row 0): the window
+    // stays at the top, so nothing slides.
     up();
     up();
     TEST_CHECK(select->selected_song_index() == 0);
     idle(5);
     up();
-    TEST_CHECK(select->selected_song_index() == 11);
-    TEST_CHECK(select->wheel_first_row() == 7);
-    TEST_CHECK(select->wheel_scroll_offset() == 0.0f);
+    TEST_CHECK(select->on_pack_header() && select->selected_wheel_row() == 0);
+    TEST_CHECK(select->wheel_first_row() == 0 && select->wheel_scroll_offset() == 0.0f);
+    // Wrapping up from row 0 lands on the other pack's header (row 7). On this short
+    // list the window only moves one row (first 0 -> 1), so it slides one pitch.
+    up();
+    TEST_CHECK(select->on_pack_header() && select->selected_wheel_row() == 7);
+    TEST_CHECK(select->wheel_first_row() == 1);
+    TEST_CHECK(select->wheel_scroll_offset() == blaze4k::select_art::kWheelPitch);
+    idle(5);
+    down();
+    TEST_CHECK(select->selected_wheel_row() == 0 && select->wheel_first_row() == 0);
+    TEST_CHECK(select->wheel_scroll_offset() == -blaze4k::select_art::kWheelPitch);
+    idle(5);
     down();
     TEST_CHECK(select->selected_song_index() == 0);
     TEST_CHECK(select->wheel_first_row() == 0);
@@ -979,47 +1173,339 @@ void test_wheel_slide() {
     std::cout << "  - wheel slide: window moves only, 80 ms ease, wrap snaps, repeat clamp ok.\n";
 }
 
-// Navigation skips the inline pack header rows (#94).
-void test_wheel_skips_pack_rows() {
+// One pack of `songs` selectable songs (and `hidden` SELECTABLE:NO songs) under `root`.
+blaze4k::SongLibrary make_pack_library(const std::filesystem::path& root, const std::string& pack,
+                                       int songs, int hidden = 0) {
+    std::filesystem::remove_all(root);
+    for (int i = 1; i <= songs + hidden; ++i) {
+        const std::string name = pack + " Song " + std::to_string(i);
+        const std::filesystem::path dir = root / pack / name;
+        write_file(dir / "audio.ogg", "fake audio");
+        write_file(dir / (name + ".sm"),
+                   make_sm(name, "", {{"Easy", 3}}, i <= songs ? "YES" : "NO"));
+    }
+    blaze4k::SongLibrary library;
+    TEST_CHECK(library.scan_directory(root));
+    return library;
+}
+
+// The name of the pack in `library` that is not `name`.
+std::string other_pack(const blaze4k::SongLibrary& library, const std::string& name) {
+    for (const blaze4k::SongPack& pack : library.packs()) {
+        if (pack.name != name) {
+            return pack.name;
+        }
+    }
+    return {};
+}
+
+// #166: the cursor stops on pack headers; Confirm on one closes an open pack or opens a
+// closed one without leaving Select, and a closed pack's songs are not reachable.
+void test_pack_header_toggle() {
     const std::filesystem::path root =
-        std::filesystem::temp_directory_path() / "blaze4k_select_screen_pack_rows_test";
+        std::filesystem::temp_directory_path() / "blaze4k_select_screen_toggle_test";
     SlideFixture fx(root);
     blaze4k::SelectScreen* select = fx.select;
+    const std::string first = fx.library.packs().front().name;
 
-    const int first_pack = pack_of(fx.library, select->selected_song());
-    TEST_CHECK(first_pack >= 0);
-    for (int i = 0; i < 5; ++i) {
-        fx.manager.update(kDt, {press(GameAction::Down)});
-        TEST_CHECK(select->selected_song() != nullptr);
-        TEST_CHECK(pack_of(fx.library, select->selected_song()) == first_pack);
-    }
-    TEST_CHECK(select->selected_song_index() == 5); // the first pack's last song
+    // First entry: the first pack is open with its first song highlighted.
+    TEST_CHECK(select->open_pack_name() == first);
+    TEST_CHECK(select->selected_song_index() == 0 && !select->on_pack_header());
 
-    // One Down crosses the next pack's header and lands on its first song.
-    fx.manager.update(kDt, {press(GameAction::Down)});
-    TEST_CHECK(select->selected_song_index() == 6);
-    TEST_CHECK(select->selected_song() != nullptr);
-    const int second_pack = pack_of(fx.library, select->selected_song());
-    TEST_CHECK(second_pack >= 0 && second_pack != first_pack);
-    // The window moved two rows (song row 6 -> 8): that step still slides.
-    TEST_CHECK(select->wheel_scroll_offset() == 2.0f * blaze4k::select_art::kWheelPitch);
-
-    // And back up across the header.
+    // Up from the first song: the cursor is on the open pack's header, which has no song.
     fx.manager.update(kDt, {press(GameAction::Up)});
-    TEST_CHECK(select->selected_song_index() == 5);
-    TEST_CHECK(pack_of(fx.library, select->selected_song()) == first_pack);
+    TEST_CHECK(select->on_pack_header());
+    TEST_CHECK(select->selected_pack_name() == first);
+    TEST_CHECK(select->selected_song() == nullptr && select->selected_song_index() == -1);
+    TEST_CHECK(select->chart_count() == 0 && select->selected_chart() == nullptr);
+    TEST_CHECK(select->wheel_row_count() == 8);
 
-    // Render smoke with the real services across the header and at both ends.
+    // Confirm closes it: only the two headers stay, the cursor stays on the header,
+    // the screen does not change and nothing is published to Gameplay.
+    fx.manager.update(kDt, {press(GameAction::Confirm)});
+    TEST_CHECK(select->open_pack_name().empty());
+    TEST_CHECK(select->wheel_row_count() == 2);
+    TEST_CHECK(select->on_pack_header() && select->selected_pack_name() == first);
+    TEST_CHECK(select->selected_wheel_row() == 0);
+    TEST_CHECK(fx.manager.active_id() == ScreenId::Select);
+    TEST_CHECK(fx.request.song == nullptr && fx.request.chart == nullptr);
+    TEST_CHECK(select->preview().requested_path().empty()); // no song on a header: no preview
+
+    // Left/Right on a header do nothing.
+    fx.manager.update(kDt, {press(GameAction::Right)});
+    fx.manager.update(kDt, {press(GameAction::Left)});
+    TEST_CHECK(select->selected_chart_index() == 0 && select->on_pack_header());
+
+    // Both closed: Down and Up only visit the two headers, never a hidden song.
+    const std::string second = other_pack(fx.library, first);
+    fx.manager.update(kDt, {press(GameAction::Down)});
+    TEST_CHECK(select->on_pack_header() && select->selected_pack_name() == second);
+    TEST_CHECK(select->selected_wheel_row() == 1 && select->selected_song_index() == -1);
+    fx.manager.update(kDt, {press(GameAction::Down)});
+    TEST_CHECK(select->on_pack_header() && select->selected_pack_name() == first);
+    fx.manager.update(kDt, {press(GameAction::Up)});
+    TEST_CHECK(select->on_pack_header() && select->selected_pack_name() == second);
+    TEST_CHECK(select->selected_song_index() == -1);
+
+    // Confirm on the second header opens it: the cursor stays on that header, and the
+    // first pack stays closed (one open pack at a time).
+    fx.manager.update(kDt, {press(GameAction::Confirm)});
+    TEST_CHECK(select->open_pack_name() == second);
+    TEST_CHECK(select->wheel_row_count() == 8);
+    TEST_CHECK(select->on_pack_header() && select->selected_pack_name() == second);
+    TEST_CHECK(select->selected_wheel_row() == 1);
+    int songs_seen = 0;
+    int headers_seen = 0;
+    for (int i = 0; i < 8; ++i) {
+        fx.manager.update(kDt, {press(GameAction::Down)});
+        if (select->on_pack_header()) {
+            ++headers_seen;
+        } else {
+            ++songs_seen;
+            TEST_CHECK(select->selected_song() != nullptr);
+            TEST_CHECK(
+                fx.library
+                    .packs()[static_cast<std::size_t>(pack_of(fx.library, select->selected_song()))]
+                    .name == second);
+        }
+    }
+    TEST_CHECK(headers_seen == 2 && songs_seen == 6);
+
+    // Opening the other pack while this one is open closes this one.
+    while (!(select->on_pack_header() && select->selected_pack_name() == first)) {
+        fx.manager.update(kDt, {press(GameAction::Down)});
+    }
+    fx.manager.update(kDt, {press(GameAction::Confirm)});
+    TEST_CHECK(select->open_pack_name() == first && select->wheel_row_count() == 8);
+    TEST_CHECK(select->on_pack_header() && select->selected_pack_name() == first);
+
+    // A single pack closes and reopens, and the cursor index stays inside the rows.
+    fx.manager.update(kDt, {press(GameAction::Confirm)});
+    TEST_CHECK(select->open_pack_name().empty() && select->wheel_row_count() == 2);
+    fx.manager.update(kDt, {press(GameAction::Confirm)});
+    TEST_CHECK(select->open_pack_name() == first && select->wheel_row_count() == 8);
+    TEST_CHECK(select->selected_wheel_row() < static_cast<int>(select->wheel_row_count()));
+
+    std::filesystem::remove_all(root);
+    std::cout
+        << "  - Confirm on a pack header opens/closes it; one pack open; no hidden stops ok.\n";
+}
+
+// A toggle snaps the wheel: the slide offset is 0 afterwards.
+void test_pack_toggle_snaps_slide() {
+    constexpr double kSlideDt = 1.0 / 60.0;
+    const std::filesystem::path root =
+        std::filesystem::temp_directory_path() / "blaze4k_select_screen_toggle_slide_test";
+    SlideFixture fx(root);
+    blaze4k::SelectScreen* select = fx.select;
+    const auto step = [&](GameAction action) {
+        fx.manager.update(kSlideDt, {press(action)});
+    };
+    // Row 1 -> 4 (window slides), then back up to the header at row 0 mid-slide.
+    step(GameAction::Down);
+    step(GameAction::Down);
+    step(GameAction::Down);
+    step(GameAction::Up);
+    step(GameAction::Up);
+    step(GameAction::Up);
+    step(GameAction::Up);
+    TEST_CHECK(select->on_pack_header() && select->selected_wheel_row() == 0);
+    TEST_CHECK(select->wheel_scroll_offset() != 0.0f);
+    step(GameAction::Confirm);
+    TEST_CHECK(select->wheel_row_count() == 2);
+    TEST_CHECK(select->wheel_scroll_offset() == 0.0f && select->wheel_first_row() == 0);
+    std::filesystem::remove_all(root);
+    std::cout << "  - a pack toggle snaps the wheel (no slide) ok.\n";
+}
+
+// A wrap across a long list jumps the window, so the offset snaps to 0.
+void test_wheel_wrap_snaps() {
+    constexpr double kSlideDt = 1.0 / 60.0;
+    const std::filesystem::path root =
+        std::filesystem::temp_directory_path() / "blaze4k_select_screen_wrap_test";
+    blaze4k::SongLibrary library = make_pack_library(root, "Long Pack", 10);
+    blaze4k::GameConfig config;
+    blaze4k::PlayRequest request;
+    blaze4k::ScreenManager manager(0.0);
+    auto screen = std::make_unique<blaze4k::SelectScreen>();
+    blaze4k::SelectScreen* select = screen.get();
+    manager.add_screen(std::move(screen));
+    manager.context().config = &config;
+    manager.context().library = &library;
+    manager.context().play_request = &request;
+    manager.start(ScreenId::Select);
+    // First entry of a single pack: only its header, closed, with the cursor on it.
+    TEST_CHECK(select->wheel_row_count() == 1 && select->on_pack_header());
+    TEST_CHECK(select->open_pack_name().empty());
+    manager.update(kDt, {press(GameAction::Confirm)});
+    manager.update(kDt, {press(GameAction::Down)});
+
+    // 1 header + 10 songs = 11 rows; the cursor is on row 1 (first 0). Up to the
+    // header (row 0), then up again wraps to row 10: first = clamp(10 - 3, 0, 4) = 4.
+    TEST_CHECK(select->wheel_row_count() == 11 && select->selected_wheel_row() == 1);
+    manager.update(kSlideDt, {press(GameAction::Up)});
+    TEST_CHECK(select->on_pack_header() && select->wheel_scroll_offset() == 0.0f);
+    manager.update(kSlideDt, {press(GameAction::Up)});
+    TEST_CHECK(select->selected_wheel_row() == 10 && select->selected_song_index() == 9);
+    TEST_CHECK(select->wheel_first_row() == 4);
+    TEST_CHECK(select->wheel_scroll_offset() == 0.0f);
+    manager.update(kSlideDt, {press(GameAction::Down)});
+    TEST_CHECK(select->on_pack_header() && select->selected_wheel_row() == 0);
+    TEST_CHECK(select->wheel_first_row() == 0 && select->wheel_scroll_offset() == 0.0f);
+    std::filesystem::remove_all(root);
+    std::cout << "  - wheel wrap across a long list snaps ok.\n";
+}
+
+// A library whose songs are all SELECTABLE:NO has no rows at all.
+void test_all_hidden_library() {
+    const std::filesystem::path root =
+        std::filesystem::temp_directory_path() / "blaze4k_select_screen_hidden_test";
+    blaze4k::SongLibrary library = make_pack_library(root, "Hidden Pack", 0, 2);
+    blaze4k::GameConfig config;
+    blaze4k::PlayRequest request;
+    blaze4k::ScreenManager manager(0.0);
+    auto screen = std::make_unique<blaze4k::SelectScreen>();
+    blaze4k::SelectScreen* select = screen.get();
+    manager.add_screen(std::move(screen));
+    manager.context().config = &config;
+    manager.context().library = &library;
+    manager.context().play_request = &request;
+    manager.start(ScreenId::Select);
+    TEST_CHECK(select->song_count() == 0 && select->wheel_row_count() == 0);
+    TEST_CHECK(!select->on_pack_header() && select->selected_song() == nullptr);
+    for (const GameAction action :
+         {GameAction::Down, GameAction::Up, GameAction::Confirm, GameAction::Right}) {
+        manager.update(kDt, {press(action)});
+    }
+    TEST_CHECK(manager.active_id() == ScreenId::Select);
+    TEST_CHECK(select->wheel_row_count() == 0 && request.song == nullptr);
+    std::filesystem::remove_all(root);
+    std::cout << "  - a library with no selectable songs has no rows ok.\n";
+}
+
+// The cursor target and the open pack survive leaving Select and coming back.
+void test_pack_state_survives_reenter() {
+    const std::filesystem::path root =
+        std::filesystem::temp_directory_path() / "blaze4k_select_screen_reenter_test";
+    SlideFixture fx(root);
+    blaze4k::SelectScreen* select = fx.select;
+    fx.manager.add_screen(std::make_unique<blaze4k::TitleScreen>());
+    fx.manager.add_screen(std::make_unique<blaze4k::GameplayScreen>());
+    fx.manager.add_screen(std::make_unique<blaze4k::CalibrationScreen>());
+    fx.manager.add_screen(std::make_unique<blaze4k::InputRemapScreen>());
+    const std::string first = fx.library.packs().front().name;
+    const std::string second = other_pack(fx.library, first);
+
+    // Open the second pack and highlight its second song (a Pack-Two row, not row 0).
+    while (!(select->on_pack_header() && select->selected_pack_name() == second)) {
+        fx.manager.update(kDt, {press(GameAction::Down)});
+    }
+    fx.manager.update(kDt, {press(GameAction::Confirm)});
+    TEST_CHECK(select->open_pack_name() == second);
+    fx.manager.update(kDt, {press(GameAction::Down)});
+    fx.manager.update(kDt, {press(GameAction::Down)});
+    const blaze4k::Song* song = select->selected_song();
+    TEST_CHECK(song != nullptr);
+    TEST_CHECK(fx.library.packs()[static_cast<std::size_t>(pack_of(fx.library, song))].name ==
+               second);
+    const int song_index = select->selected_song_index();
+    const int row = select->selected_wheel_row();
+    const auto unchanged = [&] {
+        TEST_CHECK(fx.manager.active_id() == ScreenId::Select);
+        TEST_CHECK(select->selected_song() == song);
+        TEST_CHECK(select->selected_song_index() == song_index);
+        TEST_CHECK(select->selected_wheel_row() == row);
+        TEST_CHECK(select->open_pack_name() == second);
+        TEST_CHECK(select->wheel_row_count() == 8);
+    };
+
+    // Gameplay and back.
+    fx.manager.update(kDt, {press(GameAction::Confirm)});
+    TEST_CHECK(fx.manager.active_id() == ScreenId::Gameplay);
+    fx.manager.update(kDt, {press(GameAction::Back)});
+    unchanged();
+
+    // Calibration and Input remap, both launched from the options overlay.
+    for (const blaze4k::OptionsRow launch :
+         {blaze4k::OptionsRow::CalibrateOffset, blaze4k::OptionsRow::RemapInput}) {
+        fx.manager.update(kDt, {press(GameAction::Options)});
+        TEST_CHECK(select->options_open());
+        while (select->options_menu().row != static_cast<int>(launch)) {
+            fx.manager.update(kDt, {press(GameAction::Down)});
+        }
+        fx.manager.update(kDt, {press(GameAction::Confirm)});
+        TEST_CHECK(fx.manager.active_id() != ScreenId::Select);
+        fx.manager.update(kDt, {press(GameAction::Back)});
+        TEST_CHECK(select->options_open());
+        fx.manager.update(kDt, {press(GameAction::Back)}); // close the overlay
+        TEST_CHECK(!select->options_open());
+        unchanged();
+    }
+
+    // A pack header persists too, and so does an open pack that is not the header's.
+    for (int i = 0; i < 3; ++i) {
+        fx.manager.update(
+            kDt, {press(GameAction::Up)}); // row 3 -> row 0: the first pack's (closed) header
+    }
+    TEST_CHECK(select->on_pack_header() && select->selected_pack_name() == first);
+    fx.manager.update(kDt, {press(GameAction::Back)});
+    TEST_CHECK(fx.manager.active_id() == ScreenId::Title);
+    fx.manager.update(kDt, {press(GameAction::Confirm)});
+    TEST_CHECK(fx.manager.active_id() == ScreenId::Select);
+    TEST_CHECK(select->on_pack_header() && select->selected_pack_name() == first);
+    TEST_CHECK(select->selected_wheel_row() == 0);
+    TEST_CHECK(select->open_pack_name() == second && select->wheel_row_count() == 8);
+
+    // A remembered target the library no longer has falls back to the first entry:
+    // every pack closed, the cursor on the first header.
+    const std::filesystem::path other_root =
+        std::filesystem::temp_directory_path() / "blaze4k_select_screen_reenter_other_test";
+    blaze4k::SongLibrary other = make_pack_library(other_root, "Elsewhere", 3);
+    fx.manager.context().library = &other;
+    fx.manager.start(ScreenId::Select);
+    TEST_CHECK(select->open_pack_name().empty());
+    TEST_CHECK(select->on_pack_header() && select->selected_pack_name() == "Elsewhere");
+    TEST_CHECK(select->selected_wheel_row() == 0 && select->wheel_row_count() == 1);
+
+    std::filesystem::remove_all(root);
+    std::filesystem::remove_all(other_root);
+    std::cout
+        << "  - open pack + cursor (song or header) survive Gameplay/Calibration/Remap/Title ok.\n";
+}
+
+// Render smoke with the real headless theme + text on a header (open and closed) and a song.
+void test_pack_header_render() {
+    const std::filesystem::path root =
+        std::filesystem::temp_directory_path() / "blaze4k_select_screen_header_render_test";
+    SlideFixture fx(root);
+    blaze4k::SelectScreen* select = fx.select;
     blaze4k::TextRenderer& text = loaded_text();
     fx.manager.context().theme = &loaded_theme();
     fx.manager.context().text = &text;
     blaze4k::GlQuadRenderer renderer;
-    for (int i = 0; i < 14; ++i) {
+    const auto render = [&] {
+        for (const auto& [w, h] :
+             {std::pair{1280, 720}, std::pair{640, 480}, std::pair{3440, 1440}}) {
+            text.set_window_size(w, h);
+            fx.manager.render(renderer, w, h);
+        }
+        text.set_window_size(1280, 720);
+    };
+    render();                                           // on a song
+    fx.manager.update(kDt, {press(GameAction::Up)});    // on the open header
+    TEST_CHECK(select->on_pack_header());
+    render();
+    fx.manager.update(kDt, {press(GameAction::Confirm)}); // on a closed header
+    TEST_CHECK(select->on_pack_header() && select->wheel_row_count() == 2);
+    render();
+    fx.manager.update(kDt, {press(GameAction::Down)});
+    render();
+    for (int i = 0; i < 16; ++i) {
         fx.manager.update(1.0 / 60.0, {press(GameAction::Down)});
-        fx.manager.render(renderer, 1280, 720);
+        render();
     }
     std::filesystem::remove_all(root);
-    std::cout << "  - navigation skips pack header rows ok.\n";
+    std::cout << "  - headers (open, closed, selected) render crash-free ok.\n";
 }
 
 } // namespace
@@ -1051,6 +1537,7 @@ int main() {
     manager.context().play_request = &request;
     manager.start(ScreenId::Select);
 
+    test_first_entry(manager, select_ptr);
     test_wheel_load(select_ptr);
     test_song_navigation(manager, select_ptr);
     test_difficulty_navigation(manager, select_ptr);
@@ -1069,7 +1556,14 @@ int main() {
     test_remap_launch_from_options(manager, select_ptr, config);
     test_same_tick_options_back(manager, select_ptr);
     test_wheel_slide();
-    test_wheel_skips_pack_rows();
+    test_pack_header_toggle();
+    test_pack_toggle_snaps_slide();
+    test_wheel_wrap_snaps();
+    test_all_hidden_library();
+    test_pack_state_survives_reenter();
+    test_pack_header_render();
+    test_first_entry_two_packs();
+    test_header_banner();
 
     blaze4k::GlQuadRenderer renderer; // populated-screen render smoke
     manager.render(renderer, 1280, 720);
