@@ -25,6 +25,8 @@ struct VideoSettings {
     int height = 720;
     bool vsync = true;
     bool fullscreen = false;
+    // Cabinet theme scanlines overlay (#98). Config-file only; no options entry.
+    bool scanlines = true;
 };
 
 // #81: audio engine period request (`audio.period_size_frames`). Mirrors

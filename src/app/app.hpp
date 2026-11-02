@@ -17,6 +17,7 @@ struct AppConfig {
     double fixed_dt = 1.0 / 60.0;
     double max_frame_dt = 0.25; // Prevents accumulator spiral of death
     int smoke_test_frames = -1; // -1 = run until explicit quit
+    bool scanlines = true;      // #98: video.scanlines, the Cabinet scanlines overlay
 
     // Presentation-only frame-time instrumentation (never the judgment path).
     // When `perf_report` is set, `run()` prints one FrameStats block on exit and

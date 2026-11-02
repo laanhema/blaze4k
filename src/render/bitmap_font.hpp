@@ -13,6 +13,13 @@ class GlQuadRenderer;
 
 // Shared 5x7 bitmap font. Coordinates are pixels with a top-left origin (y down).
 // A headless (uninitialized) renderer makes every draw a no-op.
+//
+// Fallback and debug text only (#98). Every Cabinet screen draws its text through
+// TextRenderer (ttf_font.hpp). This font is drawn only when a theme asset or a
+// TrueType face is missing (the judgment pop label in judgment_animator.cpp, the
+// TextRenderer bitmap fallback) and by SelectPlaceholderScreen, which main.cpp
+// does not register. Its cell model (text_width, truncate_to_cells,
+// font_covers_text) also backs the glyph-coverage checks in song_display_text.cpp.
 
 // Text is UTF-8 and may be malformed (simfile titles are untrusted). Each
 // visible code point takes exactly one 6*pixel cell: its native glyph
