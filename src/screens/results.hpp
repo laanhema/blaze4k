@@ -17,14 +17,14 @@ namespace blaze4k {
 // headless-testable. No <ctime>: the timestamp is injected by the caller.
 struct ResultsSummary {
     bool valid = false;
-    const Song* song = nullptr;   // SongLibrary-owned; null-safe
-    const Chart* chart = nullptr; // SongLibrary-owned; null-safe
-    bool failed = false;          // GameplayOutcome::Failed (life empty, fail-enabled)
-    std::string grade_label;      // GradeTier::label from state.grade ("" if null)
-    double percent = 0.0;         // ScoreState::percent, unclamped
-    int actual_dp = 0;            // ScoreState::actual_dp
-    int possible_dp = 0;          // ScoreState::possible_dp
-    int max_combo = 0;            // ScoreState::max_combo
+    const Song* song = nullptr;
+    const Chart* chart = nullptr;
+    bool failed = false;     // GameplayOutcome::Failed (life empty, fail-enabled)
+    std::string grade_label; // GradeTier::label from state.grade ("" if null)
+    double percent = 0.0;
+    int actual_dp = 0;
+    int possible_dp = 0;
+    int max_combo = 0;
     std::array<int, static_cast<std::size_t>(TapJudgment::Num)> tap_counts{};
     std::array<int, static_cast<std::size_t>(HoldJudgment::Num)> hold_counts{};
 };

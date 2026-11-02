@@ -18,14 +18,14 @@ namespace blaze4k {
 // never writes the offset), and InputRemap -> Select. Only Title does not
 // consume Back (the App handles Escape-quit there). Before any of this, the
 // active screen's handle_back() hook is consulted; if it returns true (e.g.
-// C4's options overlay closing), the default navigation is skipped.
+// an options overlay closing), the default navigation is skipped.
 class ScreenManager {
 public:
     explicit ScreenManager(double idle_timeout_seconds = 120.0);
 
-    void add_screen(std::unique_ptr<Screen> screen); // keyed by screen->id()
-    void start(ScreenId initial);                    // calls enter() once
-    void transition_to(ScreenId target);             // deferred request
+    void add_screen(std::unique_ptr<Screen> screen);
+    void start(ScreenId initial);
+    void transition_to(ScreenId target);
 
     void update(double fixed_dt, const std::vector<InputEvent>& events);
     void render(GlQuadRenderer& renderer, int screen_w, int screen_h);
@@ -38,7 +38,6 @@ public:
     [[nodiscard]] bool back_navigates() const;
     [[nodiscard]] ScreenId attract_return() const { return attract_return_; }
 
-    // Shared state attached by main (config/scores) before the first update.
     [[nodiscard]] ScreenContext& context() { return ctx_; }
 
     void set_idle_timeout_seconds(double seconds); // <=0 disables idle->Attract
@@ -46,7 +45,7 @@ public:
     [[nodiscard]] double idle_seconds() const { return idle_seconds_; }
 
 private:
-    void apply_pending(); // exit() old then enter() new; logs each transition
+    void apply_pending();
     void handle_back();
 
     ScreenContext ctx_;

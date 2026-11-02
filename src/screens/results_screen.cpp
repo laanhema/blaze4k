@@ -27,16 +27,13 @@ namespace {
 namespace layout = theme::layout;
 namespace art = results_art;
 
-// Holds panel labels: HOLDS OK, NG, MINES.
 constexpr std::array<std::string_view, 3> kHoldLabels = {"HOLDS OK", "NG", "MINES"};
 
-// Line-box top for a reference baseline.
 float baseline_top(const TextRenderer& text, const theme::LayoutScale& L, float ref_baseline,
                    const theme::TextStyle& style) {
     return L.y(ref_baseline) - text.ascent(style);
 }
 
-// Glyph-rect top of a digits_white line drawn at `scale` with its baseline at `ref_baseline`.
 float digit_top(float ref_baseline, float scale) {
     return ref_baseline - art::kDigitBaselineRef * scale;
 }
@@ -117,7 +114,6 @@ void ResultsScreen::build_cached_text(const ScreenContext& ctx) {
                     ? song_display_subtitle(summary_.song->metadata, ctx.text,
                                             theme::text::kBarSongSubtitle.font)
                     : std::string{};
-    // An empty title gives its place to the subtitle (title_subtitle_text, as on select).
     if (title_.empty()) {
         title_.swap(subtitle_);
     }
@@ -130,8 +126,6 @@ void ResultsScreen::build_cached_text(const ScreenContext& ctx) {
     grade_fallback_text_ = format_grade(GradeTier{0.0, summary_.grade_label.c_str()});
     tier_text_ = art::grade_tier_text(summary_.grade_label);
 
-    // Every digit string comes from digits_text (never negative), so only
-    // kDigitChars reach BitmapDigits.
     max_combo_text_ = art::digits_text(summary_.max_combo);
     dp_text_ = art::digits_text(summary_.actual_dp);
     dp_max_text_ = "/ " + art::digits_text(summary_.possible_dp);
@@ -147,7 +141,6 @@ void ResultsScreen::build_cached_text(const ScreenContext& ctx) {
 }
 
 void ResultsScreen::refit_bar_text(const TextRenderer* text, const ThemeTextures* theme) {
-    // Holds panel column offsets (reference px) from the label and value widths.
     const auto fit_hold_columns = [this, text, theme]() {
         std::array<float, 3> label_w{};
         std::array<float, 3> value_w{};
@@ -162,7 +155,6 @@ void ResultsScreen::refit_bar_text(const TextRenderer* text, const ThemeTextures
         hold_cols_ = art::hold_columns(label_w, value_w);
     };
     if (text == nullptr) {
-        // No text service: no widths, so no plate and no text.
         bar_layout_ = art::top_bar_layout(0.0f, 0.0f, 0.0f);
         fitted_badge_.clear();
         fitted_title_.clear();
@@ -194,7 +186,6 @@ void ResultsScreen::refit_bar_text(const TextRenderer* text, const ThemeTextures
                         : std::string{};
     fitted_title_ =
         text->truncate(title_, theme::text::kBarSongTitle, bar_layout_.title_max_w * scale);
-    // The subtitle follows the measured fitted title, so the gap stays tight after truncation.
     fitted_subtitle_ = bar_layout_.subtitle_max_w > 0.0f
                            ? text->truncate(subtitle_, theme::text::kBarSongSubtitle,
                                             bar_layout_.subtitle_max_w * scale)
@@ -216,11 +207,7 @@ void ResultsScreen::update(ScreenContext& ctx, double fixed_dt,
         }
         if (event.action == GameAction::Confirm || event.action == GameAction::Options ||
             event.action == GameAction::Right) {
-            // AC3: while the reveal is running a press skips to the final frame
-            // without navigating; once it has settled the same press exits to the
-            // wheel (C7 behavior). A NO RESULT screen has no reveal, so a press
-            // exits immediately -- exactly C7. Back stays manager-owned and exits
-            // immediately.
+            // Reveal skips on first press, Confirm exits to wheel once settled.
             if (has_reveal() && !animator_.finished()) {
                 animator_.skip();
                 return;
@@ -238,14 +225,11 @@ void ResultsScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, 
         return;
     }
 
-    // Cabinet v3 score screen (#95), back to front. Every theme/text call is
-    // null-guarded (headless and unit tests run without them).
     const theme::LayoutScale L = theme::layout_scale(w, h);
     const ThemeTextures* theme = ctx.theme;
     TextRenderer* text = ctx.text;
     const Rect window{0.0f, 0.0f, static_cast<float>(w), static_cast<float>(h)};
 
-    // 1. Background, then the NEW RECORD flash behind everything else.
     if (theme != nullptr) {
         art::draw_backdrop(*theme, renderer, w, h);
     }
@@ -257,10 +241,8 @@ void ResultsScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, 
         }
     }
 
-    // 2. Top bar (+ title sprite) and hint bar.
     art::draw_bars(theme, text, renderer, L, w);
 
-    // 3. NO RESULT: no reveal, the CONTINUE hint shows at once.
     if (!has_reveal()) {
         if (text != nullptr) {
             text->draw(renderer, "NO RESULT", L.x(art::kHintCentreX), L.y(art::kEmptyMessageTop),
@@ -280,7 +262,6 @@ void ResultsScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, 
     const float stats_alpha = ResultsAnimator::stats_alpha(elapsed);
     const art::TopBarLayout& bar = bar_layout_;
 
-    // 4. Plates and bars: medallion, stat panels, judgment tracks + fills, badge plate.
     if (theme != nullptr) {
         theme->draw_sprite(renderer, "medallion", L.point(Vec2{layout::kMedallion.x,
                                                                layout::kMedallion.y}),
@@ -293,7 +274,6 @@ void ResultsScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, 
                                with_alpha(badge_.colors.fill, badge_.colors.fill.a * title_alpha));
     }
 
-    // 5. Sprites: the grade slams onto the medallion; then the ribbon.
     const bool grade_sprite = theme != nullptr && !grade_texture_.empty() &&
                               theme->entry(grade_texture_) != nullptr;
     if (grade_sprite && grade_alpha > 0.0f) {
@@ -329,7 +309,6 @@ void ResultsScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, 
     const std::array<Rect, 3> panels = {art::stat_panel_rect(0), art::stat_panel_rect(1),
                                         art::stat_panel_rect(2)};
 
-    // 6. Digits: panel values (white), then the chrome percentage.
     if (theme != nullptr) {
         const BitmapDigits& white = theme->digits_white();
         if (stats_alpha > 0.0f) {
@@ -360,13 +339,11 @@ void ResultsScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, 
                            L.s * art::kHoldScale, DigitAlign::Left, tint);
             }
         }
-        // Counts up to (and never past) the exact C7 value; full alpha, as before.
         theme->digits_chrome().draw(
             renderer, format_percent(summary_.percent * ResultsAnimator::percent_progress(elapsed)),
             L.x(art::kPercentCentreX), L.y(art::kPercentGlyphTop), L.s, DigitAlign::Centre);
     }
 
-    // 7. TrueType text.
     if (text != nullptr) {
         if (title_alpha > 0.0f) {
             if (!fitted_badge_.empty()) {
@@ -423,7 +400,6 @@ void ResultsScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, 
 
         if (grade_alpha > 0.0f) {
             if (!grade_sprite && !grade_fallback_text_.empty()) {
-                // No grade texture: the grade text, unscaled (no mid-screen atlas bake).
                 const theme::TextStyle style = with_color(
                     theme::text::kSongTitle, with_alpha(theme::color::kGold, grade_alpha));
                 text->draw(renderer, grade_fallback_text_, L.x(art::kGradeCentre.x),
@@ -440,7 +416,6 @@ void ResultsScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, 
         art::draw_hint_text(*text, renderer, L, hint_word());
     }
 
-    // 8. Overlay.
     if (theme != nullptr) {
         art::draw_scanlines(*theme, renderer, w, h, L);
     }

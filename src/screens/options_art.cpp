@@ -55,7 +55,6 @@ void draw_name(TextRenderer& text, GlQuadRenderer& renderer, const theme::Layout
     text.draw(renderer, name, L.x(nx), top, name_style, TextAlign::Left);
 }
 
-// A row's value, right-aligned at value_right.
 void draw_value(TextRenderer& text, GlQuadRenderer& renderer, const theme::LayoutScale& L,
                 const Rect& row, bool selected, std::string_view value,
                 const theme::TextStyle& style) {
@@ -115,7 +114,6 @@ select_art::HintLine hint_layout(const select_art::HintMeasure& measure_key,
 
 void draw_panel(const ThemeTextures* theme, TextRenderer* text, GlQuadRenderer& renderer,
                 const theme::LayoutScale& L) {
-    // Body, then a 2px ring inside its edge (top, bottom, left, right).
     renderer.draw_quad(L.rect(kPanel), theme::color::kNavyPanel);
     const float r = kPanelRing;
     const Rect ring[4] = {
@@ -146,7 +144,6 @@ void draw_rows(const ThemeTextures* theme, TextRenderer* text, GlQuadRenderer& r
         return index < values.size() ? std::string_view(values[index]) : std::string_view{};
     };
 
-    // Art: the navy rows, then the gold selected bar.
     if (theme != nullptr) {
         for (int i = 0; i < kOptionsRowCount; ++i) {
             if (i != selected) {
@@ -159,8 +156,6 @@ void draw_rows(const ThemeTextures* theme, TextRenderer* text, GlQuadRenderer& r
         return;
     }
 
-    // Text grouped by style: unselected names, unselected values, then the
-    // selected pair (one style).
     const std::array<std::string, kOptionsRowCount>& names = row_names();
     for (int i = 0; i < kOptionsRowCount; ++i) {
         if (i != selected) {
@@ -200,7 +195,6 @@ void draw_hint_bar(const ThemeTextures* theme, TextRenderer* text, GlQuadRendere
 void draw_overlay(const ThemeTextures* theme, TextRenderer* text, GlQuadRenderer& renderer,
                   const theme::LayoutScale& L, int w, int h, std::span<const std::string> values,
                   int selected) {
-    // The whole window (letterbox bands included).
     renderer.draw_quad(Rect{0.0f, 0.0f, static_cast<float>(w), static_cast<float>(h)},
                        theme::color::kGameplayScrim);
     draw_panel(theme, text, renderer, L);

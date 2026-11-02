@@ -7,14 +7,14 @@
 
 namespace blaze4k {
 
-// C6 remapping screen (PRD section 7.4 "full remapping"). Entered from Select's
-// options overlay. Owns the pure InputRemapModel, toggles InputManager capture
-// mode to read the next raw key/button, converts the raw code to SDL's canonical
-// name, and writes accepted bindings straight into the shared GameConfig that
-// main persists on clean exit (the C4/C5 model) while pushing them to the live
-// InputManager in the same tick. Escape / pad-Back are reserved and always mean
-// "cancel capture" / "Back", so a bad remap can never soft-lock the shell.
-// Drawn in the Cabinet look by setup_art (#97).
+// Full input remapping screen (PRD section 7.4). Entered from Select's options
+// overlay. Owns the pure InputRemapModel, toggles InputManager capture mode to
+// read the next raw key/button, converts the raw code to SDL's canonical name,
+// and writes accepted bindings straight into the shared GameConfig that main
+// persists on clean exit while pushing them to the live InputManager in the
+// same tick. Escape / pad-Back are reserved and always mean "cancel capture" /
+// "Back", so a bad remap can never soft-lock the shell. Drawn in the Cabinet
+// look by setup_art (#97).
 class InputRemapScreen : public Screen {
 public:
     [[nodiscard]] ScreenId id() const override { return ScreenId::InputRemap; }
@@ -27,7 +27,6 @@ public:
     bool handle_back(ScreenContext& ctx) override;
     [[nodiscard]] bool back_consumed() const override { return model_.capturing; }
 
-    // Test accessors (headless).
     [[nodiscard]] const InputRemapModel& model() const { return model_; }
     [[nodiscard]] bool capturing() const { return model_.capturing; }
     [[nodiscard]] bool reset_selected() const { return reset_selected_; }

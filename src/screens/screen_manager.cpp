@@ -9,16 +9,13 @@ namespace blaze4k {
 
 namespace {
 
-// The manager's default Back-navigation set. Title falls through to the App's
-// Escape-quit. Shared with back_navigates() so the two cannot desync.
+// Default Back-navigation set, shared with back_navigates().
 bool default_back_navigates(ScreenId id) {
     return id == ScreenId::Attract || id == ScreenId::Select || id == ScreenId::Gameplay ||
            id == ScreenId::Results || id == ScreenId::Calibration || id == ScreenId::InputRemap;
 }
 
-// D2: menu screens that play navigation UI sounds. Gameplay (directions are
-// steps), Calibration, and InputRemap (their own navigation semantics) are
-// intentionally excluded.
+// Menu screens that play navigation UI sounds.
 bool is_menu_screen(ScreenId id) {
     return id == ScreenId::Title || id == ScreenId::Attract || id == ScreenId::Select ||
            id == ScreenId::Results;
@@ -142,8 +139,8 @@ void ScreenManager::apply_pending() {
 }
 
 void ScreenManager::handle_back() {
-    // An in-screen modal (C4 options overlay) consumes Back first; returning
-    // true suppresses the default navigation below.
+    // An in-screen modal consumes Back first; returning true suppresses the
+    // default navigation below.
     if (Screen* active = active_screen(); active != nullptr && active->handle_back(ctx_)) {
         return;
     }
@@ -205,8 +202,6 @@ void ScreenManager::update(double fixed_dt, const std::vector<InputEvent>& event
         idle_seconds_ = 0.0;
     }
 
-    // D2: fire menu UI sounds for the press that is about to navigate (before
-    // handle_back/update), gated to the menu screen set and a non-null sink.
     if (ctx_.ui_sounds != nullptr && is_menu_screen(active_id_)) {
         if (move_pressed) {
             ctx_.ui_sounds->play(UiSound::Move);
@@ -217,9 +212,6 @@ void ScreenManager::update(double fixed_dt, const std::vector<InputEvent>& event
         if (back_pressed) {
             ctx_.ui_sounds->play(UiSound::Back);
         }
-        // Options toggles Select's overlay: Confirm when opening it, Back when
-        // closing it (read from pre-update modal state, before update() flips it).
-        // Skipped when that same sound already fired this tick.
         if (options_pressed && active_id_ == ScreenId::Select) {
             const Screen* active = active_screen();
             const bool closing = active != nullptr && active->back_consumed();
@@ -231,14 +223,9 @@ void ScreenManager::update(double fixed_dt, const std::vector<InputEvent>& event
         }
     }
 
-    // A same-tick [Options, Back] pair must not navigate on pre-update state:
-    // update() is about to open (or close) the overlay. Defer Back to after
-    // update() for that tick so handle_back() sees the state update() created.
     if (back_pressed && !options_pressed) {
         handle_back();
     }
-    // Attract is "just another screen": the manager owns the exit-confirm policy
-    // so the screen itself stays dumb (PRD section 6 pattern 4).
     if (active_id_ == ScreenId::Attract && confirm_pressed) {
         transition_to(attract_return_);
     }
@@ -261,8 +248,6 @@ void ScreenManager::update(double fixed_dt, const std::vector<InputEvent>& event
         }
     }
 
-    // Idle-attract policy: measured only from the injected fixed_dt, and only
-    // while Title/Select are active.
     if ((active_id_ == ScreenId::Title || active_id_ == ScreenId::Select) &&
         idle_timeout_seconds_ > 0.0) {
         if (!had_press && !active_changed) {

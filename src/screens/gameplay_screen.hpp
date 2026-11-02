@@ -41,15 +41,8 @@ public:
     void exit(ScreenContext& ctx) override;
 
     [[nodiscard]] bool is_ready() const { return active_; }
-
-    // Test accessor: the held-state passed to GameplayView for a column.
     [[nodiscard]] bool held(std::size_t column) const { return held_[column]; }
-
-    // Test accessor: true once the finished run has been reported (snapshot
-    // published and transition requested), so a run is never reported twice.
     [[nodiscard]] bool end_reported() const { return end_reported_; }
-
-    // Test accessor: the difficulty badge handed to the view for the current song.
     [[nodiscard]] const DifficultyBadge& difficulty_badge() const { return view_.difficulty_badge(); }
 
     // Seconds the field lingers after the run ends before the Results transition,

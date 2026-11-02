@@ -5,8 +5,7 @@
 namespace blaze4k {
 
 // Minimal placeholder occupying the Song Select slot so Title -> Select is an
-// explicit, testable transition today. C3 replaces this file's registration (not
-// the manager) with the real song wheel. Back is handled centrally by the manager.
+// explicit, testable transition. Back is handled centrally by the manager.
 class SelectPlaceholderScreen : public Screen {
 public:
     [[nodiscard]] ScreenId id() const override { return ScreenId::Select; }

@@ -41,7 +41,6 @@ void draw_key(TextRenderer& text, GlQuadRenderer& renderer, const theme::LayoutS
     text.draw(renderer, key, L.x(right), top, key_style, TextAlign::Right);
 }
 
-// Left-aligned text at name_x, centred in the row.
 void draw_name(TextRenderer& text, GlQuadRenderer& renderer, const theme::LayoutScale& L,
                const Rect& row, bool selected, std::string_view name,
                const theme::TextStyle& style) {
@@ -216,7 +215,6 @@ void draw_remap_table(const ThemeTextures* theme, TextRenderer* text, GlQuadRend
     const int selected_slot = selected - window.first;
     auto rect_of = [&](int d) { return remap_row_rect(d - window.first, selected_slot); };
 
-    // Art: headers and navy rows, then the gold selected bar.
     if (theme != nullptr) {
         for (int d = window.first; d <= window.last; ++d) {
             if (d == selected) {
@@ -235,8 +233,6 @@ void draw_remap_table(const ThemeTextures* theme, TextRenderer* text, GlQuadRend
         return;
     }
 
-    // Text grouped by style: headers, unselected actions, unselected keys, the
-    // RESET label, then the selected pair.
     for (int d = window.first; d <= window.last; ++d) {
         const RemapDisplayRow row = remap_display_row(rows, d);
         if (row.kind == RemapDisplayRow::Kind::Header) {

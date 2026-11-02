@@ -2,24 +2,7 @@
 
 namespace blaze4k {
 
-// Pure, SDL/GL/audio/wall-clock-free presentation model for the D3 results
-// reveal (PRD section 12 Phase D), drawn by the Cabinet score screen (#95).
-// Mirrors `gameplay/JudgmentAnimator`: the screen advances it with the injected
-// `fixed_dt` only (presentation, never the judgment path — Results has no
-// judgment path at all), and every output is a pure function of the accumulated
-// `elapsed_`, so the reveal stays deterministic and headless-testable.
-//
-// The score screen maps the curves onto its parts: the top bar's badge, title
-// and artist fade in (title_alpha); the grade sprite slams onto the medallion
-// from 2.4x and settles at 1x (grade_scale / grade_alpha, which also fades the
-// tier label); the chrome percentage counts up (percent_progress); the stat
-// panels and judgment rows fade in (stats_alpha); the NEW RECORD ribbon punches
-// in and pulses (record_scale / record_alpha) over a white full-window flash
-// (record_flash); the FAILED ribbon fades in (failed_alpha). At completion every
-// part is at its settled value.
-//
-// All constants are "Blaze 4k presentation, unsourced" (no OpenITG parity
-// requirement): scale/alpha/count-up only.
+// Deterministic presentation model for the results reveal animation (#95).
 class ResultsAnimator {
 public:
     static constexpr double kGradeDelay = 0.15;        // s after enter
@@ -32,9 +15,6 @@ public:
     static constexpr double kRecordPulsePeriod = 0.40;
     static constexpr double kRevealSeconds = 2.40;     // >= the end of every element
 
-    // Fade lengths and curve shapes. Same "Blaze 4k presentation, unsourced"
-    // contract as the delays above; named so the reveal timeline is tuned in one
-    // place instead of via inline literals.
     static constexpr double kTitleFadeSeconds = 0.25;
     static constexpr double kGradeFadeSeconds = 0.25;
     static constexpr double kStatsFadeSeconds = 0.35;
@@ -56,26 +36,15 @@ public:
     static constexpr double kRecordScaleFall = 0.15;
 
     void reset(bool valid, bool new_record, bool failed);
-
-    // Advances by a non-negative `fixed_dt`, clamped to `kRevealSeconds`.
     void update(double fixed_dt);
-
-    // Jumps to the final frame (used by the input skip).
     void skip();
 
     [[nodiscard]] bool finished() const { return elapsed_ >= kRevealSeconds; }
-    // Test-only accessors: they mirror the reset() inputs and are not consulted by
-    // ResultsScreen (which reads its own ResultsSummary). Kept so the pure animator
-    // can be exercised standalone.
     [[nodiscard]] bool valid() const { return valid_; }
     [[nodiscard]] bool new_record() const { return new_record_; }
     [[nodiscard]] bool failed() const { return failed_; }
     [[nodiscard]] double elapsed() const { return elapsed_; }
 
-    // Pure curves (unit-tested). Never NaN; 0 before an element's delay and the
-    // settled value at/after its end. `reveal_alpha` guards `duration <= 0` and
-    // `elapsed <= delay` (returns 0 then 1) so a degenerate call cannot divide by
-    // zero.
     [[nodiscard]] static float title_alpha(double elapsed);
     [[nodiscard]] static float grade_scale(double elapsed);   // grade sprite: 2.4x -> ~0.8x -> 1.0x
     [[nodiscard]] static float grade_alpha(double elapsed);
