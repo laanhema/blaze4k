@@ -94,32 +94,74 @@ const ScoreRecord* best_score_for(const ScreenContext& ctx, const Song& song, co
     return find_high_score(*ctx.scores, make_chart_key(song, chart));
 }
 
-void SelectScreen::rebuild(const ScreenContext& ctx) {
-    // Remember the highlighted song (by its stable simfile path) so returning
-    // from gameplay does not lose the player's wheel position. First entry has
-    // no prior selection and defaults to index 0.
-    std::string previous_key;
-    int previous_chart = selected_chart_;
-    if (selected_song_ >= 0 && selected_song_ < static_cast<int>(songs_.size())) {
-        const Song* previous = songs_[static_cast<std::size_t>(selected_song_)].song;
-        if (previous != nullptr) {
-            previous_key = previous->simfile_path;
+void SelectScreen::rebuild_rows() {
+    std::vector<int> song_packs;
+    song_packs.reserve(songs_.size());
+    for (const WheelEntry& entry : songs_) {
+        song_packs.push_back(entry.pack_index);
+    }
+    select_art::WheelRows rows = select_art::build_wheel_rows(song_packs, open_pack_);
+    wheel_rows_ = std::move(rows.rows);
+    song_row_ = std::move(rows.song_row);
+}
+
+int SelectScreen::header_row_of(int pack_index) const {
+    for (std::size_t r = 0; r < wheel_rows_.size(); ++r) {
+        if (wheel_rows_[r].kind == select_art::WheelRow::Kind::Pack &&
+            wheel_rows_[r].pack_index == pack_index) {
+            return static_cast<int>(r);
         }
     }
+    return -1;
+}
+
+void SelectScreen::update_persisted() {
+    if (open_pack_ >= 0 && open_pack_ < static_cast<int>(pack_names_.size())) {
+        open_pack_name_ = pack_names_[static_cast<std::size_t>(open_pack_)];
+    } else {
+        open_pack_name_.clear();
+    }
+    cursor_pack_name_.clear();
+    cursor_song_key_.clear();
+    if (on_pack_header()) {
+        cursor_pack_name_ = selected_pack_name();
+    } else if (const Song* song = selected_song(); song != nullptr) {
+        cursor_song_key_ = song->simfile_path;
+    }
+}
+
+void SelectScreen::rebuild(const ScreenContext& ctx) {
+    // Re-find the remembered cursor target (a song by its stable simfile path, or
+    // a pack header by name) and open pack in the rescanned library, so returning
+    // from gameplay does not lose the player's wheel position. First entry has
+    // nothing remembered: every pack starts closed with the cursor on the first
+    // header, as StepMania's MusicWheel::BeginScreen does with no previous song
+    // (SetOpenSection("")).
+    const std::string previous_song = cursor_song_key_;
+    const std::string previous_header = cursor_pack_name_;
+    const std::string previous_open = open_pack_name_;
+    const int previous_chart = selected_chart_;
 
     songs_.clear();
+    pack_names_.clear();
+    pack_banners_.clear();
+    fallback_banner_.clear();
     pack_labels_.clear();
     wheel_rows_.clear();
-    song_row_index_.clear();
-    selected_song_ = 0;
+    song_row_.clear();
+    cursor_row_ = 0;
+    open_pack_ = -1;
     selected_chart_ = 0;
 
     if (ctx.library == nullptr) {
         return;
     }
 
+    fallback_banner_ = ctx.library->fallback_banner().string();
     const std::vector<SongPack>& packs = ctx.library->packs();
     for (std::size_t pack_index = 0; pack_index < packs.size(); ++pack_index) {
+        pack_names_.push_back(packs[pack_index].name);
+        pack_banners_.push_back(packs[pack_index].banner_path);
         pack_labels_.push_back(select_art::ascii_upper(packs[pack_index].name));
         for (const Song& song : packs[pack_index].songs) {
             if (!iequals(song.metadata.selectable, "YES")) {
@@ -128,38 +170,123 @@ void SelectScreen::rebuild(const ScreenContext& ctx) {
             songs_.push_back(WheelEntry{&song, static_cast<int>(pack_index)});
         }
     }
-
-    // Wheel display rows: an inline pack header before each pack's songs.
-    std::vector<int> song_packs;
-    song_packs.reserve(songs_.size());
-    for (const WheelEntry& entry : songs_) {
-        song_packs.push_back(entry.pack_index);
-    }
-    select_art::WheelRows rows = select_art::build_wheel_rows(song_packs);
-    wheel_rows_ = std::move(rows.rows);
-    song_row_index_ = std::move(rows.song_row);
-
-    if (previous_key.empty()) {
+    if (songs_.empty()) {
         return;
     }
-    for (std::size_t i = 0; i < songs_.size(); ++i) {
-        const Song* song = songs_[i].song;
-        if (song != nullptr && song->simfile_path == previous_key) {
-            selected_song_ = static_cast<int>(i);
+
+    auto pack_with_songs = [&](const std::string& name) {
+        if (name.empty()) {
+            return -1;
+        }
+        for (const WheelEntry& entry : songs_) {
+            if (pack_names_[static_cast<std::size_t>(entry.pack_index)] == name) {
+                return entry.pack_index;
+            }
+        }
+        return -1;
+    };
+
+    // (a) The remembered song still exists: its pack is open, the cursor is on it.
+    if (!previous_song.empty()) {
+        for (std::size_t i = 0; i < songs_.size(); ++i) {
+            const Song* song = songs_[i].song;
+            if (song == nullptr || song->simfile_path != previous_song) {
+                continue;
+            }
+            open_pack_ = songs_[i].pack_index;
+            rebuild_rows();
+            cursor_row_ = std::max(0, song_row_[i]);
             if (!song->charts.empty()) {
                 selected_chart_ =
                     std::clamp(previous_chart, 0, static_cast<int>(song->charts.size()) - 1);
             }
-            break;
+            update_persisted();
+            return;
         }
     }
+
+    // (b) The remembered cursor header still exists: keep it, and the open pack.
+    const int header_pack = pack_with_songs(previous_header);
+    if (header_pack >= 0) {
+        open_pack_ = pack_with_songs(previous_open);
+        rebuild_rows();
+        cursor_row_ = std::max(0, header_row_of(header_pack));
+        update_persisted();
+        return;
+    }
+
+    // (c) First entry, or the remembered target is gone: all packs closed, the
+    // cursor on the first pack header (row 0).
+    open_pack_ = -1;
+    rebuild_rows();
+    cursor_row_ = 0;
+    update_persisted();
+}
+
+int SelectScreen::selected_wheel_row() const {
+    if (wheel_rows_.empty()) {
+        return 0;
+    }
+    return std::clamp(cursor_row_, 0, static_cast<int>(wheel_rows_.size()) - 1);
+}
+
+bool SelectScreen::on_pack_header() const {
+    return !wheel_rows_.empty() &&
+           wheel_rows_[static_cast<std::size_t>(selected_wheel_row())].kind ==
+               select_art::WheelRow::Kind::Pack;
+}
+
+int SelectScreen::selected_song_index() const {
+    if (wheel_rows_.empty()) {
+        return -1;
+    }
+    const select_art::WheelRow& row = wheel_rows_[static_cast<std::size_t>(selected_wheel_row())];
+    return row.kind == select_art::WheelRow::Kind::Song ? row.song_index : -1;
+}
+
+select_art::ConfirmHint SelectScreen::confirm_hint() const {
+    if (!on_pack_header()) {
+        return select_art::ConfirmHint::Play;
+    }
+    const int pack = wheel_rows_[static_cast<std::size_t>(selected_wheel_row())].pack_index;
+    return pack == open_pack_ ? select_art::ConfirmHint::Close : select_art::ConfirmHint::Open;
+}
+
+const std::string& SelectScreen::cursor_banner_path() const {
+    static const std::string kNone;
+    if (const Song* song = selected_song(); song != nullptr) {
+        return song->resolved_banner_path;
+    }
+    if (!on_pack_header()) {
+        return kNone;
+    }
+    // A pack header shows its pack banner, else the library's fallback banner,
+    // exactly what a song without a banner of its own resolves to.
+    const int pack = wheel_rows_[static_cast<std::size_t>(selected_wheel_row())].pack_index;
+    if (pack >= 0 && pack < static_cast<int>(pack_banners_.size()) &&
+        !pack_banners_[static_cast<std::size_t>(pack)].empty()) {
+        return pack_banners_[static_cast<std::size_t>(pack)];
+    }
+    return fallback_banner_;
+}
+
+std::string SelectScreen::selected_pack_name() const {
+    if (!on_pack_header()) {
+        return {};
+    }
+    const int pack = wheel_rows_[static_cast<std::size_t>(selected_wheel_row())].pack_index;
+    if (pack < 0 || pack >= static_cast<int>(pack_names_.size())) {
+        return {};
+    }
+    return pack_names_[static_cast<std::size_t>(pack)];
 }
 
 const Song* SelectScreen::selected_song() const {
-    if (songs_.empty()) {
+    const int index = selected_song_index();
+    if (index < 0 || index >= static_cast<int>(songs_.size())) {
         return nullptr;
     }
-    return songs_[static_cast<std::size_t>(selected_song_)].song;
+    return songs_[static_cast<std::size_t>(index)].song;
 }
 
 const Chart* SelectScreen::selected_chart() const {
@@ -185,13 +312,6 @@ std::size_t SelectScreen::total_chart_count() const {
         }
     }
     return total;
-}
-
-int SelectScreen::selected_wheel_row() const {
-    if (selected_song_ < 0 || selected_song_ >= static_cast<int>(song_row_index_.size())) {
-        return 0;
-    }
-    return song_row_index_[static_cast<std::size_t>(selected_song_)];
 }
 
 int SelectScreen::wheel_first_row() const {
@@ -276,24 +396,41 @@ void SelectScreen::enter(ScreenContext& ctx) {
     request_preview_for_selected();
 }
 
-void SelectScreen::move_song(int delta) {
-    if (songs_.empty()) {
+void SelectScreen::move_row(int delta) {
+    if (wheel_rows_.empty()) {
         return;
     }
-    const int count = static_cast<int>(songs_.size());
-    const int rows = static_cast<int>(wheel_rows_.size());
+    const int count = static_cast<int>(wheel_rows_.size());
     const int old_first =
-        select_art::list_window(selected_wheel_row(), rows, select_art::kWheelVisibleRows).first;
-    selected_song_ = ((selected_song_ + delta) % count + count) % count;
+        select_art::list_window(selected_wheel_row(), count, select_art::kWheelVisibleRows).first;
+    cursor_row_ = ((selected_wheel_row() + delta) % count + count) % count;
     selected_chart_ = 0;
 
     // Slide the wheel only when its window moved (select_art::wheel_scroll_start).
     const int new_first =
-        select_art::list_window(selected_wheel_row(), rows, select_art::kWheelVisibleRows).first;
+        select_art::list_window(selected_wheel_row(), count, select_art::kWheelVisibleRows).first;
     if (new_first != old_first) {
         scroll_start_ = select_art::wheel_scroll_start(wheel_scroll_offset(), new_first - old_first);
         scroll_elapsed_ = 0.0;
     }
+    update_persisted();
+    request_preview_for_selected();
+}
+
+void SelectScreen::toggle_pack() {
+    if (!on_pack_header()) {
+        return;
+    }
+    const int pack = wheel_rows_[static_cast<std::size_t>(selected_wheel_row())].pack_index;
+    open_pack_ = open_pack_ == pack ? -1 : pack;
+    rebuild_rows();
+    // The header stays in the list, so the cursor stays on it (StepMania).
+    cursor_row_ = std::max(0, header_row_of(pack));
+    // The row set changed: a slide from the old row positions would show wrong rows.
+    scroll_start_ = 0.0f;
+    scroll_elapsed_ = 0.0;
+    selected_chart_ = 0;
+    update_persisted();
     request_preview_for_selected();
 }
 
@@ -308,10 +445,10 @@ void SelectScreen::move_chart(int delta) {
 void SelectScreen::apply_navigation(GameAction action) {
     switch (action) {
         case GameAction::Up:
-            move_song(-1);
+            move_row(-1);
             break;
         case GameAction::Down:
-            move_song(+1);
+            move_row(+1);
             break;
         case GameAction::Left:
             move_chart(-1);
@@ -474,10 +611,10 @@ void SelectScreen::update(ScreenContext& ctx, double fixed_dt,
                 options_values_dirty_ = true;
                 break;
             case GameAction::Up:
-                move_song(-1);
+                move_row(-1);
                 break;
             case GameAction::Down:
-                move_song(+1);
+                move_row(+1);
                 break;
             case GameAction::Left:
                 move_chart(-1);
@@ -486,6 +623,10 @@ void SelectScreen::update(ScreenContext& ctx, double fixed_dt,
                 move_chart(+1);
                 break;
             case GameAction::Confirm: {
+                if (on_pack_header()) {
+                    toggle_pack(); // opening/closing a pack never leaves Select
+                    break;
+                }
                 const Song* song = selected_song();
                 const Chart* chart = selected_chart();
                 if (ctx.manager == nullptr || ctx.play_request == nullptr || song == nullptr ||
@@ -587,9 +728,9 @@ void SelectScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, i
     if (!songs_.empty()) {
         const Song* song = selected_song();
 
-        // Banner (or banner_fallback) inside banner_frame, then the song info.
-        const Texture* banner =
-            song != nullptr ? texture_cache_.get(song->resolved_banner_path) : nullptr;
+        // Banner (or banner_fallback) inside banner_frame, then the song info. On a
+        // pack header the banner is the pack's; the rest of the panel stays empty.
+        const Texture* banner = texture_cache_.get(cursor_banner_path());
         select_art::draw_banner(theme, renderer, L, banner);
         if (song != nullptr && text != nullptr) {
             const std::string& title =
@@ -639,7 +780,9 @@ void SelectScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, i
             select_art::WheelRowView& view = views[n];
             view.slot = r - window.first;
             if (row.kind == select_art::WheelRow::Kind::Pack) {
-                view.art = select_art::WheelArt::Pack;
+                view.art = r == selected_row ? select_art::WheelArt::SelectedPack
+                                             : select_art::WheelArt::Pack;
+                view.open = row.pack_index == open_pack_;
                 if (row.pack_index >= 0 && row.pack_index < static_cast<int>(pack_labels_.size())) {
                     view.label = pack_labels_[static_cast<std::size_t>(row.pack_index)];
                 }
@@ -670,7 +813,7 @@ void SelectScreen::render(ScreenContext& ctx, GlQuadRenderer& renderer, int w, i
         select_art::draw_top_bar(*theme, renderer, L, w);
     }
     select_art::draw_chips(theme, text, renderer, L, chip_speed_text_, chip_scroll_text_);
-    select_art::draw_hint_bar(theme, text, renderer, L, w);
+    select_art::draw_hint_bar(theme, text, renderer, L, w, confirm_hint());
     if (songs_.empty() && text != nullptr) {
         select_art::draw_empty_message(*text, renderer, L);
     }

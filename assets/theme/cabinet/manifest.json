@@ -302,7 +302,7 @@
     "right": 68
    },
    "screen": "select",
-   "notes": "Pack/group row with the folder caret baked in. Text 28px Saira ExtraBold, 1e0b00, tracking 3px, starts x+54."
+   "notes": "Pack/group row, plain: no caret (the open/closed marker is drawn by the code, see wheel_marker_quad). Text 28px Saira ExtraBold, 1e0b00, tracking 3px, starts x+54."
   },
   "wheel_row_selected": {
    "file": "wheel_row_selected.png",

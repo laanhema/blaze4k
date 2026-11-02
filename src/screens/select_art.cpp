@@ -43,19 +43,22 @@ constexpr DifficultyRowStyle kRowStyles[] = {
 constexpr std::string_view kDifficultyNames[] = {"BEGINNER", "EASY", "MEDIUM", "HARD",
                                                  "CHALLENGE", "EDIT", "EDIT"};
 
-// Select's legend: [up down] SONG [left right] DIFFICULTY ENTER PLAY TAB OPTIONS ESC TITLE.
-constexpr std::array<HintItem, 10> kSelectHintItems = {{
-    {HintItem::Kind::VArrows, {}},
-    {HintItem::Kind::Word, "SONG"},
-    {HintItem::Kind::HArrows, {}},
-    {HintItem::Kind::Word, "DIFFICULTY"},
-    {HintItem::Kind::Key, "ENTER"},
-    {HintItem::Kind::Word, "PLAY"},
-    {HintItem::Kind::Key, "TAB"},
-    {HintItem::Kind::Word, "OPTIONS"},
-    {HintItem::Kind::Key, "ESC"},
-    {HintItem::Kind::Word, "TITLE"},
-}};
+// Select's legend: [up down] SONG [left right] DIFFICULTY ENTER <confirm> TAB OPTIONS ESC TITLE.
+// The word after ENTER is what Confirm does on the selected row (confirm_hint_word).
+std::array<HintItem, 10> select_hint_items(ConfirmHint confirm) {
+    return {{
+        {HintItem::Kind::VArrows, {}},
+        {HintItem::Kind::Word, "SONG"},
+        {HintItem::Kind::HArrows, {}},
+        {HintItem::Kind::Word, "DIFFICULTY"},
+        {HintItem::Kind::Key, "ENTER"},
+        {HintItem::Kind::Word, confirm_hint_word(confirm)},
+        {HintItem::Kind::Key, "TAB"},
+        {HintItem::Kind::Word, "OPTIONS"},
+        {HintItem::Kind::Key, "ESC"},
+        {HintItem::Kind::Word, "TITLE"},
+    }};
+}
 
 // Line-box top that centres `style`'s line in a reference band [ref_top, ref_top + ref_h].
 float centred_top(const TextRenderer& text, const theme::LayoutScale& L, float ref_top, float ref_h,
@@ -140,7 +143,7 @@ Rect wheel_row_rect(int slot, int selected_slot) {
                 selected ? layout::kWheelRowSelectedHeight : layout::kWheelRowHeight};
 }
 
-WheelRows build_wheel_rows(std::span<const int> song_packs) {
+WheelRows build_wheel_rows(std::span<const int> song_packs, int open_pack) {
     WheelRows out;
     out.rows.reserve(song_packs.size() * 2);
     out.song_row.reserve(song_packs.size());
@@ -148,6 +151,10 @@ WheelRows build_wheel_rows(std::span<const int> song_packs) {
         const int pack = song_packs[i];
         if (i == 0 || song_packs[i - 1] != pack) {
             out.rows.push_back(WheelRow{WheelRow::Kind::Pack, pack, -1});
+        }
+        if (pack != open_pack) {
+            out.song_row.push_back(-1);
+            continue;
         }
         out.song_row.push_back(static_cast<int>(out.rows.size()));
         out.rows.push_back(WheelRow{WheelRow::Kind::Song, pack, static_cast<int>(i)});
@@ -349,8 +356,21 @@ HintLine layout_hint_items(std::span<const HintItem> items, const HintMeasure& m
     return line;
 }
 
-HintLine hint_layout(const HintMeasure& measure_key, const HintMeasure& measure_word) {
-    return layout_hint_items(kSelectHintItems, measure_key, measure_word);
+std::string_view confirm_hint_word(ConfirmHint confirm) {
+    switch (confirm) {
+    case ConfirmHint::Open:
+        return "OPEN";
+    case ConfirmHint::Close:
+        return "CLOSE";
+    case ConfirmHint::Play:
+        break;
+    }
+    return "PLAY";
+}
+
+HintLine hint_layout(const HintMeasure& measure_key, const HintMeasure& measure_word,
+                     ConfirmHint confirm) {
+    return layout_hint_items(select_hint_items(confirm), measure_key, measure_word);
 }
 
 ArrowQuads hint_arrow_quads(HintArrow arrow, Vec2 c) {
@@ -386,6 +406,23 @@ ArrowQuads hint_arrow_quads(HintArrow arrow, Vec2 c) {
         break;
     }
     return q;
+}
+
+std::array<Vec2, 4> wheel_marker_quad(const Rect& row, bool open) {
+    const float cx = row.x + kWheelMarkerX;
+    const float cy = row.y + row.h * 0.5f;
+    const float h = kWheelMarkerHalf;
+    if (open) {
+        return {Vec2{cx - h, cy - h * 0.5f}, Vec2{cx + h, cy - h * 0.5f}, Vec2{cx, cy + h * 0.5f},
+                Vec2{cx, cy + h * 0.5f}};
+    }
+    return {Vec2{cx - h * 0.5f, cy - h}, Vec2{cx + h * 0.5f, cy}, Vec2{cx + h * 0.5f, cy},
+            Vec2{cx - h * 0.5f, cy + h}};
+}
+
+void draw_pack_marker(GlQuadRenderer& renderer, const theme::LayoutScale& L, const Rect& row,
+                      bool open, Color ink) {
+    draw_solid(renderer, L, wheel_marker_quad(row, open), ink);
 }
 
 std::string ascii_upper(std::string_view text) {
@@ -464,7 +501,7 @@ void draw_hint_line(TextRenderer& text, GlQuadRenderer& renderer, const theme::L
 }
 
 void draw_hint_bar(const ThemeTextures* theme, TextRenderer* text, GlQuadRenderer& renderer,
-                   const theme::LayoutScale& L, int w) {
+                   const theme::LayoutScale& L, int w, ConfirmHint confirm) {
     if (theme != nullptr) {
         const float bar_h = theme->content_size("bar_hint", L.s).y;
         theme->draw_stretch_x(renderer, "bar_hint", 0.0f, L.y(layout::kRefHeight) - bar_h,
@@ -473,14 +510,12 @@ void draw_hint_bar(const ThemeTextures* theme, TextRenderer* text, GlQuadRendere
     if (text == nullptr) {
         return;
     }
-    draw_hint_line(*text, renderer, L,
-                   hint_layout(
-                       [text](std::string_view st) {
-                           return ref_measure(*text, st, theme::text::kHintKey);
-                       },
-                       [text](std::string_view st) {
-                           return ref_measure(*text, st, theme::text::kHintWord);
-                       }));
+    draw_hint_line(
+        *text, renderer, L,
+        hint_layout(
+            [text](std::string_view st) { return ref_measure(*text, st, theme::text::kHintKey); },
+            [text](std::string_view st) { return ref_measure(*text, st, theme::text::kHintWord); },
+            confirm));
 }
 
 void draw_banner(const ThemeTextures* theme, GlQuadRenderer& renderer, const theme::LayoutScale& L,
@@ -650,6 +685,7 @@ void draw_wheel_row_art(const ThemeTextures& theme, GlQuadRenderer& renderer,
         theme.draw_slice3(renderer, "wheel_row", dst);
         break;
     case WheelArt::Selected:
+    case WheelArt::SelectedPack:
         theme.draw_stretch(renderer, "wheel_row_selected", dst);
         break;
     }
@@ -668,21 +704,22 @@ void draw_wheel(const ThemeTextures* theme, TextRenderer* text, GlQuadRenderer& 
         if (text == nullptr) {
             return;
         }
-        const theme::TextStyle& style = art == WheelArt::Selected ? theme::text::kWheelSelected
-                                        : art == WheelArt::Pack   ? theme::text::kWheelPack
-                                                                  : theme::text::kWheelRow;
-        const float text_dx = art == WheelArt::Selected ? kWheelSelectedTextX
-                              : art == WheelArt::Pack   ? kWheelPackTextX
-                                                        : kWheelSongTextX;
-        const theme::TextStyle& sub_style = art == WheelArt::Selected
-                                                ? theme::text::kWheelSelectedSubtitle
-                                                : theme::text::kWheelSubtitle;
+        const bool pack_header = art == WheelArt::Pack || art == WheelArt::SelectedPack;
+        const bool selected_bar = art == WheelArt::Selected || art == WheelArt::SelectedPack;
+        const theme::TextStyle& style = selected_bar  ? theme::text::kWheelSelected
+                                        : pack_header ? theme::text::kWheelPack
+                                                      : theme::text::kWheelRow;
+        const float text_dx = pack_header                 ? kWheelPackTextX
+                              : art == WheelArt::Selected ? kWheelSelectedTextX
+                                                          : kWheelSongTextX;
+        const theme::TextStyle& sub_style =
+            selected_bar ? theme::text::kWheelSelectedSubtitle : theme::text::kWheelSubtitle;
         const float gap = L.px(kSubtitleGap);
         // The row's title and subtitle: Pack rows ignore the subtitle, and an empty
         // title gives its place to the subtitle (no stray gap).
         auto row_text = [&](const WheelRowView& view) {
-            return art == WheelArt::Pack ? TitleSubtitleText{view.label, {}}
-                                         : title_subtitle_text(view.label, view.subtitle);
+            return pack_header ? TitleSubtitleText{view.label, {}}
+                               : title_subtitle_text(view.label, view.subtitle);
         };
         auto has_subtitle = [&](const WheelRowView& view) {
             return !row_text(view).subtitle.empty();
@@ -735,24 +772,40 @@ void draw_wheel(const ThemeTextures* theme, TextRenderer* text, GlQuadRenderer& 
         }
     };
 
+    auto is_selected_bar = [](const WheelRowView& view) {
+        return view.art == WheelArt::Selected || view.art == WheelArt::SelectedPack;
+    };
+    // The open/closed marker of every pack header (down when open, right when closed),
+    // in the header's label ink.
+    auto draw_markers = [&](WheelArt art, Color ink) {
+        for (const WheelRowView& view : rows) {
+            if (view.art == art && drawn(view)) {
+                draw_pack_marker(renderer, L, row_rect(view), view.open, ink);
+            }
+        }
+    };
+
     // Sliding rows (art, then text), then the selected bar on top of them.
     if (theme != nullptr) {
         for (const WheelRowView& view : rows) {
-            if (view.art != WheelArt::Selected && drawn(view)) {
+            if (!is_selected_bar(view) && drawn(view)) {
                 draw_wheel_row_art(*theme, renderer, L, w, row_rect(view), view.art);
             }
         }
     }
     draw_text_pass(WheelArt::Song);
     draw_text_pass(WheelArt::Pack);
+    draw_markers(WheelArt::Pack, theme::color::kPackInk);
     if (theme != nullptr) {
         for (const WheelRowView& view : rows) {
-            if (view.art == WheelArt::Selected && drawn(view)) {
+            if (is_selected_bar(view) && drawn(view)) {
                 draw_wheel_row_art(*theme, renderer, L, w, row_rect(view), view.art);
             }
         }
     }
     draw_text_pass(WheelArt::Selected);
+    draw_text_pass(WheelArt::SelectedPack);
+    draw_markers(WheelArt::SelectedPack, theme::color::kSelectedInk);
 }
 
 void draw_empty_message(TextRenderer& text, GlQuadRenderer& renderer, const theme::LayoutScale& L) {
