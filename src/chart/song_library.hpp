@@ -30,6 +30,7 @@ public:
     [[nodiscard]] const Song* find_song(std::string_view pack_name, std::string_view title) const;
 
     void clear();
+    void sort();
 
 private:
     std::vector<SongPack> packs_;
@@ -52,5 +53,14 @@ private:
         const std::vector<std::string>& keywords
     ) const;
 };
+
+// Pure sorting helpers (StepMania 5 SongUtil semantics):
+// - Songs: sorted alphabetically by transliterated title (or title if empty),
+//   ties broken by transliterated subtitle (or subtitle if empty), then raw title/subtitle,
+//   then simfile_path. Non-alphanumeric titles sort after Z; leading '.' is stripped.
+// - Packs: sorted alphabetically A-Z by pack name (case-insensitive, ties broken
+//   by case-sensitive name, then pack_dir).
+void sort_songs(std::vector<Song>& songs);
+void sort_song_library(std::vector<SongPack>& packs);
 
 } // namespace blaze4k

@@ -67,7 +67,93 @@ void sort_charts_hardest_first(std::vector<Chart>& charts) {
     });
 }
 
+// Transforms a title for alphabetical sorting matching StepMania 5 SongUtil::MakeSortString:
+// 1. Converts characters to uppercase for case-insensitive comparison.
+// 2. Removes a single leading period (e.g. ".59" sorts as "59").
+// 3. Prepends '~' to non-alphanumeric strings so symbols sort after 'Z'.
+std::string make_sort_string(std::string_view text) {
+    std::string s;
+    s.reserve(text.size() + 1);
+    for (char c : text) {
+        s.push_back(static_cast<char>(std::toupper(static_cast<unsigned char>(c))));
+    }
+    if (!s.empty()) {
+        if (s.front() == '.') {
+            s.erase(s.begin());
+        }
+        if (!s.empty()) {
+            const unsigned char first = static_cast<unsigned char>(s.front());
+            const bool is_alnum = (first >= 'A' && first <= 'Z') || (first >= '0' && first <= '9');
+            if (!is_alnum) {
+                s.insert(s.begin(), '~');
+            }
+        }
+    }
+    return s;
+}
+
+bool compare_packs_by_name(const SongPack& a, const SongPack& b) {
+    std::string s1 = make_sort_string(a.name);
+    std::string s2 = make_sort_string(b.name);
+    if (s1 != s2) {
+        return s1 < s2;
+    }
+    if (a.name != b.name) {
+        return a.name < b.name;
+    }
+    return a.pack_dir < b.pack_dir;
+}
+
+bool compare_songs_by_title(const Song& a, const Song& b) {
+    const std::string_view title_a = !a.metadata.title_translit.empty()
+                                         ? std::string_view(a.metadata.title_translit)
+                                         : std::string_view(a.metadata.title);
+    const std::string_view title_b = !b.metadata.title_translit.empty()
+                                         ? std::string_view(b.metadata.title_translit)
+                                         : std::string_view(b.metadata.title);
+    std::string s1 = make_sort_string(title_a);
+    std::string s2 = make_sort_string(title_b);
+    if (s1 != s2) {
+        return s1 < s2;
+    }
+
+    const std::string_view sub_a = !a.metadata.subtitle_translit.empty()
+                                       ? std::string_view(a.metadata.subtitle_translit)
+                                       : std::string_view(a.metadata.subtitle);
+    const std::string_view sub_b = !b.metadata.subtitle_translit.empty()
+                                       ? std::string_view(b.metadata.subtitle_translit)
+                                       : std::string_view(b.metadata.subtitle);
+    std::string sub_s1 = make_sort_string(sub_a);
+    std::string sub_s2 = make_sort_string(sub_b);
+    if (sub_s1 != sub_s2) {
+        return sub_s1 < sub_s2;
+    }
+
+    if (a.metadata.title != b.metadata.title) {
+        return a.metadata.title < b.metadata.title;
+    }
+    if (a.metadata.subtitle != b.metadata.subtitle) {
+        return a.metadata.subtitle < b.metadata.subtitle;
+    }
+    return a.simfile_path < b.simfile_path;
+}
+
 } // namespace
+
+void sort_songs(std::vector<Song>& songs) {
+    std::stable_sort(songs.begin(), songs.end(), compare_songs_by_title);
+}
+
+void sort_song_library(std::vector<SongPack>& packs) {
+    std::stable_sort(packs.begin(), packs.end(), compare_packs_by_name);
+    for (SongPack& pack : packs) {
+        sort_songs(pack.songs);
+    }
+}
+
+void SongLibrary::sort() {
+    sort_song_library(packs_);
+}
 
 size_t SongLibrary::total_songs() const {
     size_t count = 0;
@@ -306,6 +392,7 @@ bool SongLibrary::scan_directory(const std::filesystem::path& root_path) {
             } else {
                 it->songs.push_back(*song);
             }
+            sort();
             return true;
         }
         return false;
@@ -386,6 +473,7 @@ bool SongLibrary::scan_directory(const std::filesystem::path& root_path) {
         }
     }
 
+    sort();
     return true;
 }
 
